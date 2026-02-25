@@ -116,7 +116,7 @@ const CartPage = () => {
               <span className="font-bold text-sm text-primary text-right">£{subtotal.toFixed(2)}</span>
             </div>
           </div>
-          <button className="btn-primary w-full mt-6 py-4 text-base">Proceed to checkout</button>
+          <Link to="/checkout" className="btn-primary w-full mt-6 py-4 text-base text-center">Proceed to checkout</Link>
         </div>
       </section>
 

@@ -9,6 +9,12 @@ import ShopPage from "./pages/ShopPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import ContactPage from "./pages/ContactPage";
 import CartPage from "./pages/CartPage";
+import PortfolioPage from "./pages/PortfolioPage";
+import BlogPage from "./pages/BlogPage";
+import BlogDetailPage from "./pages/BlogDetailPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import PaymentPage from "./pages/PaymentPage";
+import ThankYouPage from "./pages/ThankYouPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,8 +32,12 @@ const App = () => (
           <Route path="/shop/:id" element={<ProductDetailPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/cart" element={<CartPage />} />
-          <Route path="/portfolio" element={<ServicesPage />} />
-          <Route path="/blog" element={<Index />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/thank-you" element={<ThankYouPage />} />
+          <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<BlogDetailPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
