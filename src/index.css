@@ -122,7 +122,7 @@
   }
 
   .product-card {
-    @apply block group cursor-pointer;
+    @apply block cursor-pointer;
   }
 
   .product-card img {
@@ -134,7 +134,7 @@
   }
 
   .category-card {
-    @apply relative overflow-hidden rounded-lg cursor-pointer group;
+    @apply relative overflow-hidden rounded-lg cursor-pointer;
   }
 
   .category-card img {
