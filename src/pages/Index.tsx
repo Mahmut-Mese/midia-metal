@@ -20,12 +20,12 @@ const categories = [
 const trendingItems = [
   { name: "Wheels", price: "$1,000.00", image: "/images/wheels.jpg" },
   { name: "Baffle Grease Filters", price: "$800.00", image: "/images/baffle-filter.jpg" },
-  { name: "Wall Cladding Circle", price: "$700.00", image: "/images/cutting-disk.jpg" },
+  { name: "wall cladding circle", price: "$700.00", image: "/images/cutting-disk.jpg" },
   { name: "Wall Cladding Sheets", price: "$830.00", image: "/images/wall-cladding.jpg" },
-  { name: "Multi Split", price: "$900.00", image: "/images/air-conditioner.jpg" },
-  { name: "Control Panel", price: "$700.00", image: "/images/control-panel.jpg" },
-  { name: "Centrifugal Fan", price: "$800.00", image: "/images/centrifugal-fan.jpg" },
-  { name: "Indoor Unit", price: "$2,000.00", image: "/images/air-conditioner.jpg" },
+  { name: "Multi split", price: "$900.00", image: "/images/air-conditioner.jpg" },
+  { name: "Control panel", price: "$700.00", image: "/images/control-panel.jpg" },
+  { name: "Air dryer", price: "$800.00", oldPrice: "$900.00", badge: "-11%", image: "/images/air-conditioner.jpg" },
+  { name: "Indoor unit", price: "$2,000.00", image: "/images/air-conditioner.jpg" },
 ];
 
 const Index = () => {
@@ -89,11 +89,21 @@ const Index = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {trendingItems.map((item, i) => (
             <Link to="/shop" key={i} className="product-card">
-              <div className="bg-secondary rounded-lg overflow-hidden mb-3">
+              <div className="relative bg-secondary rounded-lg overflow-hidden mb-3">
+                {item.badge && (
+                  <span className="absolute top-2 right-2 z-10 bg-orange text-accent-foreground text-xs font-bold px-2 py-0.5 rounded">
+                    {item.badge}
+                  </span>
+                )}
                 <img src={item.image} alt={item.name} />
               </div>
               <h3 className="font-sans text-sm font-semibold text-primary hover:text-orange transition-colors">{item.name}</h3>
-              <p className="text-sm text-muted-foreground mt-1">{item.price}</p>
+              <div className="flex items-center gap-2 mt-1">
+                {item.oldPrice && (
+                  <span className="text-sm text-muted-foreground line-through">{item.oldPrice}</span>
+                )}
+                <span className="text-sm text-muted-foreground">{item.price}</span>
+              </div>
             </Link>
           ))}
         </div>
@@ -149,7 +159,7 @@ const Index = () => {
         ))}
       </section>
 
-      <Footer />
+      <Footer variant="home" />
     </div>
   );
 };
