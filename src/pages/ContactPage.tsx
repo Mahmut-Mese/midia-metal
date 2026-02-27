@@ -7,9 +7,11 @@ const ContactPage = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <section className="py-16 text-center">
-        <h1 className="page-title">Contact</h1>
-        <ChevronDown className="w-6 h-6 mx-auto mt-4 text-muted-foreground" />
+      <section className="pt-24 pb-12 text-center">
+        <h1 className="text-5xl md:text-6xl font-bold text-[#1e293b] font-serif mb-6">Contact</h1>
+        <div className="flex justify-center -mt-2">
+          <ChevronDown className="w-5 h-5 text-muted-foreground/40 animate-bounce" />
+        </div>
       </section>
 
       <section className="container mx-auto px-4 lg:px-8 pb-16">
@@ -23,18 +25,35 @@ const ContactPage = () => {
             <p className="text-muted-foreground text-sm leading-relaxed mb-8">
               Adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim.
             </p>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <MapPin className="w-5 h-5 text-orange flex-shrink-0" />
-                <p className="text-sm text-foreground">785 15th Street, Office 478 Boston</p>
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-orange/10 flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-5 h-5 text-orange" />
+                </div>
+                <div>
+                  <p className="text-sm text-foreground">Unit 8A Cromwell Centre, Roebuck Road,<br />Hainaut Business Park, ILFORD, IG6 3UG</p>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-orange flex-shrink-0" />
-                <p className="text-sm text-foreground font-semibold">+1 800 555 25 69</p>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-orange/10 flex items-center justify-center flex-shrink-0">
+                  <Phone className="w-5 h-5 text-orange" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-foreground">
+                    Ahmed: <a href="tel:07545888522" className="font-semibold hover:text-orange transition-colors cursor-pointer">07545888522</a>
+                  </p>
+                  <p className="text-sm text-foreground">
+                    Jwan: <a href="tel:07442914525" className="font-semibold hover:text-orange transition-colors cursor-pointer">07442914525</a>
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Mail className="w-5 h-5 text-orange flex-shrink-0" />
-                <p className="text-sm text-foreground">info@email.com</p>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-orange/10 flex items-center justify-center flex-shrink-0">
+                  <Mail className="w-5 h-5 text-orange" />
+                </div>
+                <div>
+                  <a href="mailto:info@midiammetal.com" className="text-sm text-foreground hover:text-orange transition-colors">info@midiammetal.com</a>
+                </div>
               </div>
             </div>
           </div>
@@ -68,13 +87,13 @@ const ContactPage = () => {
                   className="bg-transparent text-sm w-full outline-none placeholder:text-muted-foreground resize-none"
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <button type="submit" className="btn-primary">
-                  ✦ Get in Touch
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <button type="submit" className="px-8 py-3 bg-orange text-white text-sm font-bold rounded uppercase tracking-wider hover:bg-orange-hover transition-all flex items-center gap-2">
+                  <Pencil className="w-3 h-3" /> Get in Touch
                 </button>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                  <input type="checkbox" className="rounded border-border" />
-                  I agree to the <a href="#" className="underline">privacy policy</a>.
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer group">
+                  <input type="checkbox" className="w-4 h-4 rounded border-border text-orange focus:ring-orange" />
+                  <span>I agree to the <a href="#" className="underline decoration-orange/30 group-hover:decoration-orange">privacy policy</a></span>
                 </label>
               </div>
             </form>
@@ -82,8 +101,7 @@ const ContactPage = () => {
         </div>
       </section>
 
-      {/* Map */}
-      <section className="w-full h-[400px] bg-secondary">
+      <section className="w-full h-[500px] mt-16">
         <iframe
           src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d158858.18237282!2d-0.24168049!3d51.52855825!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x47d8a00baf21de75%3A0x52963a5addd52a99!2sLondon%2C%20UK!5e0!3m2!1sen!2sus!4v1709000000000!5m2!1sen!2sus"
           width="100%"

@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import CheckoutSteps from "@/components/CheckoutSteps";
+import FloatingSidebar from "@/components/FloatingSidebar";
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -39,22 +41,7 @@ const CheckoutPage = () => {
 
       {/* Steps */}
       <section className="container mx-auto px-4 lg:px-8 pb-4">
-        <div className="flex items-center justify-center gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 bg-secondary text-primary text-xs flex items-center justify-center rounded font-bold">1</span>
-            <span className="text-muted-foreground">Shopping Cart</span>
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground" />
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 bg-orange text-accent-foreground text-xs flex items-center justify-center rounded font-bold">2</span>
-            <span className="font-semibold text-primary">Payment & Delivery Options</span>
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground" />
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 bg-primary text-primary-foreground text-xs flex items-center justify-center rounded font-bold">3</span>
-            <span className="text-muted-foreground">Order Received</span>
-          </div>
-        </div>
+        <CheckoutSteps currentStep={2} />
       </section>
 
       <section className="container mx-auto px-4 lg:px-8 py-8">
@@ -215,6 +202,7 @@ const CheckoutPage = () => {
       </section>
 
       <Footer />
+      <FloatingSidebar />
     </div>
   );
 };

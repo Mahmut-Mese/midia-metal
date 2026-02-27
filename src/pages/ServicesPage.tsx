@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Phone, ArrowRight, Star, ChevronDown } from "lucide-react";
+import { Phone, ArrowRight, Star, ChevronDown, Hammer, Trophy, Settings2 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -44,7 +44,7 @@ const ServicesPage = () => {
             </div>
           </div>
           <div className="rounded-lg overflow-hidden">
-            <img src="/images/welding.jpg" alt="Stainless steel welding" className="w-full h-80 object-cover" />
+            <img src="/images/welding.jpg" alt="Stainless steel welding" className="w-full h-96 object-cover" />
           </div>
         </div>
       </section>
@@ -56,7 +56,7 @@ const ServicesPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {services.map((s, i) => (
             <div key={i} className="text-center">
-              <div className="w-32 h-32 mx-auto rounded-full overflow-hidden mb-6">
+              <div className="w-32 h-32 mx-auto rounded-full overflow-hidden mb-6 border-4 border-white shadow-md">
                 <img src={s.image} alt={s.title} className="w-full h-full object-cover" />
               </div>
               <p className="text-xs text-muted-foreground mb-1">Best service</p>
@@ -77,7 +77,7 @@ const ServicesPage = () => {
             Contact us today for a free<br />consultation and quote.
           </h3>
           <div className="flex gap-4">
-            <Link to="/contact" className="btn-outline-dark border-accent-foreground text-accent-foreground hover:bg-accent-foreground hover:text-orange">
+            <Link to="/contact" className="inline-flex items-center justify-center px-6 py-3 text-sm font-semibold rounded border-2 border-white text-white hover:bg-white hover:text-orange transition-colors duration-200">
               Request a Quote
             </Link>
             <Link to="/contact" className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground text-sm font-semibold rounded hover:bg-navy-light transition-colors">
@@ -109,12 +109,12 @@ const ServicesPage = () => {
       <section className="container mx-auto px-4 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
           {[
-            { title: "Restaurant Expertise", icon: "🏗️" },
-            { title: "Quality Assurance", icon: "🏆" },
-            { title: "Custom Solutions", icon: "⚙️" },
+            { title: "Restaurant Expertise", icon: <Hammer className="w-8 h-8 text-orange" /> },
+            { title: "Quality Assurance", icon: <Trophy className="w-8 h-8 text-orange" /> },
+            { title: "Custom Solutions", icon: <Settings2 className="w-8 h-8 text-orange" /> },
           ].map((f, i) => (
             <div key={i}>
-              <div className="text-3xl mb-3">{f.icon}</div>
+              <div className="w-14 h-14 mx-auto mb-4 flex items-center justify-center">{f.icon}</div>
               <h3 className="font-serif font-bold text-primary mb-2">{f.title}</h3>
               <p className="text-sm text-muted-foreground">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.</p>
               <Link to="/services" className="inline-flex items-center gap-1 text-sm text-orange font-semibold mt-3 hover:underline">

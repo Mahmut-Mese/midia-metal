@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { X, Minus, Plus, ArrowRight, Tag } from "lucide-react";
+import { X, Minus, Plus, Tag } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import CheckoutSteps from "@/components/CheckoutSteps";
+import FloatingSidebar from "@/components/FloatingSidebar";
 
 const CartPage = () => {
   const [items, setItems] = useState([
@@ -10,7 +12,7 @@ const CartPage = () => {
   ]);
 
   const updateQty = (id: number, qty: number) => {
-    setItems(items.map((item) => item.id === id ? { ...item, qty: Math.max(1, qty) } : item));
+    setItems(items.map((item) => (item.id === id ? { ...item, qty: Math.max(1, qty) } : item)));
   };
 
   const removeItem = (id: number) => {
@@ -23,7 +25,7 @@ const CartPage = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <section className="py-16 text-center">
+      <section className="py-14 text-center md:py-16">
         <h1 className="page-title">Cart</h1>
         <svg className="w-6 h-6 mx-auto mt-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M6 9l6 6 6-6" />
@@ -31,28 +33,51 @@ const CartPage = () => {
       </section>
 
       {/* Steps */}
-      <section className="container mx-auto px-4 lg:px-8 pb-4">
-        <div className="flex items-center justify-center gap-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 bg-orange text-accent-foreground text-xs flex items-center justify-center rounded font-bold">1</span>
-            <span className="font-semibold text-primary">Shopping Cart</span>
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground" />
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 bg-primary text-primary-foreground text-xs flex items-center justify-center rounded font-bold">2</span>
-            <span className="text-muted-foreground">Payment & Delivery Options</span>
-          </div>
-          <ArrowRight className="w-4 h-4 text-muted-foreground" />
-          <div className="flex items-center gap-2">
-            <span className="w-7 h-7 bg-primary text-primary-foreground text-xs flex items-center justify-center rounded font-bold">3</span>
-            <span className="text-muted-foreground">Order Received</span>
-          </div>
-        </div>
+      <section className="container mx-auto px-4 lg:px-8 pb-2 md:pb-4">
+        <CheckoutSteps currentStep={1} />
       </section>
 
-      <section className="container mx-auto px-4 lg:px-8 py-8">
-        {/* Table */}
-        <div className="border border-border rounded-lg overflow-hidden mb-8">
+      <section className="container mx-auto px-4 lg:px-8 py-6 md:py-8">
+        {/* Mobile cart cards */}
+        <div className="space-y-4 md:hidden mb-8">
+          {items.map((item) => (
+            <div key={item.id} className="border border-border rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-primary leading-snug">{item.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">£{item.price.toFixed(2)} each</p>
+                </div>
+                <button
+                  onClick={() => removeItem(item.id)}
+                  className="text-muted-foreground hover:text-destructive p-1"
+                  aria-label={`Remove ${item.name}`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <div className="flex items-center border border-border rounded">
+                  <button onClick={() => updateQty(item.id, item.qty - 1)} className="px-2.5 py-1.5 text-primary">
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="px-4 text-sm font-medium text-primary">{item.qty}</span>
+                  <button onClick={() => updateQty(item.id, item.qty + 1)} className="px-2.5 py-1.5 text-primary">
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Subtotal</p>
+                  <p className="text-sm font-semibold text-primary">£{(item.price * item.qty).toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block border border-border rounded-lg overflow-hidden mb-8">
           <div className="grid grid-cols-5 gap-4 p-4 bg-secondary text-xs font-bold uppercase text-primary">
             <span>Product</span>
             <span>Price</span>
@@ -81,29 +106,29 @@ const CartPage = () => {
         </div>
 
         {/* Actions row */}
-        <div className="flex flex-col md:flex-row justify-between gap-4 mb-12">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 border border-border rounded px-3 py-2">
-              <Tag className="w-4 h-4 text-muted-foreground" />
-              <input type="text" placeholder="Coupon Code" className="bg-transparent text-sm outline-none w-32" />
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-10 md:mb-12">
+          <div className="flex flex-col sm:flex-row items-stretch gap-2 w-full md:w-auto">
+            <div className="flex items-center gap-2 border border-border rounded px-3 py-2 w-full sm:w-64">
+              <Tag className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <input type="text" placeholder="Coupon Code" className="bg-transparent text-sm outline-none w-full min-w-0" />
             </div>
-            <button className="btn-outline-dark text-xs px-4 py-2">Apply Coupon</button>
+            <button className="btn-outline-dark text-xs px-4 py-2 w-full sm:w-auto">Apply Coupon</button>
           </div>
-          <div className="flex gap-3">
-            <Link to="/shop" className="btn-outline-dark text-xs px-4 py-2">Continue Shopping</Link>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full md:w-auto md:flex md:gap-3">
+            <Link to="/shop" className="btn-outline-dark text-xs px-4 py-2 text-center">Continue Shopping</Link>
             <button className="btn-primary text-xs px-4 py-2">Update Cart</button>
           </div>
         </div>
 
         {/* Cart Totals */}
-        <div className="max-w-md mx-auto">
-          <h3 className="font-serif font-bold text-xl text-primary text-center mb-4">Cart totals</h3>
+        <div className="w-full max-w-md ml-auto">
+          <h3 className="font-serif font-bold text-2xl text-primary mb-6">Cart totals</h3>
           <div className="border border-border rounded-lg overflow-hidden">
             <div className="grid grid-cols-2 p-4 border-b border-border">
               <span className="font-semibold text-sm text-primary">Subtotal</span>
               <span className="text-sm text-muted-foreground text-right">£{subtotal.toFixed(2)}</span>
             </div>
-            <div className="grid grid-cols-2 p-4 border-b border-border">
+            <div className="grid grid-cols-2 p-4 border-b border-border gap-4">
               <span className="font-semibold text-sm text-primary">Shipping</span>
               <div className="text-right text-sm text-muted-foreground">
                 <p>Flat rate</p>
@@ -121,6 +146,9 @@ const CartPage = () => {
       </section>
 
       <Footer />
+      <div className="hidden md:block">
+        <FloatingSidebar />
+      </div>
     </div>
   );
 };
