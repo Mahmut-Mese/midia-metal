@@ -1,70 +1,115 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Gift, CirclePercent, ShoppingBag, WalletMinimal, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
+import { Gift, CirclePercent, ShoppingBag, WalletMinimal, ChevronLeft, ChevronRight } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import StickySidebar from "@/components/StickySidebar";
+import { apiFetch } from "@/lib/api";
 
-const features = [
-  { icon: Gift, title: "Reward program", desc: "Lorem ipsum" },
-  { icon: CirclePercent, title: "Special discounts", desc: "Lorem ipsum" },
-  { icon: ShoppingBag, title: "Fast shipping", desc: "Lorem ipsum" },
-  { icon: WalletMinimal, title: "Great Prices", desc: "Lorem ipsum" },
-];
-
-const categories = [
-  { name: "Canopy Grease Filters", image: "/images/baffle-filter.jpg" },
-  { name: "Cutting Disks", image: "/images/cutting-disk.jpg" },
-  { name: "Canopies", image: "/images/canopy.jpg" },
-  { name: "LED Lights", image: "/images/mesh-filter.jpg" },
-];
-
-const trendingItems = [
-  { name: "Wheels", price: "$1,000.00", image: "/images/wheels.jpg" },
-  { name: "Baffle Grease Filters", price: "$800.00", image: "/images/baffle-filter.jpg" },
-  { name: "wall cladding circle", price: "$700.00", image: "/images/cutting-disk.jpg" },
-  { name: "Wall Cladding Sheets", price: "$830.00", image: "/images/wall-cladding.jpg" },
-  { name: "Multi split", price: "$900.00", image: "/images/air-conditioner.jpg" },
-  { name: "Control panel", price: "$700.00", image: "/images/control-panel.jpg" },
-  { name: "Air dryer", price: "$800.00", oldPrice: "$900.00", badge: "-11%", image: "/images/air-conditioner.jpg" },
-  { name: "Indoor unit", price: "$2,000.00", image: "/images/air-conditioner.jpg" },
+const getFeatures = (t: (k: string, d: string) => string) => [
+  { icon: Gift, title: t("home_reward_title", "Reward program"), desc: t("home_reward_desc", "Lorem ipsum") },
+  { icon: CirclePercent, title: t("home_discount_title", "Special discounts"), desc: t("home_discount_desc", "Lorem ipsum") },
+  { icon: ShoppingBag, title: t("home_shipping_title", "Fast shipping"), desc: t("home_shipping_desc", "Lorem ipsum") },
+  { icon: WalletMinimal, title: t("home_prices_title", "Great Prices"), desc: t("home_prices_desc", "Lorem ipsum") },
 ];
 
 const Index = () => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [heroSlides, setHeroSlides] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [trendingItems, setTrendingItems] = useState<any[]>([]);
+  const [settings, setSettings] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [slidesRes, categoriesRes, trendingRes, settingsRes] = await Promise.all([
+          apiFetch("/v1/hero-slides"),
+          apiFetch("/v1/product-categories"),
+          apiFetch("/v1/products/featured"),
+          apiFetch("/v1/settings")
+        ]);
+        setHeroSlides(slidesRes);
+        setCategories(categoriesRes.slice(0, 4)); // Get first 4 categories
+        setTrendingItems(trendingRes);
+
+        const settingsMap: Record<string, string> = {};
+        settingsRes.forEach((s: any) => {
+          settingsMap[s.key] = s.value;
+        });
+        setSettings(settingsMap);
+      } catch (error) {
+        console.error("Failed to load homepage data", error);
+      }
+    };
+    loadData();
+  }, []);
+
+  const t = (key: string, def: string) => settings[key] || def;
+
+  const goToPrevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
+  };
+
+  const goToNextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+  };
+
+  useEffect(() => {
+    if (heroSlides.length === 0) return;
+    const intervalId = window.setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [heroSlides.length]);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#f2f3f5]">
       <Header />
-  
 
       {/* Hero Slider */}
-      <section className="relative h-[400px] md:h-[600px] overflow-hidden">
-        <img
-          src="/images/portfolio-banner-kitchen.png"
-          alt="Commercial kitchen"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-primary/20" />
-        <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-center items-end pointer-events-none pr-0">
-          <div className="flex flex-col gap-px pointer-events-auto">
-            <button className="w-12 h-16 bg-primary flex items-center justify-center text-primary-foreground hover:bg-navy-light transition-colors">
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button className="w-12 h-16 bg-primary flex items-center justify-center text-primary-foreground hover:bg-navy-light transition-colors">
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
+      <section className="container mx-auto px-4 lg:px-8 pt-4 md:pt-6">
+        <div className="relative h-[260px] md:h-[520px] overflow-hidden bg-gray-200">
+          {heroSlides.map((slide, index) => (
+            <img
+              key={slide.id}
+              src={slide.image}
+              alt={slide.alt || "Hero slide"}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${index === currentSlide ? "opacity-100" : "opacity-0"
+                }`}
+            />
+          ))}
+          {heroSlides.length > 1 && (
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col gap-px">
+              <button
+                onClick={goToPrevSlide}
+                aria-label="Previous slide"
+                className="w-12 h-16 bg-primary flex items-center justify-center text-primary-foreground hover:bg-navy-light transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={goToNextSlide}
+                aria-label="Next slide"
+                className="w-12 h-16 bg-primary flex items-center justify-center text-primary-foreground hover:bg-navy-light transition-colors"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
       {/* Features Bar */}
-      <section className="border-b border-border bg-white">
-        <div className="container mx-auto px-4 lg:px-8 py-4 md:py-5">
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
-            {features.map((f, i) => (
+      <section className="bg-[#f2f3f5]">
+        <div className="container mx-auto px-4 lg:px-8 py-7 md:py-10">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-8">
+            {getFeatures(t).map((f, i) => (
               <div key={i} className="flex items-center gap-3">
-                <f.icon className="h-8 w-8 flex-shrink-0 text-[#7a8293]" strokeWidth={1.75} />
+                <f.icon className="h-6 w-6 md:h-8 md:w-8 flex-shrink-0 text-[#7a8293]" strokeWidth={1.75} />
                 <div className="leading-tight">
-                  <p className="font-sans text-sm font-semibold text-[#1d2940]">{f.title}</p>
-                  <p className="mt-1 text-xs text-[#8b93a4]">{f.desc}</p>
+                  <p className="font-sans text-[13px] md:text-[17px] font-semibold text-[#15264b]">{f.title}</p>
+                  <p className="mt-1 text-[10px] md:text-xs text-[#8b93a4]">{f.desc}</p>
                 </div>
               </div>
             ))}
@@ -73,17 +118,17 @@ const Index = () => {
       </section>
 
       {/* Categories */}
-      <section className="container mx-auto px-4 lg:px-8 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {categories.map((cat, i) => (
+      <section className="container mx-auto px-4 lg:px-8 pb-8 md:pb-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          {categories.map((cat) => (
             <Link
-              key={i}
-              to={`/shop?category=${encodeURIComponent(cat.name === "Canopy Grease Filters" ? "Baffle Filters" : cat.name)}`}
-              className="category-card block"
+              key={cat.id}
+              to={`/shop/category/${cat.slug}`}
+              className="relative block overflow-hidden group"
             >
-              <img src={cat.image} alt={cat.name} />
-              <div className="overlay">
-                <p className="text-primary-foreground font-semibold text-sm">{cat.name}</p>
+              <img src={cat.image} alt={cat.name} className="w-full h-[124px] sm:h-[150px] md:h-[260px] object-cover transition-transform duration-500 group-hover:scale-105" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent flex items-end p-3 md:p-5">
+                <p className="text-white text-[13px] sm:text-[16px] md:text-[22px] leading-tight font-semibold">{cat.name}</p>
               </div>
             </Link>
           ))}
@@ -91,77 +136,94 @@ const Index = () => {
       </section>
 
       {/* Trending Items */}
-      <section className="container mx-auto px-4 lg:px-8 py-16">
-        <p className="text-center text-[10px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-2">OUR CATALOG</p>
-        <h2 className="text-center text-3xl md:text-4xl font-bold text-primary mb-12">Trending items</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {trendingItems.map((item, i) => (
-            <Link to="/shop" key={i} className="product-card">
-              <div className="relative bg-secondary rounded-lg overflow-hidden mb-3">
+      <section className="container mx-auto px-4 lg:px-8 py-10 md:py-20">
+        <p className="text-center text-[10px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-2">{t("home_catalog_label", "OUR CATALOG")}</p>
+        <h2 className="text-center text-[44px] leading-none md:text-[58px] font-semibold text-[#10275c] mb-8 md:mb-12 font-sans">{t("home_trending_title", "Trending items")}</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          {trendingItems.map((item) => (
+            <Link to={`/shop/${item.slug}`} key={item.id} className="product-card">
+              <div className="relative bg-[#e9ecef] overflow-hidden mb-3 md:mb-4">
                 {item.badge && (
-                  <span className="absolute top-2 right-2 z-10 bg-orange text-accent-foreground text-xs font-bold px-2 py-0.5 rounded">
+                  <span className="absolute top-2 left-2 z-10 bg-orange text-accent-foreground text-[11px] font-bold px-2 py-0.5">
                     {item.badge}
                   </span>
                 )}
-                <img src={item.image} alt={item.name} />
+                <img src={item.image} alt={item.name} className="w-full aspect-square object-cover" />
               </div>
-              <h3 className="font-sans text-sm font-semibold text-primary hover:text-orange transition-colors">{item.name}</h3>
-              <div className="flex items-center gap-2 mt-1">
-                {item.oldPrice && (
-                  <span className="text-sm text-muted-foreground line-through">{item.oldPrice}</span>
+              <h3 className="font-sans text-[16px] md:text-[26px] leading-tight md:leading-7 font-semibold text-[#15264b] hover:text-orange transition-colors">{item.name}</h3>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {item.old_price && (
+                  <span className="text-[16px] md:text-[30px] text-muted-foreground line-through">{item.old_price}</span>
                 )}
-                <span className="text-sm font-medium text-primary/70">{item.price}</span>
+                <span className="text-[14px] md:text-[30px] font-medium text-[#15264b]/75">{item.price}</span>
               </div>
             </Link>
           ))}
         </div>
-        <div className="text-center mt-8">
-          <Link to="/shop" className="inline-flex items-center justify-center px-8 py-3 bg-primary text-primary-foreground font-semibold text-sm rounded hover:bg-navy-light transition-colors">
-            View More Products
+        <div className="text-center mt-8 md:mt-10">
+          <Link to="/shop" className="inline-flex items-center justify-center px-8 md:px-10 py-3 md:py-4 bg-primary text-primary-foreground font-semibold text-xs md:text-sm hover:bg-navy-light transition-colors">
+            {t("home_view_more_label", "View More Products")}
           </Link>
         </div>
       </section>
 
       {/* CTA Banners */}
-      <section className="container mx-auto px-4 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="relative rounded-lg overflow-hidden h-72 bg-orange">
-            <img src="/images/installation-service.jpg" alt="Installation services" className="absolute inset-0 w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-orange/85 p-8 flex flex-col justify-center">
-              <h3 className="text-2xl font-bold text-accent-foreground mb-2">Installation services</h3>
-              <p className="text-accent-foreground/90 text-sm mb-6 max-w-sm">Professional installation for all your equipment needs.</p>
-              <Link to="/contact" className="inline-flex items-center justify-center w-fit px-6 py-3 border-2 border-accent-foreground text-accent-foreground text-sm font-bold uppercase tracking-wider hover:bg-accent-foreground hover:text-orange transition-all">
-                Request a Quote
-              </Link>
-            </div>
+      <section className="container mx-auto px-4 lg:px-8 py-10 md:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="relative overflow-hidden min-h-[200px] md:h-[240px] bg-gradient-to-r from-[#eb5c10] to-[#ff7d1b] p-6 md:p-10 flex flex-col justify-center">
+            <h3 className="text-[42px] md:text-5xl leading-[0.95] font-semibold text-white mb-4 md:mb-5 font-sans">{t("home_installation_title", "Installation services")}</h3>
+            <p className="text-white/85 text-xs md:text-sm mb-5 md:mb-7 max-w-md">{t("home_installation_desc", "Dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia.")}</p>
+            <Link to="/get-a-quote" className="inline-flex items-center justify-center w-fit px-5 md:px-7 py-2.5 md:py-3 border border-white text-white text-xs md:text-sm font-semibold hover:bg-white hover:text-[#eb5c10] transition-all">
+              {t("home_request_quote_label", "Request a Quote")}
+            </Link>
           </div>
-          <div className="relative rounded-lg overflow-hidden h-72 bg-secondary flex items-center">
-            <div className="flex-1 p-10 flex flex-col justify-center z-10">
-              <h3 className="text-2xl font-bold text-primary mb-3 leading-tight">Our products bring comfort to your home</h3>
-              <p className="text-muted-foreground text-sm mb-6">Quality equipment for every need.</p>
-              <Link to="/shop" className="inline-flex items-center justify-center w-fit px-6 py-3 bg-sky-500 text-white text-sm font-bold uppercase tracking-wider hover:bg-sky-600 transition-colors">
-                Learn More
+          <div className="relative overflow-hidden min-h-[200px] md:h-[240px] bg-[#e8edf1] flex items-center">
+            <div className="flex-1 p-6 md:p-10 flex flex-col justify-center z-10">
+              <h3 className="text-[48px] md:text-[46px] leading-[0.95] md:leading-[1.02] font-semibold text-[#10275c] mb-3 md:mb-4 font-sans">{t("home_comfort_title", "Our products bring comfort to your home")}</h3>
+              <p className="text-[#6f7e9a] text-xs md:text-sm mb-5 md:mb-7">{t("home_comfort_desc", "Dicta sunt explicabo. Nemo ipsam.")}</p>
+              <Link to="/shop" className="inline-flex items-center justify-center w-fit px-5 md:px-7 py-2.5 md:py-3 bg-[#22a3e6] text-white text-xs md:text-sm font-semibold hover:bg-[#1c90cb] transition-colors">
+                {t("home_learn_more_label", "Learn More")}
               </Link>
             </div>
-            <div className="w-2/5 h-full flex-shrink-0 hidden md:block">
-              <img src="/images/air-conditioner.jpg" alt="Our products" className="w-full h-full object-cover" />
+            <div className="w-[32%] h-full flex-shrink-0 hidden md:block">
+              <img src={t("home_comfort_image", "/images/air-conditioner.jpg")} alt="Our products" className="w-full h-full object-cover" />
             </div>
           </div>
         </div>
       </section>
 
       {/* Brands */}
-      <section className="container mx-auto px-4 lg:px-8 py-16">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-12">
-         
-         
+      <section className="container mx-auto px-4 lg:px-8 py-10 md:py-20">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 items-center">
+          {[
+            t("home_brand_1", "ELEVATE"),
+            t("home_brand_2", "AXION"),
+            t("home_brand_3", "SPLENDOR"),
+            t("home_brand_4", "DELT")
+          ].map((name) => (
+            <div key={name} className="text-center text-[#bfc7d4] text-[36px] md:text-3xl font-semibold tracking-wide">
+              {name}
+            </div>
+          ))}
+          <div className="col-span-2 md:col-span-1 md:justify-self-end">
+            <h3 className="text-[56px] md:text-[50px] leading-[0.92] md:leading-[0.98] font-semibold text-[#10275c] font-sans">
+              {t("home_brands_title", "We work with the best brands")}
+            </h3>
+          </div>
         </div>
       </section>
 
       {/* Gallery Strip */}
-      <section className="grid grid-cols-2 md:grid-cols-4 h-64 overflow-hidden">
-        {["/images/welding.jpg", "/images/hero-kitchen.jpg", "/images/installation-service.jpg", "/images/workshop.jpg"].map((img, i) => (
-          <div key={i} className="overflow-hidden h-full">
+      <section className="grid grid-cols-2 md:grid-cols-6 overflow-hidden">
+        {[
+          t("home_gallery_1", "/images/welding.jpg"),
+          t("home_gallery_2", "/images/air-conditioner.jpg"),
+          t("home_gallery_3", "/images/hero-kitchen.jpg"),
+          t("home_gallery_4", "/images/installation-service.jpg"),
+          t("home_gallery_5", "/images/workshop.jpg"),
+          t("home_gallery_6", "/images/mesh-filter.jpg"),
+        ].map((img, i) => (
+          <div key={i} className="overflow-hidden h-28 md:h-56">
             <img src={img} alt="" className="w-full h-full object-cover" />
           </div>
         ))}

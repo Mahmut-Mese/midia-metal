@@ -1,99 +1,141 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-
-const categories = ["All", "Ventilation", "Cladding", "Installation", "Custom Work"];
-
-const projects = [
-  { id: 1, title: "Commercial Kitchen Ventilation", category: "Ventilation", image: "/images/hero-kitchen.jpg", description: "Full ventilation system for a restaurant in London." },
-  { id: 2, title: "Stainless Steel Wall Cladding", category: "Cladding", image: "/images/wall-cladding.jpg", description: "Hygienic wall cladding for a food processing plant." },
-  { id: 3, title: "Industrial Canopy Installation", category: "Installation", image: "/images/canopy.jpg", description: "Large-scale canopy system for an industrial kitchen." },
-  { id: 4, title: "Custom Welding Project", category: "Custom Work", image: "/images/welding.jpg", description: "Bespoke stainless steel fabrication for a hotel chain." },
-  { id: 5, title: "Exhaust Fan System", category: "Ventilation", image: "/images/centrifugal-fan.jpg", description: "High-capacity exhaust system for a commercial bakery." },
-  { id: 6, title: "Workshop Fit-Out", category: "Installation", image: "/images/workshop.jpg", description: "Complete workshop ventilation and equipment setup." },
-  { id: 7, title: "Baffle Filter Installation", category: "Ventilation", image: "/images/baffle-filter.jpg", description: "Multi-unit baffle filter system for a restaurant group." },
-  { id: 8, title: "Control Panel Setup", category: "Custom Work", image: "/images/control-panel.jpg", description: "Custom control panels for automated ventilation systems." },
-];
+import FloatingSidebar from "@/components/FloatingSidebar";
+import { apiFetch } from "@/lib/api";
 
 const PortfolioPage = () => {
-  const [active, setActive] = useState("All");
+  const [active, setActive] = useState<string>("All");
+  const [categories, setCategories] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = active === "All" ? projects : projects.filter((p) => p.category === active);
+  const [settings, setSettings] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [catsRes, projRes, settingsRes] = await Promise.all([
+          apiFetch("/v1/portfolio/categories"),
+          apiFetch("/v1/portfolio"),
+          apiFetch("/v1/settings")
+        ]);
+        setCategories(catsRes);
+        setProjects(projRes);
+        const settingsMap: Record<string, string> = {};
+        settingsRes.forEach((s: any) => {
+          settingsMap[s.key] = s.value;
+        });
+        setSettings(settingsMap);
+      } catch (err) {
+        console.error("Failed to load portfolio data", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const t = (key: string, def: string) => settings[key] || def;
+
+  const filtered = active === "All" ? projects : projects.filter((p) => p.portfolio_category?.name === active);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#eaf0f3]">
       <Header />
 
-      {/* Hero */}
-      <section className="py-16 text-center">
-        <p className="section-label">Our Work</p>
-        <h1 className="page-title">Portfolio</h1>
-        <svg className="w-6 h-6 mx-auto mt-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+      <section className="pt-16 md:pt-24 pb-14 md:pb-16 text-center">
+        <h1 className="font-sans text-[52px] md:text-[68px] leading-none font-semibold text-[#10275c]">{t("portfolio_hero_title", "Portfolio")}</h1>
+        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
       </section>
 
-      {/* Filter Tabs */}
-      <section className="container mx-auto px-4 lg:px-8 pb-4">
-        <div className="flex flex-wrap justify-center gap-3">
+      <section className="container mx-auto px-4 lg:px-8 pb-6 md:pb-8">
+        <div className="flex flex-wrap justify-center gap-2">
+          <button
+            onClick={() => setActive("All")}
+            className={`h-10 px-5 text-[13px] font-semibold transition-colors border ${active === "All"
+              ? "bg-[#10275c] text-white border-[#10275c]"
+              : "bg-[#eef2f6] text-[#10275c] border-[#cfd8e6] hover:bg-orange hover:border-orange hover:text-white"
+              }`}
+          >
+            All
+          </button>
           {categories.map((cat) => (
             <button
-              key={cat}
-              onClick={() => setActive(cat)}
-              className={`px-5 py-2 text-sm font-semibold rounded transition-colors ${
-                active === cat
-                  ? "bg-orange text-accent-foreground"
-                  : "bg-secondary text-primary hover:bg-orange hover:text-accent-foreground"
-              }`}
+              key={cat.id}
+              onClick={() => setActive(cat.name)}
+              className={`h-10 px-5 text-[13px] font-semibold transition-colors border ${active === cat.name
+                ? "bg-[#10275c] text-white border-[#10275c]"
+                : "bg-[#eef2f6] text-[#10275c] border-[#cfd8e6] hover:bg-orange hover:border-orange hover:text-white"
+                }`}
             >
-              {cat}
+              {cat.name}
             </button>
           ))}
         </div>
       </section>
 
-      {/* Projects Grid */}
-      <section className="container mx-auto px-4 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((project) => (
-            <div key={project.id} className="group rounded-lg overflow-hidden border border-border">
-              <div className="relative overflow-hidden h-64">
-                <img
-                  src={project.image}
-                  alt={project.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/60 transition-colors duration-300 flex items-center justify-center">
-                  <span className="text-primary-foreground font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-sm">
-                    View Project
-                  </span>
+      <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-24">
+        {loading ? (
+          <div className="py-16 text-center text-[#6e7a92] bg-[#f4f5f7] border border-[#d5deea]">Loading projects...</div>
+        ) : filtered.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 md:gap-x-8 gap-y-10">
+            {filtered.map((project) => (
+              <Link
+                key={project.id}
+                to={`/portfolio/${project.slug}`}
+                className="group block"
+              >
+                <div className="relative overflow-hidden bg-[#f7f8fa]">
+                  <img
+                    src={project.image}
+                    alt={project.title}
+                    className="w-full h-[250px] md:h-[300px] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  />
+                  <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/45 transition-colors duration-300 flex items-center justify-center">
+                    <span className="text-white font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-[13px] tracking-wide">
+                      View Project
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="p-5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-orange">{project.category}</span>
-                <h3 className="font-serif text-lg font-bold text-primary mt-1">{project.title}</h3>
-                <p className="text-sm text-muted-foreground mt-2">{project.description}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+                <div className="pt-4">
+                  <p className="text-[11px] uppercase tracking-[0.22em] font-semibold text-[#8f9ab0] mb-2">{project.portfolio_category?.name || "Uncategorized"}</p>
+                  <h3 className="font-sans text-[23px] md:text-[28px] leading-[1.02] font-semibold text-[#10275c] group-hover:text-orange transition-colors">
+                    {project.title}
+                  </h3>
+                  <p className="text-[14px] leading-7 text-[#6e7a92] mt-3">
+                    {project.description && project.description.length > 100 ? `${project.description.substring(0, 100)}...` : project.description || ""}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="py-16 text-center text-[#6e7a92] bg-[#f4f5f7] border border-[#d5deea]">No projects found.</div>
+        )}
       </section>
 
-      {/* CTA */}
-      <section className="bg-primary py-16">
-        <div className="container mx-auto px-4 lg:px-8 text-center">
-          <h2 className="text-3xl font-serif font-bold text-primary-foreground mb-4">Have a project in mind?</h2>
-          <p className="text-primary-foreground/70 text-sm mb-8 max-w-md mx-auto">
-            Get in touch with our team to discuss your requirements and receive a free quote.
-          </p>
-          <Link to="/contact" className="btn-primary">
+      <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-24">
+        <div className="bg-gradient-to-r from-[#0c63a4] to-[#1296df] p-8 md:p-10 flex flex-col md:flex-row gap-6 md:items-center md:justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.24em] text-white/75 font-semibold mb-2">{t("portfolio_cta_label", "Ready to start")}</p>
+            <h2 className="font-sans text-[34px] md:text-[46px] leading-[0.95] font-semibold text-white whitespace-pre-line">
+              {t("portfolio_cta_title", "Have a project in mind?")}
+            </h2>
+          </div>
+          <Link
+            to="/get-a-quote"
+            className="inline-flex items-center justify-center h-11 px-8 bg-white text-[#10275c] text-[13px] font-semibold hover:bg-[#e9eff6] transition-colors"
+          >
             Request a Quote
           </Link>
         </div>
       </section>
 
       <Footer />
+      <FloatingSidebar />
     </div>
   );
 };

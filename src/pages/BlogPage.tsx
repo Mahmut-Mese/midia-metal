@@ -1,160 +1,150 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Calendar, User, ArrowRight } from "lucide-react";
+import { Calendar, User, ArrowRight, ChevronDown, Search } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-
-const blogPosts = [
-  {
-    id: "importance-of-commercial-ventilation",
-    title: "The Importance of Commercial Kitchen Ventilation",
-    excerpt: "A well-designed ventilation system is crucial for safety, compliance, and comfort in any commercial kitchen environment.",
-    image: "/images/hero-kitchen.jpg",
-    date: "Feb 20, 2026",
-    author: "Admin",
-    category: "Ventilation",
-  },
-  {
-    id: "choosing-right-grease-filters",
-    title: "Choosing the Right Grease Filters for Your Setup",
-    excerpt: "Baffle vs mesh filters — which one is best for your kitchen? We break down the pros and cons of each type.",
-    image: "/images/baffle-filter.jpg",
-    date: "Feb 15, 2026",
-    author: "Admin",
-    category: "Products",
-  },
-  {
-    id: "stainless-steel-wall-cladding-guide",
-    title: "A Complete Guide to Stainless Steel Wall Cladding",
-    excerpt: "Discover why stainless steel wall cladding is the gold standard for hygiene in food preparation areas.",
-    image: "/images/wall-cladding.jpg",
-    date: "Feb 10, 2026",
-    author: "Admin",
-    category: "Guides",
-  },
-  {
-    id: "industrial-welding-techniques",
-    title: "Industrial Welding Techniques for Kitchen Equipment",
-    excerpt: "TIG, MIG, and spot welding — learn which technique is used for different kitchen fabrication projects.",
-    image: "/images/welding.jpg",
-    date: "Feb 5, 2026",
-    author: "Admin",
-    category: "Fabrication",
-  },
-  {
-    id: "canopy-installation-tips",
-    title: "5 Tips for a Perfect Canopy Installation",
-    excerpt: "Avoid common mistakes and ensure your kitchen canopy is installed correctly the first time.",
-    image: "/images/canopy.jpg",
-    date: "Jan 28, 2026",
-    author: "Admin",
-    category: "Installation",
-  },
-  {
-    id: "exhaust-fan-maintenance",
-    title: "How to Maintain Your Exhaust Fan System",
-    excerpt: "Regular maintenance extends the life of your exhaust fans and keeps your kitchen compliant with regulations.",
-    image: "/images/centrifugal-fan.jpg",
-    date: "Jan 20, 2026",
-    author: "Admin",
-    category: "Maintenance",
-  },
-];
-
-const categories = ["Ventilation", "Products", "Guides", "Fabrication", "Installation", "Maintenance"];
+import FloatingSidebar from "@/components/FloatingSidebar";
+import { apiFetch } from "@/lib/api";
 
 const BlogPage = () => {
+  const [posts, setPosts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [recentPosts, setRecentPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [settings, setSettings] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [postsRes, catRes, recentRes, settingsRes] = await Promise.all([
+          apiFetch("/v1/blog"),
+          apiFetch("/v1/blog/categories"),
+          apiFetch("/v1/blog/recent"),
+          apiFetch("/v1/settings")
+        ]);
+        setPosts(postsRes.data);
+        setCategories(catRes);
+        setRecentPosts(recentRes);
+        const settingsMap: Record<string, string> = {};
+        settingsRes.forEach((s: any) => {
+          settingsMap[s.key] = s.value;
+        });
+        setSettings(settingsMap);
+      } catch (err) {
+        console.error("Failed to load blog data", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const t = (key: string, def: string) => settings[key] || def;
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#eaf0f3]">
       <Header />
 
-      {/* Hero */}
-      <section className="py-16 text-center">
-        <p className="section-label">News & Articles</p>
-        <h1 className="page-title">Our Blog</h1>
-        <svg className="w-6 h-6 mx-auto mt-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+      <section className="pt-16 md:pt-24 pb-16 md:pb-20 text-center">
+        <h1 className="font-sans text-[52px] md:text-[68px] leading-none font-semibold text-[#10275c]">{t("blog_hero_title", "Blog")}</h1>
+        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
       </section>
 
-      <section className="container mx-auto px-4 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          {/* Blog Posts */}
-          <div className="lg:col-span-2 space-y-10">
-            {blogPosts.map((post) => (
-              <article key={post.id} className="group border border-border rounded-lg overflow-hidden">
-                <Link to={`/blog/${post.id}`} className="block relative overflow-hidden h-64">
-                  <img
-                    src={post.image}
-                    alt={post.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <span className="absolute top-4 left-4 bg-orange text-accent-foreground text-xs font-bold px-3 py-1 rounded">
-                    {post.category}
-                  </span>
-                </Link>
-                <div className="p-6">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {post.date}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      {post.author}
-                    </span>
-                  </div>
-                  <Link to={`/blog/${post.id}`}>
-                    <h2 className="font-serif text-xl font-bold text-primary hover:text-orange transition-colors mb-2">
-                      {post.title}
-                    </h2>
-                  </Link>
-                  <p className="text-sm text-muted-foreground mb-4">{post.excerpt}</p>
-                  <Link
-                    to={`/blog/${post.id}`}
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-orange hover:text-orange-hover transition-colors"
-                  >
-                    Read More <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              </article>
-            ))}
+      <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-24">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_370px] gap-8 lg:gap-10">
+          <div>
+            <p className="text-[13px] text-[#9aa6bc] mb-8">Showing results for blog</p>
+            {loading ? (
+              <div className="py-16 text-center text-[#6e7a92] bg-[#f4f5f7] border border-[#d5deea]">Loading blog posts...</div>
+            ) : posts.length > 0 ? (
+              <div className="space-y-10">
+                {posts.map((post) => (
+                  <article key={post.id} className="group">
+                    <Link to={`/blog/${post.slug}`} className="block relative overflow-hidden bg-[#f7f8fa]">
+                      <img
+                        src={post.image}
+                        alt={post.title}
+                        className="w-full h-[260px] md:h-[360px] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                      />
+                      {post.category && (
+                        <span className="absolute top-4 left-4 h-8 px-3 inline-flex items-center bg-orange text-white text-[11px] font-semibold uppercase tracking-wide">
+                          {post.category}
+                        </span>
+                      )}
+                    </Link>
+                    <div className="pt-5">
+                      <div className="flex items-center gap-5 text-[13px] text-[#6f7c95] mb-3">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4 text-[#2f9cea]" />
+                          {new Date(post.published_at || post.created_at).toLocaleDateString()}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <User className="w-4 h-4 text-[#2f9cea]" />
+                          {post.author}
+                        </span>
+                      </div>
+                      <Link to={`/blog/${post.slug}`}>
+                        <h2 className="font-sans text-[32px] md:text-[42px] leading-[0.96] font-semibold text-[#10275c] hover:text-orange transition-colors mb-4">
+                          {post.title}
+                        </h2>
+                      </Link>
+                      <p className="text-[15px] leading-8 text-[#6f7c95] mb-5">{post.excerpt}</p>
+                      <Link
+                        to={`/blog/${post.slug}`}
+                        className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#10275c] hover:text-orange transition-colors"
+                      >
+                        Read More <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="py-16 text-center text-[#6e7a92] bg-[#f4f5f7] border border-[#d5deea]">No blog posts found.</div>
+            )}
           </div>
 
-          {/* Sidebar */}
-          <aside className="space-y-8">
-            {/* Search */}
-            <div className="border border-border rounded-lg p-5">
-              <h3 className="font-serif font-bold text-primary mb-3">Search</h3>
-              <div className="flex border border-border rounded overflow-hidden">
-                <input type="text" placeholder="Search..." className="flex-1 px-3 py-2 text-sm outline-none bg-background" />
-                <button className="px-4 bg-orange text-accent-foreground text-sm font-semibold">Go</button>
+          <aside className="bg-[#f4f5f7] p-6 md:p-8 h-fit lg:sticky lg:top-28 space-y-8">
+            <div>
+              <h3 className="font-sans text-[16px] leading-none font-semibold text-primary mb-5">{t("blog_sidebar_search", "Search")}</h3>
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a95ac]" />
+                <input
+                  type="text"
+                  placeholder="Search for article..."
+                  className="w-full h-12 border border-[#d1dbe8] bg-transparent pl-12 pr-4 text-[14px] text-primary placeholder:text-[#9aa6bc] outline-none"
+                />
               </div>
             </div>
 
-            {/* Categories */}
-            <div className="border border-border rounded-lg p-5">
-              <h3 className="font-serif font-bold text-primary mb-3">Categories</h3>
+            <div>
+              <h3 className="font-sans text-[16px] leading-none font-semibold text-primary mb-5">{t("blog_sidebar_categories", "Categories")}</h3>
               <ul className="space-y-2">
-                {categories.map((cat) => (
-                  <li key={cat}>
-                    <span className="text-sm text-muted-foreground hover:text-orange transition-colors cursor-pointer">{cat}</span>
+                {categories.map((category) => (
+                  <li key={category.category}>
+                    <span className="text-[15px] inline-flex items-center gap-2 text-primary hover:text-orange transition-colors cursor-pointer">
+                      <span className="text-[8px]">•</span>
+                      {category.category} ({category.count})
+                    </span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* Recent Posts */}
-            <div className="border border-border rounded-lg p-5">
-              <h3 className="font-serif font-bold text-primary mb-3">Recent Posts</h3>
+            <div>
+              <h3 className="font-sans text-[16px] leading-none font-semibold text-primary mb-5">{t("blog_sidebar_recent", "Recent Posts")}</h3>
               <ul className="space-y-4">
-                {blogPosts.slice(0, 3).map((post) => (
+                {recentPosts.map((post) => (
                   <li key={post.id} className="flex gap-3">
-                    <img src={post.image} alt={post.title} className="w-16 h-16 rounded object-cover flex-shrink-0" />
+                    <img src={post.image} alt={post.title} className="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
                     <div>
-                      <Link to={`/blog/${post.id}`} className="text-sm font-semibold text-primary hover:text-orange transition-colors leading-tight">
+                      <Link to={`/blog/${post.slug}`} className="text-[15px] font-semibold text-primary hover:text-orange transition-colors leading-snug">
                         {post.title}
                       </Link>
-                      <p className="text-xs text-muted-foreground mt-1">{post.date}</p>
+                      <p className="text-[12px] text-[#7f8aa2] mt-2">
+                        {new Date(post.published_at || post.created_at).toLocaleDateString()}
+                      </p>
                     </div>
                   </li>
                 ))}
@@ -165,6 +155,7 @@ const BlogPage = () => {
       </section>
 
       <Footer />
+      <FloatingSidebar />
     </div>
   );
 };

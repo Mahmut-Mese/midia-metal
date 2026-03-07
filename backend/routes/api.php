@@ -1,0 +1,136 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Admin;
+use App\Http\Controllers\Api;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
+
+// Public API Routes (Frontend)
+Route::prefix('v1')->group(function () {
+    // Products
+    Route::get('/products', [Api\ProductController::class, 'index']);
+    Route::get('/products/featured', [Api\ProductController::class, 'featured']);
+    Route::get('/products/tags', [Api\ProductController::class, 'tags']);
+    Route::get('/products/{id}', [Api\ProductController::class, 'show']);
+    Route::get('/product-categories', [Api\ProductController::class, 'categories']);
+    Route::get('/product-categories/{slug}', [Api\ProductController::class, 'categoryDetail']);
+    Route::get('/hero-slides', [Api\ProductController::class, 'heroSlides']);
+
+    // Blog
+    Route::get('/blog', [Api\BlogController::class, 'index']);
+    Route::get('/blog/recent', [Api\BlogController::class, 'recent']);
+    Route::get('/blog/categories', [Api\BlogController::class, 'categories']);
+    Route::get('/blog/{slug}', [Api\BlogController::class, 'show']);
+
+    // Portfolio
+    Route::get('/portfolio', [Api\PortfolioController::class, 'index']);
+    Route::get('/portfolio/categories', [Api\PortfolioController::class, 'categories']);
+    Route::get('/portfolio/{slug}', [Api\PortfolioController::class, 'show']);
+
+    // Services
+    Route::get('/services', [Api\ServiceController::class, 'index']);
+    Route::get('/services/{slug}', [Api\ServiceController::class, 'show']);
+
+    // Settings
+    Route::get('/settings', [Api\SettingsController::class, 'index']);
+
+    // Forms
+    Route::post('/contact', [Api\FormController::class, 'contact']);
+    Route::post('/orders', [Api\FormController::class, 'order']);
+    Route::post('/quote', [Api\FormController::class, 'quote']);
+    Route::post('/coupons/apply', [Api\FormController::class, 'applyCoupon']);
+    Route::post('/payment/intent', [Api\PaymentController::class, 'createIntent']);
+    // Testimonials
+    Route::get('/testimonials', [Api\TestimonialController::class, 'index']);
+
+    // Customer Auth (Public)
+    Route::post('/customer/register', [Api\CustomerAuthController::class, 'register']);
+    Route::post('/customer/login', [Api\CustomerAuthController::class, 'login']);
+
+    // Customer Protected Routes
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/customer/me', [Api\CustomerAuthController::class, 'me']);
+        Route::post('/customer/logout', [Api\CustomerAuthController::class, 'logout']);
+        Route::put('/customer/profile', [Api\CustomerAuthController::class, 'updateProfile']);
+        Route::put('/customer/password', [Api\CustomerAuthController::class, 'updatePassword']);
+
+        // Orders
+        Route::get('/customer/orders', [Api\CustomerOrderController::class, 'index']);
+        Route::get('/customer/orders/{id}', [Api\CustomerOrderController::class, 'show']);
+        Route::get('/customer/orders/{id}/invoice', [Api\CustomerOrderController::class, 'invoice']);
+
+        // Quotes
+        Route::get('/customer/quotes', [Api\CustomerAuthController::class, 'customerQuotes']);
+
+        // Saved Cards
+        Route::get('/customer/payment-methods', [Api\PaymentController::class, 'listSavedCards']);
+        Route::delete('/customer/payment-methods/{id}', [Api\PaymentController::class, 'deleteSavedCard']);
+    });
+});
+
+// Admin Auth
+Route::prefix('admin')->group(function () {
+    Route::post('/login', [Admin\AuthController::class, 'login']);
+
+    // Protected Admin Routes
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/me', [Admin\AuthController::class, 'me']);
+        Route::post('/logout', [Admin\AuthController::class, 'logout']);
+
+        // Dashboard
+        Route::get('/dashboard', [Admin\DashboardController::class, 'index']);
+
+        // Products
+        Route::apiResource('/products', Admin\ProductController::class);
+        Route::get('/product-category-list', [Admin\ProductController::class, 'categories']);
+        Route::apiResource('/product-categories', Admin\ProductCategoryController::class);
+
+        // Blog
+        Route::apiResource('/blog', Admin\BlogController::class);
+
+        // Portfolio
+        Route::get('/portfolio-categories', [Admin\PortfolioController::class, 'categories']);
+        Route::post('/portfolio-categories', [Admin\PortfolioController::class, 'storeCategory']);
+        Route::put('/portfolio-categories/{portfolioCategory}', [Admin\PortfolioController::class, 'updateCategory']);
+        Route::delete('/portfolio-categories/{portfolioCategory}', [Admin\PortfolioController::class, 'destroyCategory']);
+        Route::apiResource('/portfolio', Admin\PortfolioController::class);
+
+        // Services
+        Route::apiResource('/services', Admin\ServiceController::class);
+
+        // Orders
+        Route::apiResource('/orders', Admin\OrderController::class)->except(['store', 'update']);
+        Route::put('/orders/{order}', [Admin\OrderController::class, 'update']);
+
+        // Quotes
+        Route::get('/quotes', [Admin\QuoteController::class, 'index']);
+        Route::get('/quotes/{quote}', [Admin\QuoteController::class, 'show']);
+        Route::put('/quotes/{quote}', [Admin\QuoteController::class, 'update']);
+        Route::delete('/quotes/{quote}', [Admin\QuoteController::class, 'destroy']);
+
+        // Coupons
+        Route::apiResource('/coupons', Admin\CouponController::class);
+
+        // Contact Messages
+        Route::get('/messages', [Admin\ContactController::class, 'index']);
+        Route::get('/messages/{contactMessage}', [Admin\ContactController::class, 'show']);
+        Route::put('/messages/{contactMessage}/read', [Admin\ContactController::class, 'markRead']);
+        Route::delete('/messages/{contactMessage}', [Admin\ContactController::class, 'destroy']);
+
+        // Upload
+        Route::post('/upload', [Admin\UploadController::class, 'upload']);
+
+        // Settings
+        Route::get('/settings', [Admin\SettingsController::class, 'index']);
+        Route::put('/settings', [Admin\SettingsController::class, 'update']);
+        Route::get('/hero-slides', [Admin\SettingsController::class, 'heroSlides']);
+        Route::post('/hero-slides', [Admin\SettingsController::class, 'storeHeroSlide']);
+        Route::put('/hero-slides/{heroSlide}', [Admin\SettingsController::class, 'updateHeroSlide']);
+        Route::delete('/hero-slides/{heroSlide}', [Admin\SettingsController::class, 'destroyHeroSlide']);
+    });
+});

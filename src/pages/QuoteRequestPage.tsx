@@ -1,0 +1,178 @@
+import { useState, useEffect } from "react";
+import { ChevronDown, Upload, X, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import FloatingSidebar from "@/components/FloatingSidebar";
+import { apiFetch, API_URL } from "@/lib/api";
+
+const SERVICES = [
+    "Kitchen Canopy Systems",
+    "Extraction / Ventilation Systems",
+    "Custom Fabrication",
+    "Stainless Steel Catering Equipment",
+    "Maintenance & Servicing",
+    "Other",
+];
+
+const QuoteRequestPage = () => {
+    const [form, setForm] = useState({ name: "", email: "", phone: "", service: "", description: "" });
+    const [files, setFiles] = useState<File[]>([]);
+    const [uploading, setUploading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [done, setDone] = useState(false);
+    const [token, setToken] = useState<string | null>(null);
+
+    useEffect(() => {
+        const t = localStorage.getItem("admin_token");
+        // Not really needed but kept for consistency; quote form is public
+        setToken(t);
+    }, []);
+
+    const update = (field: string, val: string) => setForm({ ...form, [field]: val });
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const chosen = Array.from(e.target.files || []);
+        const allowed = chosen.filter(f => f.size <= 10 * 1024 * 1024);
+        if (allowed.length !== chosen.length) toast.error("Some files exceed the 10MB limit and were skipped.");
+        setFiles(prev => [...prev, ...allowed]);
+    };
+
+    const removeFile = (i: number) => setFiles(prev => prev.filter((_, idx) => idx !== i));
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!form.name || !form.email || !form.description) {
+            toast.error("Please fill in all required fields.");
+            return;
+        }
+
+        setSubmitting(true);
+        let uploadedFiles: string[] = [];
+
+        // Upload files if any
+        if (files.length > 0) {
+            setUploading(true);
+            try {
+                for (const file of files) {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    const res = await fetch(`${API_URL}/admin/upload`, {
+                        method: "POST",
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        body: fd,
+                    });
+                    const data = await res.json();
+                    if (data.url) uploadedFiles.push(data.url);
+                }
+            } catch {
+                toast.error("File upload failed. Submitting without attachments.");
+            } finally { setUploading(false); }
+        }
+
+        try {
+            await apiFetch("/v1/quote", {
+                method: "POST",
+                body: JSON.stringify({ ...form, files: uploadedFiles }),
+            });
+            setDone(true);
+            toast.success("Quote request submitted! We'll be in touch soon.");
+        } catch {
+            toast.error("Submission failed. Please try again.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-[#eaf0f3]">
+            <Header />
+
+            <section className="pt-16 md:pt-24 pb-8 text-center">
+                <h1 className="font-sans text-[46px] md:text-[64px] leading-none font-semibold text-[#10275c]">Get a Quote</h1>
+                <p className="mt-4 text-[#6e7a92] max-w-xl mx-auto">Tell us about your project and we'll get back to you with a detailed quote within 1–2 business days.</p>
+                <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
+            </section>
+
+            <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-28 max-w-3xl">
+                {done ? (
+                    <div className="bg-white border border-[#cad4e4] p-12 text-center">
+                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                        <h2 className="font-sans text-[28px] font-semibold text-primary mb-3">Request Submitted!</h2>
+                        <p className="text-[#6e7a92]">Thank you, <strong>{form.name}</strong>. We've received your enquiry and will contact you at <strong>{form.email}</strong> within 1–2 business days.</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="bg-white border border-[#cad4e4] p-8 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label className="block text-[13px] font-semibold text-primary mb-2">Your Name *</label>
+                                <input required value={form.name} onChange={e => update("name", e.target.value)}
+                                    className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-sm outline-none focus:border-orange" placeholder="John Smith" />
+                            </div>
+                            <div>
+                                <label className="block text-[13px] font-semibold text-primary mb-2">Email Address *</label>
+                                <input required type="email" value={form.email} onChange={e => update("email", e.target.value)}
+                                    className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-sm outline-none focus:border-orange" placeholder="john@example.com" />
+                            </div>
+                            <div>
+                                <label className="block text-[13px] font-semibold text-primary mb-2">Phone Number</label>
+                                <input value={form.phone} onChange={e => update("phone", e.target.value)}
+                                    className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-sm outline-none focus:border-orange" placeholder="+44 7700 900000" />
+                            </div>
+                            <div>
+                                <label className="block text-[13px] font-semibold text-primary mb-2">Service Required</label>
+                                <select value={form.service} onChange={e => update("service", e.target.value)}
+                                    className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-sm outline-none focus:border-orange">
+                                    <option value="">Select a service...</option>
+                                    {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[13px] font-semibold text-primary mb-2">Project Description *</label>
+                            <textarea required value={form.description} onChange={e => update("description", e.target.value)}
+                                rows={6} className="w-full border border-[#cad4e4] bg-[#eaf0f3] px-4 py-3 text-sm outline-none focus:border-orange resize-none"
+                                placeholder="Describe your project, dimensions, materials, and any specific requirements..." />
+                        </div>
+
+                        <div>
+                            <label className="block text-[13px] font-semibold text-primary mb-2">Reference Files (optional)</label>
+                            <div className="border-2 border-dashed border-[#cad4e4] p-6 text-center bg-[#f8f9fb] hover:border-orange/60 transition-colors">
+                                <Upload className="w-8 h-8 mx-auto text-[#8f9ab1] mb-3" />
+                                <p className="text-sm text-[#6e7a92]">Upload images, PDFs, or drawings (max 10MB each)</p>
+                                <label className="mt-3 inline-block cursor-pointer px-4 py-2 border border-[#cad4e4] bg-white text-sm text-primary hover:bg-gray-50">
+                                    Choose Files
+                                    <input type="file" className="hidden" multiple accept="image/*,.pdf,.dwg,.dxf" onChange={handleFileChange} />
+                                </label>
+                            </div>
+                            {files.length > 0 && (
+                                <div className="mt-3 space-y-2">
+                                    {files.map((f, i) => (
+                                        <div key={i} className="flex items-center justify-between bg-[#f0f3f7] px-3 py-2 border border-[#cad4e4]">
+                                            <span className="text-sm text-primary truncate">{f.name}</span>
+                                            <button type="button" onClick={() => removeFile(i)} className="text-[#8f9ab1] hover:text-destructive ml-2"><X className="w-4 h-4" /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <button type="submit" disabled={submitting || uploading}
+                            className="w-full h-14 bg-orange text-white font-semibold text-sm hover:bg-[#d4500b] disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                            {(submitting || uploading) && <Loader2 className="w-4 h-4 animate-spin" />}
+                            {submitting ? "Submitting..." : uploading ? "Uploading files..." : "Submit Quote Request"}
+                        </button>
+                    </form>
+                )}
+            </section>
+
+            <Footer />
+            <div className="hidden md:block"><FloatingSidebar /></div>
+        </div>
+    );
+};
+
+export default QuoteRequestPage;
