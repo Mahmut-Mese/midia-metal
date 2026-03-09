@@ -150,10 +150,12 @@ class SiteSettingsSeeder extends Seeder
             ['key' => 'footer_label_links', 'value' => 'Links', 'type' => 'text', 'group' => 'general'],
             ['key' => 'footer_label_working_hours', 'value' => 'Working Hours', 'type' => 'text', 'group' => 'general'],
             ['key' => 'footer_label_get_in_touch', 'value' => 'Get in Touch', 'type' => 'text', 'group' => 'general'],
-            ['key' => 'shipping_rate', 'value' => '10.00', 'type' => 'text', 'group' => 'general'],
-            ['key' => 'shipping_type', 'value' => 'flat', 'type' => 'text', 'group' => 'general'],
-            ['key' => 'vat_enabled', 'value' => '0', 'type' => 'text', 'group' => 'general'],
-            ['key' => 'vat_rate', 'value' => '20', 'type' => 'text', 'group' => 'general'],
+            ['key' => 'shipping_rate', 'value' => '10.00', 'type' => 'text', 'group' => 'shipping-tax'],
+            ['key' => 'shipping_type', 'value' => 'flat', 'type' => 'text', 'group' => 'shipping-tax'],
+            ['key' => 'vat_enabled', 'value' => '1', 'type' => 'text', 'group' => 'shipping-tax'],
+            ['key' => 'vat_rate', 'value' => '20', 'type' => 'text', 'group' => 'shipping-tax'],
+            ['key' => 'tax_rate', 'value' => '20', 'type' => 'text', 'group' => 'shipping-tax'],
+            ['key' => 'shipping_flat_rate', 'value' => '10', 'type' => 'text', 'group' => 'shipping-tax'],
         ];
 
         foreach ($settings as $setting) {

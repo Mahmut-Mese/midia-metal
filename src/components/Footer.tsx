@@ -27,7 +27,7 @@ const Footer = () => {
   return (
     <footer className="relative z-10 bg-[#031946] text-white">
       <div className="container mx-auto px-4 lg:px-8 py-16 md:py-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 md:gap-14">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 md:gap-12">
           {/* Working Hours */}
           <div>
             <h4 className="font-sans text-xl font-semibold mb-6">{t("footer_label_working_hours", "Working Hours")}</h4>
@@ -54,9 +54,9 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Links */}
+          {/* Quick Links */}
           <div>
-            <h4 className="font-sans text-xl font-semibold mb-6">{t("footer_label_links", "Links")}</h4>
+            <h4 className="font-sans text-xl font-semibold mb-6">{t("footer_label_links", "Quick Links")}</h4>
             <ul className="space-y-2">
               {[
                 { label: t("nav_home", "Home"), path: "/" },
@@ -64,6 +64,26 @@ const Footer = () => {
                 { label: t("nav_about", "About Us"), path: "/about" },
                 { label: t("nav_shop", "Shop"), path: "/shop" },
                 { label: t("nav_contact", "Contact"), path: "/contact" },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link to={item.path} className="text-white/80 text-sm hover:text-white transition-colors">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Information links */}
+          <div>
+            <h4 className="font-sans text-xl font-semibold mb-6">{t("footer_label_info", "Information")}</h4>
+            <ul className="space-y-2">
+              {[
+                { label: t("nav_privacy", "Privacy Policy"), path: "/privacy-policy" },
+                { label: t("nav_terms", "Terms & Conditions"), path: "/terms-of-service" },
+                { label: t("nav_cookies", "Cookies Page"), path: "/cookies" },
+                { label: t("nav_returns", "Returns & Refunds"), path: "/returns-policy" },
+                { label: t("nav_faq", "FAQ"), path: "/faq" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link to={item.path} className="text-white/80 text-sm hover:text-white transition-colors">

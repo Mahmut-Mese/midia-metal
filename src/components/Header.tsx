@@ -230,15 +230,15 @@ const Header = () => {
               </button>
             </div>
 
-            <div className="space-y-7">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
               {[
                 { Icon: Facebook, label: "Facebook", href: t("social_facebook", "#") },
                 { Icon: Twitter, label: "Twitter", href: t("social_twitter", "#") },
                 { Icon: Dribbble, label: "Dribbble", href: t("social_dribbble", "#") },
                 { Icon: Instagram, label: "Instagram", href: t("social_instagram", "#") },
               ].map(({ Icon, label, href }) => (
-                <a key={label} href={href} className="inline-flex items-center gap-4 text-primary hover:text-orange transition-colors text-[19px] font-semibold">
-                  <Icon className="w-6 h-6" />
+                <a key={label} href={href} className="flex items-center gap-3 text-primary hover:text-orange transition-colors text-[17px] font-semibold">
+                  <Icon className="w-6 h-6 flex-shrink-0" />
                   {label}
                 </a>
               ))}
@@ -252,15 +252,15 @@ const Header = () => {
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <a href={`tel:${t("contact_phone", "07545888522")}`} className="flex items-center gap-3 text-primary hover:text-orange transition-colors">
-                  <Phone className="w-5 h-5 text-[#2f9cea]" />
-                  <span className="text-[32px] md:text-[42px] leading-none font-semibold">{t("contact_phone", "07545888522")}</span>
+              <div className="space-y-2">
+                <a href={`tel:${t("contact_phone", "07545888522")}`} className="flex items-start gap-3 text-primary hover:text-orange transition-colors">
+                  <Phone className="w-5 h-5 text-[#2f9cea] mt-1 flex-shrink-0" />
+                  <span className="text-[30px] xl:text-[34px] leading-[1.05] font-semibold tracking-tight whitespace-nowrap">{t("contact_phone", "07545888522")}</span>
                 </a>
               </div>
 
-              <a href={`mailto:${t("contact_email", "info@midiammetal.com")}`} className="inline-flex items-center gap-3 text-[19px] text-[#6f7c95] hover:text-orange transition-colors">
-                <Mail className="w-5 h-5 text-[#2f9cea]" />
+              <a href={`mailto:${t("contact_email", "info@midiammetal.com")}`} className="flex items-center gap-3 text-[18px] text-[#6f7c95] hover:text-orange transition-colors">
+                <Mail className="w-5 h-5 text-[#2f9cea] flex-shrink-0" />
                 {t("contact_email", "info@midiammetal.com")}
               </a>
             </div>

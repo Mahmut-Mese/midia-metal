@@ -73,18 +73,18 @@ export default function AdminMessages() {
         <div className="space-y-6">
             <h1 className="text-3xl font-bold font-sans text-[#10275c]">Contact Messages</h1>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex flex-col lg:flex-row gap-4 mb-4">
                 <input
                     type="text"
                     placeholder="Search messages..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full lg:w-80 text-sm"
                 />
                 <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white w-full lg:w-48"
                 >
                     <option value="all">All Messages</option>
                     <option value="unread">Unread</option>

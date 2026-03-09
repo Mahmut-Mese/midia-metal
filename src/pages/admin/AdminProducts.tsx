@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { Plus, Edit2, Trash2, X } from "lucide-react";
 import ImageUpload from "@/components/admin/ImageUpload";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 
 export default function AdminProducts() {
     const [products, setProducts] = useState<any[]>([]);
@@ -178,44 +179,46 @@ export default function AdminProducts() {
                 </button>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex flex-col lg:flex-row gap-4 mb-4">
                 <input
                     type="text"
                     placeholder="Search products..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full lg:w-80 text-sm"
                 />
-                <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
-                >
-                    <option value="all">All Categories</option>
-                    {categories.map(c => (
-                        <option key={c.id} value={c.id.toString()}>{c.name}</option>
-                    ))}
-                </select>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Sort by:</span>
+                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
                     <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white flex-1 sm:flex-none"
                     >
-                        <option value="name">Name</option>
-                        <option value="price">Price</option>
+                        <option value="all">All Categories</option>
+                        {categories.map(c => (
+                            <option key={c.id} value={c.id.toString()}>{c.name}</option>
+                        ))}
                     </select>
-                    <button
-                        onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-                        className="h-10 px-3 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
-                    >
-                        {sortOrder === "asc" ? "↑" : "↓"}
-                    </button>
+                    <div className="flex items-center gap-2 flex-1 sm:flex-none">
+                        <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white flex-1 sm:flex-none"
+                        >
+                            <option value="name">Name</option>
+                            <option value="price">Price</option>
+                        </select>
+                        <button
+                            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                            className="h-10 px-3 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                        >
+                            {sortOrder === "asc" ? "↑" : "↓"}
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="rounded-lg bg-white shadow overflow-hidden">
+            <div className="rounded-lg bg-white shadow overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -448,12 +451,10 @@ export default function AdminProducts() {
                                         </div>
                                     </div>
                                     <div className="col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700">Description</label>
-                                        <textarea
-                                            rows={4}
+                                        <RichTextEditor
+                                            label="Description"
                                             value={currentProduct.description || ""}
-                                            onChange={(e) => setCurrentProduct({ ...currentProduct, description: e.target.value })}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                            onChange={(html) => setCurrentProduct({ ...currentProduct, description: html })}
                                         />
                                     </div>
                                     <div className="col-span-2 flex gap-6">
@@ -504,7 +505,7 @@ export default function AdminProducts() {
                                         <div className="space-y-4">
                                             {/* Variant List Table */}
                                             {(currentProduct.variants || []).length > 0 && (
-                                                <div className="border border-gray-200 rounded-md overflow-hidden shadow-sm bg-white">
+                                                <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
                                                     <table className="min-w-full divide-y divide-gray-200">
                                                         <thead className="bg-gray-50">
                                                             <tr>

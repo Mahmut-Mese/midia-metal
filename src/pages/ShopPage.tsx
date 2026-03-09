@@ -7,6 +7,8 @@ import FloatingSidebar from "@/components/FloatingSidebar";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
 
 const ShopPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,6 +17,7 @@ const ShopPage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(searchParams.get("category"));
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  const [inStockOnly, setInStockOnly] = useState(searchParams.get("stock") === "1");
 
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -40,21 +43,24 @@ const ShopPage = () => {
 
   useEffect(() => {
     loadProducts();
-  }, [searchQuery, selectedCategory, selectedTags, sortBy, priceRange]);
+  }, [searchQuery, selectedCategory, selectedTags, sortBy, priceRange, inStockOnly]);
 
   const loadProducts = async () => {
     try {
       setLoading(true);
       // Construct tag query parameter if multiple tags are selected
       const tagQuery = selectedTags.length > 0 ? `&tag=${selectedTags[0]}` : "";
-      const res = await apiFetch(`/v1/products?search=${searchQuery}&category=${selectedCategory || ""}${tagQuery}`);
+      const stockQuery = inStockOnly ? "&in_stock=1" : "";
+      const res = await apiFetch(`/v1/products?search=${searchQuery}&category=${selectedCategory || ""}${tagQuery}${stockQuery}`);
 
       let fetchedProducts = res.data || [];
 
       // Manual filtering for price since we don't have it on backend index yet
       fetchedProducts = fetchedProducts.filter((p: any) => {
         const price = parseFloat(p.price.toString().replace(/[^\d.]/g, ""));
-        return price >= priceRange[0] && price <= priceRange[1];
+        const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
+        const matchesStock = !inStockOnly || !p.track_stock || Number(p.stock_quantity ?? 0) > 0;
+        return matchesPrice && matchesStock;
       });
 
       // Sorting
@@ -80,7 +86,10 @@ const ShopPage = () => {
 
     const category = searchParams.get("category");
     if (category !== selectedCategory) setSelectedCategory(category);
-  }, [searchParams]);
+
+    const stock = searchParams.get("stock") === "1";
+    if (stock !== inStockOnly) setInStockOnly(stock);
+  }, [searchParams, searchQuery, selectedCategory, inStockOnly]);
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
@@ -98,20 +107,37 @@ const ShopPage = () => {
     setSearchParams(newParams, { replace: true });
   };
 
+  const handleStockChange = (checked: boolean) => {
+    setInStockOnly(checked);
+    const newParams = new URLSearchParams(searchParams);
+    if (checked) newParams.set("stock", "1");
+    else newParams.delete("stock");
+    setSearchParams(newParams, { replace: true });
+  };
+
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
+  const canonicalPath = "/shop";
+  const hasActiveFilters = Boolean(searchQuery || selectedCategory || selectedTags.length > 0 || inStockOnly || priceRange[0] !== 0 || priceRange[1] !== 5000);
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Home", url: absoluteUrl("/") },
+    { name: "Shop", url: absoluteUrl("/shop") },
+  ]);
+
   return (
     <div className="min-h-screen bg-[#eaf0f3] text-foreground">
+      <Seo
+        title="Shop"
+        description={truncateText("Browse commercial kitchen products, grease filters, canopies, ventilation parts, and stainless steel fabrication items from Midia M Metal.")}
+        canonicalPath={canonicalPath}
+        noindex={hasActiveFilters}
+        structuredData={breadcrumbJsonLd}
+      />
       <Header />
 
-      <section className="pt-16 md:pt-24 pb-16 md:pb-20 text-center">
-        <h1 className="font-sans text-[52px] md:text-[68px] leading-none font-semibold text-[#10275c]">Shop</h1>
-        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-      </section>
-
-      <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-24">
+      <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-20 md:pb-24">
         <div className="shop-layout grid gap-6 md:gap-8 lg:gap-10 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_370px]">
           <div>
             <div className="flex items-center justify-between mb-8">
@@ -140,7 +166,7 @@ const ShopPage = () => {
                       <div className="bg-[#f7f8fa] mb-4">
                         <img src={p.image} alt={p.name} className="w-full aspect-square object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
                       </div>
-                      <h3 className="font-sans text-[16px] md:text-[20px] leading-tight font-semibold text-primary group-hover:text-orange transition-colors">
+                      <h3 className="font-sans text-[16px] md:text-[20px] leading-tight font-semibold text-orange transition-colors">
                         {p.name}
                       </h3>
                       <p className="text-[14px] md:text-[20px] text-[#5e6e8c] mt-1">{p.price}</p>
@@ -203,13 +229,24 @@ const ShopPage = () => {
                   onValueChange={(value) => setPriceRange(value as [number, number])}
                 />
                 <p className="text-[15px] text-[#9aa6bc] mt-5">Price: £{priceRange[0]} — £{priceRange[1]}</p>
-                <button
-                  onClick={loadProducts}
-                  className="mt-5 h-10 px-8 bg-orange text-white text-[13px] font-semibold inline-flex items-center gap-2 hover:bg-[#d4500b] transition-colors"
-                >
-                  Filter
-                  <ArrowRight className="w-3 h-3" />
-                </button>
+                <div className="mt-5 flex flex-wrap items-center gap-4">
+                  <label className="inline-flex items-center gap-3 text-[14px] font-medium text-primary cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={inStockOnly}
+                      onChange={(e) => handleStockChange(e.target.checked)}
+                      className="h-4 w-4 accent-orange"
+                    />
+                    In stock only
+                  </label>
+                  <button
+                    onClick={loadProducts}
+                    className="h-10 px-8 bg-orange text-white text-[13px] font-semibold inline-flex items-center gap-2 hover:bg-[#d4500b] transition-colors"
+                  >
+                    Filter
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
               </div>
 
               <div>

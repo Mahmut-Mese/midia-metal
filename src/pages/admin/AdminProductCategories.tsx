@@ -110,16 +110,16 @@ export default function AdminProductCategories() {
                 </button>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex flex-col lg:flex-row gap-4 mb-4">
                 <input
                     type="text"
                     placeholder="Search categories..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full lg:w-80 text-sm"
                 />
                 <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Sort by:</span>
+                    <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
@@ -137,7 +137,7 @@ export default function AdminProductCategories() {
                 </div>
             </div>
 
-            <div className="rounded-lg bg-white shadow overflow-hidden">
+            <div className="rounded-lg bg-white shadow overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -199,7 +199,7 @@ export default function AdminProductCategories() {
                             </button>
                         </div>
                         <form onSubmit={handleSave} className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <label className="block text-sm font-medium text-gray-700">Name</label>
                                     <input

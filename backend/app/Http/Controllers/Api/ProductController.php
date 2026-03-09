@@ -27,6 +27,13 @@ class ProductController extends Controller
         if ($request->featured) {
             $query->where('featured', true);
         }
+        if ($request->boolean('in_stock')) {
+            $query->where(function ($q) {
+                $q->where('track_stock', false)
+                    ->orWhereNull('track_stock')
+                    ->orWhere('stock_quantity', '>', 0);
+            });
+        }
 
         return response()->json($query->orderBy('order')->paginate(18));
     }
@@ -36,7 +43,30 @@ class ProductController extends Controller
         $product = Product::with(['category', 'reviews.customer'])->where('active', true)
             ->where(fn($q) => $q->where('id', $id)->orWhere('slug', $id))
             ->firstOrFail();
-        return response()->json($product);
+
+        $configuredFrontendUrl = rtrim((string) config('app.frontend_url'), '/');
+        $frontendUrl = $configuredFrontendUrl !== '' && !preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i', $configuredFrontendUrl)
+            ? $configuredFrontendUrl
+            : rtrim((string) request()->getSchemeAndHttpHost(), '/');
+        $productPath = '/shop/' . ($product->slug ?: $product->id);
+        $shareUrl = $frontendUrl . $productPath;
+        $shareText = $product->name . ' | Midia M Metal';
+
+        $instagramUrl = trim((string) SiteSetting::where('key', 'social_instagram')->value('value'));
+        if ($instagramUrl !== '' && !preg_match('/^https?:\/\//i', $instagramUrl)) {
+            $instagramUrl = 'https://' . $instagramUrl;
+        }
+
+        $payload = $product->toArray();
+        $payload['share_url'] = $shareUrl;
+        $payload['share_links'] = [
+            'facebook' => 'https://www.facebook.com/sharer/sharer.php?u=' . urlencode($shareUrl),
+            'twitter' => 'https://twitter.com/intent/tweet?url=' . urlencode($shareUrl) . '&text=' . urlencode($shareText),
+            'whatsapp' => 'https://wa.me/?text=' . urlencode($shareText . ' ' . $shareUrl),
+            'instagram' => $instagramUrl !== '' ? $instagramUrl : 'https://www.instagram.com/',
+        ];
+
+        return response()->json($payload);
     }
 
     public function categories()

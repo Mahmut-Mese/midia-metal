@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, stripHtml, truncateText } from "@/lib/seo";
 
 const PortfolioDetailPage = () => {
   const { slug = "" } = useParams();
@@ -62,14 +64,31 @@ const PortfolioDetailPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo
+        title={project.title}
+        description={truncateText(stripHtml(project.description || `${project.title} portfolio project by Midia M Metal.`))}
+        image={project.image}
+        canonicalPath={`/portfolio/${project.slug || slug}`}
+        structuredData={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", url: absoluteUrl("/") },
+            { name: "Portfolio", url: absoluteUrl("/portfolio") },
+            { name: project.title, url: absoluteUrl(`/portfolio/${project.slug || slug}`) },
+          ]),
+          {
+            "@context": "https://schema.org",
+            "@type": "CreativeWork",
+            name: project.title,
+            description: truncateText(stripHtml(project.description || project.title), 500),
+            image: absoluteUrl(project.image),
+            url: absoluteUrl(`/portfolio/${project.slug || slug}`),
+            ...(project.client ? { creator: { "@type": "Organization", name: project.client } } : {}),
+          },
+        ]}
+      />
       <Header />
 
-      <section className="pt-16 md:pt-24 pb-10 md:pb-14 text-center">
-        <h1 className="font-sans text-[46px] md:text-[62px] leading-none font-semibold text-[#10275c]">Portfolio Detail</h1>
-        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-      </section>
-
-      <section className="container mx-auto px-4 lg:px-8 pb-14 md:pb-20">
+      <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-14 md:pb-20">
         <div className="grid grid-cols-1 xl:grid-cols-[68%_32%] gap-8 xl:gap-10 items-start">
           <div>
             <img src={project.image} alt={project.title} className="w-full h-[360px] md:h-[520px] object-cover" />

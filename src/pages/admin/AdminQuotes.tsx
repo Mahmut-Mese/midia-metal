@@ -85,18 +85,18 @@ export default function AdminQuotes() {
                 <span className="text-sm text-gray-500">{quotes.filter(q => q.status === "new").length} new</span>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex flex-col lg:flex-row gap-4 mb-4">
                 <input
                     type="text"
                     placeholder="Search quotes..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full lg:w-80 text-sm"
                 />
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white w-full lg:w-48"
                 >
                     <option value="all">All Statuses</option>
                     <option value="new">New</option>
@@ -105,7 +105,7 @@ export default function AdminQuotes() {
                 </select>
             </div>
 
-            <div className="rounded-lg bg-white shadow overflow-hidden">
+            <div className="rounded-lg bg-white shadow overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -151,7 +151,7 @@ export default function AdminQuotes() {
                             <button onClick={() => setViewing(null)}><X className="h-6 w-6 text-gray-400" /></button>
                         </div>
                         <div className="p-6 space-y-6">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                 <div><span className="font-medium text-gray-500">Email:</span><p>{viewing.email}</p></div>
                                 <div><span className="font-medium text-gray-500">Phone:</span><p>{viewing.phone || "—"}</p></div>
                                 <div><span className="font-medium text-gray-500">Service:</span><p>{viewing.service || "—"}</p></div>

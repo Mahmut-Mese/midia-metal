@@ -67,15 +67,15 @@ export default function AdminCustomers() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <h1 className="text-3xl font-bold font-sans text-[#10275c]">Customers</h1>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">Sort:</span>
+                        <span className="text-sm text-gray-500 whitespace-nowrap">Sort:</span>
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
-                            className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                            className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white flex-1"
                         >
                             <option value="name">Name</option>
                             <option value="orders">Orders</option>
@@ -88,20 +88,20 @@ export default function AdminCustomers() {
                             {sortOrder === "asc" ? "↑" : "↓"}
                         </button>
                     </div>
-                    <div className="relative">
+                    <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <input
                             type="text"
                             placeholder="Search customers..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#eb5c10] border-gray-300"
+                            className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#eb5c10] border-gray-300 h-10"
                         />
                     </div>
                 </div>
             </div>
 
-            <div className="rounded-lg bg-white shadow overflow-hidden">
+            <div className="rounded-lg bg-white shadow overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -148,7 +148,7 @@ export default function AdminCustomers() {
                             </button>
                         </div>
                         <div className="p-6 overflow-y-auto space-y-6">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                 <div><p className="text-gray-500">Full Name</p><p className="font-semibold">{selectedCustomer.name}</p></div>
                                 <div><p className="text-gray-500">Email Address</p><p className="font-semibold">{selectedCustomer.email}</p></div>
                                 <div><p className="text-gray-500">Phone</p><p className="font-semibold">{selectedCustomer.phone || 'N/A'}</p></div>

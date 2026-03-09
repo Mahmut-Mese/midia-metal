@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
 
 const ContactPage = () => {
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -61,18 +63,40 @@ const ContactPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo
+        title="Contact"
+        description={truncateText(t("contact_welcome", "Get in touch with Midia M Metal for custom stainless steel fabrication and commercial kitchen ventilation enquiries."))}
+        canonicalPath="/contact"
+        structuredData={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", url: absoluteUrl("/") },
+            { name: "Contact", url: absoluteUrl("/contact") },
+          ]),
+          {
+            "@context": "https://schema.org",
+            "@type": "ContactPage",
+            name: "Contact Midia M Metal",
+            url: absoluteUrl("/contact"),
+            mainEntity: {
+              "@type": "Organization",
+              name: settings.site_name || "Midia M Metal",
+              email: t("contact_email", "info@midia-metal.com"),
+              telephone: t("contact_phone", "+44 123 456 7890"),
+              address: {
+                "@type": "PostalAddress",
+                streetAddress: t("contact_address", ""),
+              },
+            },
+          },
+        ]}
+      />
       <Header />
 
-      <section className="pt-16 md:pt-24 pb-14 md:pb-16 text-center">
-        <h1 className="font-sans text-[52px] md:text-[72px] leading-none font-semibold text-[#10275c]">Contact</h1>
-        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-      </section>
-
-      <section className="container mx-auto px-4 lg:px-8 pb-14 md:pb-20">
+      <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-14 md:pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 md:gap-16">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#10275c] mb-5">{t("contact_hero_label", "CONTACT US")}</p>
-            <h2 className="font-sans text-[54px] md:text-[68px] leading-[0.94] font-semibold text-[#10275c] mb-6 whitespace-pre-line">
+            <h2 className="font-sans text-[42px] md:text-[52px] leading-[0.94] font-semibold text-[#10275c] mb-6 whitespace-pre-line">
               {t("contact_hero_title", "Have Questions?\nGet in Touch!")}
             </h2>
             <p className="text-[#6f7c95] text-[16px] leading-8 max-w-[560px] mb-10">
@@ -86,7 +110,7 @@ const ContactPage = () => {
               </div>
               <div className="flex items-start gap-4">
                 <Phone className="w-5 h-5 text-[#2f9cea] mt-1 flex-shrink-0" />
-                <p className="text-[#10275c] text-[39px] leading-none font-medium">{t("contact_phone", "+1 800 555 25 69")}</p>
+                <p className="text-[#10275c] text-[28px] md:text-[39px] leading-none font-medium">{t("contact_phone", "+1 800 555 25 69")}</p>
               </div>
               <div className="flex items-start gap-4">
                 <Mail className="w-5 h-5 text-[#2f9cea] mt-1 flex-shrink-0" />

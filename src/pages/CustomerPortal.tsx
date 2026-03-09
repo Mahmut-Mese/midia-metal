@@ -13,6 +13,7 @@ import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCart } from "@/context/CartContext";
 import { API_URL } from "@/lib/api";
+import Seo from "@/components/Seo";
 
 type Tab = "orders" | "wishlist" | "quotes" | "profile" | "addresses" | "payment-methods" | "security";
 
@@ -248,13 +249,8 @@ export default function CustomerPortal() {
 
     return (
         <div className="min-h-screen bg-[#eaf0f3]">
+            <Seo title="My Account" description="Manage your orders, quotes, and saved details." canonicalPath="/account" noindex />
             <Header />
-
-            <section className="pt-16 md:pt-24 pb-8 text-center bg-white border-b border-[#cad4e4]">
-                <h1 className="font-sans text-[36px] md:text-[52px] leading-none font-semibold text-[#10275c]">My Account</h1>
-                <p className="mt-4 text-[#6e7a92]">Welcome back, {customer.name}</p>
-                <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-            </section>
 
             <section className="container mx-auto px-4 lg:px-8 py-12 md:py-20 flex flex-col md:flex-row gap-10">
 

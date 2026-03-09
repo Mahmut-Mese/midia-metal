@@ -4,6 +4,8 @@ import { Phone, ArrowRight, Star, ChevronDown, Hammer, Trophy, Settings2 } from 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
 
 
 
@@ -41,16 +43,31 @@ const ServicesPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo
+        title="Services"
+        description={truncateText(t("services_hero_desc", "Commercial kitchen ventilation, stainless steel welding, custom fabrication, canopy installation, and maintenance services across the UK."))}
+        image={t("services_hero_image_1", "/images/hero-kitchen.jpg")}
+        canonicalPath="/services"
+        structuredData={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", url: absoluteUrl("/") },
+            { name: "Services", url: absoluteUrl("/services") },
+          ]),
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            itemListElement: services.map((service, index) => ({
+              "@type": "ListItem",
+              position: index + 1,
+              url: absoluteUrl(`/services/${service.slug}`),
+              name: service.title,
+            })),
+          },
+        ]}
+      />
       <Header />
 
-      {/* Page Header */}
-      <section className="pt-16 md:pt-24 pb-8 text-center">
-        <h1 className="font-sans text-[52px] md:text-[68px] leading-none font-semibold text-[#10275c]">{t("services_hero_title", "Our Services")}</h1>
-        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-      </section>
-
-      {/* Hero Service */}
-      <section className="container mx-auto px-4 lg:px-8 pb-16 md:pb-24 pt-4">
+      <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-16 md:pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="max-w-xl">
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#10275c] mb-4">{t("services_hero_label", "YOUR COMFORT")}</p>
@@ -180,29 +197,37 @@ const ServicesPage = () => {
           <p className="text-center text-[10px] font-bold tracking-[0.24em] text-muted-foreground uppercase mb-3">PEOPLE SAY ABOUT US</p>
           <h2 className="text-center font-sans text-[48px] md:text-[68px] leading-[0.95] font-semibold text-[#10275c] mb-12">Our customers say</h2>
         </div>
-        <div className="overflow-x-auto pb-2">
-          <div className="flex gap-8 min-w-max px-4 lg:px-8">
-            {testimonials.map((t, i) => (
-              <div key={i} className="w-[280px] md:w-[300px] bg-[#f4f5f7] p-8">
-                <div className="flex gap-1 mb-4">
-                  {Array.from({ length: t.rating }).map((_, j) => (
-                    <Star key={j} className="w-4 h-4 fill-orange text-orange" />
-                  ))}
-                </div>
-                <p className="text-sm text-[#58657f] leading-7 mb-6">{t.content}</p>
-                <p className="font-sans font-semibold text-[21px] text-primary">{t.name}</p>
-                <p className="text-xs text-muted-foreground">{t.company}</p>
+        {testimonials.length > 0 ? (
+          <>
+            <div className="container mx-auto px-4 lg:px-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 justify-items-center">
+                {testimonials.map((t, i) => (
+                  <div key={i} className="w-full max-w-[420px] bg-[#f4f5f7] p-8">
+                    <div className="flex gap-1 mb-4">
+                      {Array.from({ length: t.rating }).map((_, j) => (
+                        <Star key={j} className="w-4 h-4 fill-orange text-orange" />
+                      ))}
+                    </div>
+                    <p className="text-sm text-[#58657f] leading-7 mb-6">{t.content}</p>
+                    <p className="font-sans font-semibold text-[21px] text-primary">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.company}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            <div className="flex justify-center gap-2 mt-8">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#c7cfdb]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#c7cfdb]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#c7cfdb]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#c7cfdb]" />
+            </div>
+          </>
+        ) : (
+          <div className="container mx-auto px-4 lg:px-8">
+            <p className="text-center text-[#7b879f] text-sm">Testimonials will appear here soon.</p>
           </div>
-        </div>
-        <div className="flex justify-center gap-2 mt-8">
-          <span className="w-1.5 h-1.5 rounded-full bg-orange" />
-          <span className="w-1.5 h-1.5 rounded-full bg-[#c7cfdb]" />
-          <span className="w-1.5 h-1.5 rounded-full bg-[#c7cfdb]" />
-          <span className="w-1.5 h-1.5 rounded-full bg-[#c7cfdb]" />
-          <span className="w-1.5 h-1.5 rounded-full bg-[#c7cfdb]" />
-        </div>
+        )}
       </section>
 
       <Footer />

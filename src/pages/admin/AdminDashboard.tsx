@@ -75,10 +75,10 @@ export default function AdminDashboard() {
                                             <p className="text-sm font-semibold leading-6 text-gray-900">
                                                 {order.order_number} <span className="text-gray-400 font-normal ml-2">{order.customer_name}</span>
                                             </p>
-                                            <p className="mt-1 truncate text-xs leading-5 text-gray-500">${order.total}</p>
+                                            <p className="mt-1 truncate text-xs leading-5 text-gray-500">£{order.total}</p>
                                         </div>
                                     </div>
-                                    <div className="hidden sm:flex sm:flex-col sm:items-end">
+                                    <div className="flex flex-col items-end">
                                         <p className="text-sm leading-6 text-gray-900 capitalize">{order.status}</p>
                                         <p className="mt-1 text-xs leading-5 text-gray-500">
                                             {new Date(order.created_at).toLocaleDateString()}
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
                                         </p>
                                         <p className="mt-1 truncate text-xs leading-5 text-gray-500">{msg.subject || msg.email}</p>
                                     </div>
-                                    <div className="hidden sm:flex sm:flex-col sm:items-end">
+                                    <div className="flex flex-col items-end">
                                         <p className="mt-1 text-xs leading-5 text-gray-500">
                                             {new Date(msg.created_at).toLocaleDateString()}
                                         </p>

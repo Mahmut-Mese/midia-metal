@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
 
 const PortfolioPage = () => {
   const [active, setActive] = useState<string>("All");
@@ -44,14 +46,32 @@ const PortfolioPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo
+        title="Portfolio"
+        description={truncateText("View recent commercial kitchen ventilation, stainless steel fabrication, canopy installation, and custom metalwork projects completed by Midia M Metal.")}
+        image={projects[0]?.image}
+        canonicalPath="/portfolio"
+        noindex={active !== "All"}
+        structuredData={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", url: absoluteUrl("/") },
+            { name: "Portfolio", url: absoluteUrl("/portfolio") },
+          ]),
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            itemListElement: filtered.map((project, index) => ({
+              "@type": "ListItem",
+              position: index + 1,
+              url: absoluteUrl(`/portfolio/${project.slug}`),
+              name: project.title,
+            })),
+          },
+        ]}
+      />
       <Header />
 
-      <section className="pt-16 md:pt-24 pb-14 md:pb-16 text-center">
-        <h1 className="font-sans text-[52px] md:text-[68px] leading-none font-semibold text-[#10275c]">{t("portfolio_hero_title", "Portfolio")}</h1>
-        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-      </section>
-
-      <section className="container mx-auto px-4 lg:px-8 pb-6 md:pb-8">
+      <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-6 md:pb-8">
         <div className="flex flex-wrap justify-center gap-2">
           <button
             onClick={() => setActive("All")}
@@ -102,7 +122,7 @@ const PortfolioPage = () => {
                 </div>
                 <div className="pt-4">
                   <p className="text-[11px] uppercase tracking-[0.22em] font-semibold text-[#8f9ab0] mb-2">{project.portfolio_category?.name || "Uncategorized"}</p>
-                  <h3 className="font-sans text-[23px] md:text-[28px] leading-[1.02] font-semibold text-[#10275c] group-hover:text-orange transition-colors">
+                  <h3 className="font-sans text-[23px] md:text-[28px] leading-[1.02] font-semibold text-orange">
                     {project.title}
                   </h3>
                   <p className="text-[14px] leading-7 text-[#6e7a92] mt-3">

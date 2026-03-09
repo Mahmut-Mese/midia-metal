@@ -4,6 +4,8 @@ import { ChevronDown, ShieldCheck, Wrench, Factory, Clock3, ArrowRight } from "l
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, buildOrganizationJsonLd, truncateText } from "@/lib/seo";
 
 const highlights = (settings: Record<string, string>) => [
   { value: settings["about_exp_value"] || "15+", label: settings["about_exp_label"] || "Years of Experience" },
@@ -62,14 +64,28 @@ const AboutPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo
+        title="About Us"
+        description={truncateText(t("about_subtitle", t("about_content_1", "Midia M Metal specializes in stainless steel fabrication and ventilation systems.")))}
+        image={t("about_image_1", "/images/workshop.jpg")}
+        canonicalPath="/about"
+        structuredData={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", url: absoluteUrl("/") },
+            { name: "About Us", url: absoluteUrl("/about") },
+          ]),
+          buildOrganizationJsonLd({
+            name: t("site_name", "Midia M Metal"),
+            url: absoluteUrl("/"),
+            logo: absoluteUrl(t("site_logo", "/logo.png")),
+            email: t("contact_email", "info@midia-metal.com"),
+            telephone: t("contact_phone", "+44 123 456 7890"),
+          }),
+        ]}
+      />
       <Header />
 
-      <section className="pt-16 md:pt-24 pb-12 md:pb-16 text-center">
-        <h1 className="font-sans text-[52px] md:text-[72px] leading-none font-semibold text-[#10275c]">{t("about_hero_title", "About Us")}</h1>
-        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-      </section>
-
-      <section className="container mx-auto px-4 lg:px-8 pb-16 md:pb-24">
+      <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-16 md:pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 md:gap-14 items-center">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#10275c] mb-4">{t("about_who_label", "Who We Are")}</p>

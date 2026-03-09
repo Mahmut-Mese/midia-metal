@@ -1,5 +1,18 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Heart, ShoppingCart, ChevronUp, ChevronDown } from "lucide-react";
+import {
+  Heart,
+  ShoppingCart,
+  ChevronUp,
+  ChevronDown,
+  Star,
+  Maximize2,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Facebook,
+  Twitter,
+  MessageCircle,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -9,7 +22,8 @@ import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { toast } from "sonner";
-import { Star, Maximize2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, priceToNumber, stripHtml, truncateText } from "@/lib/seo";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
@@ -36,6 +50,16 @@ const ProductDetailPage = () => {
   const [canReviewStatus, setCanReviewStatus] = useState<"loading" | "allowed" | "not_purchased" | "not_delivered" | "already_reviewed" | "unauthenticated">("loading");
 
   const allImages = product ? [product.image, ...(product.gallery || [])].filter(Boolean) : [];
+  const fallbackShareUrl = typeof window !== "undefined" ? window.location.href : "";
+  const shareUrl = product?.share_url || fallbackShareUrl;
+  const shareText = encodeURIComponent(`${product?.name || "Product"} | Midia M Metal`);
+  const description = (product?.description || "").trim();
+  const descriptionHasHtml = /<\/?[a-z][\s\S]*>/i.test(description);
+  const shareLinks = {
+    facebook: product?.share_links?.facebook || `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+    twitter: product?.share_links?.twitter || `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${shareText}`,
+    whatsapp: product?.share_links?.whatsapp || `https://wa.me/?text=${encodeURIComponent(`${product?.name || "Product"} | Midia M Metal ${shareUrl}`)}`,
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -106,6 +130,26 @@ const ProductDetailPage = () => {
     }
   };
 
+  const handlePurchaseAction = (mode: "add_to_basket" | "buy_now") => {
+    const base = parseFloat(product.price.replace(/[£,]/g, "")) || 0;
+    const extra = Object.values(selectedVariants).reduce((acc, v: any) => acc + (parseFloat(v.price) || 0), 0);
+    const cartProduct = {
+      ...product,
+      price: `£${(base + extra).toFixed(2)}`,
+      selected_variants: selectedVariants,
+    };
+
+    addToCart(cartProduct, qty);
+
+    if (mode === "buy_now") {
+      toast.success("Added to basket. Proceeding to checkout.");
+      navigate("/checkout");
+      return;
+    }
+
+    toast.success("Added to basket!");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#eaf0f3]">
@@ -132,12 +176,61 @@ const ProductDetailPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo
+        title={product.name}
+        description={truncateText(stripHtml(description || product.category?.description || `${product.name} from Midia M Metal.`))}
+        image={allImages[0]}
+        canonicalPath={`/shop/${product.slug || product.id}`}
+        type="product"
+        structuredData={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", url: absoluteUrl("/") },
+            { name: "Shop", url: absoluteUrl("/shop") },
+            ...(product.category?.slug ? [{ name: product.category.name, url: absoluteUrl(`/shop/category/${product.category.slug}`) }] : []),
+            { name: product.name, url: absoluteUrl(`/shop/${product.slug || product.id}`) },
+          ]),
+          {
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: product.name,
+            image: allImages.map((img: string) => absoluteUrl(img)),
+            description: truncateText(stripHtml(description || product.category?.description || product.name), 500),
+            sku: String(product.id),
+            category: product.category?.name,
+            brand: {
+              "@type": "Brand",
+              name: "Midia M Metal",
+            },
+            offers: {
+              "@type": "Offer",
+              url: absoluteUrl(`/shop/${product.slug || product.id}`),
+              priceCurrency: "GBP",
+              price: priceToNumber(product.price) ?? undefined,
+              availability: !product.track_stock || Number(product.stock_quantity ?? 0) > 0
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+            },
+            ...(product.reviews?.length
+              ? {
+                aggregateRating: {
+                  "@type": "AggregateRating",
+                  ratingValue: (
+                    product.reviews.reduce((sum: number, review: any) => sum + Number(review.rating || 0), 0) /
+                    product.reviews.length
+                  ).toFixed(1),
+                  reviewCount: product.reviews.length,
+                },
+              }
+              : {}),
+          },
+        ]}
+      />
       <Header />
 
       <section className="container mx-auto px-4 lg:px-8 pt-12 md:pt-14 pb-10">
-        <div className="grid grid-cols-1 xl:grid-cols-[56%_44%] gap-10 xl:gap-12 items-start">
-          <div className="flex flex-col gap-4">
-            <div className="relative group bg-white border border-[#e1e5eb] p-4 flex items-center justify-center">
+        <div className="grid grid-cols-1 xl:grid-cols-[45%_55%] gap-10 xl:gap-12 items-start">
+          <div className="flex flex-col gap-4 max-w-[550px]">
+            <div className="relative group bg-white border border-[#e1e5eb] p-8 flex items-center justify-center">
               <img src={allImages[mainImageIndex]} alt={product.name} className="w-full aspect-square object-contain" />
               <button
                 onClick={() => {
@@ -174,14 +267,6 @@ const ProductDetailPage = () => {
               })()}
             </p>
 
-            <div className="space-y-4 mb-8">
-              {(product.description || "").split("\n\n").map((paragraph: string, index: number) => (
-                <p key={index} className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-
             <div className="flex items-center gap-3 flex-wrap mb-8">
               <div className="w-[118px] h-[50px] border border-[#cad4e4] flex items-center px-5 bg-[#eaf0f3]">
                 <span className="text-base text-primary">{qty}</span>
@@ -196,18 +281,15 @@ const ProductDetailPage = () => {
               </div>
 
               <button
-                onClick={() => {
-                  const base = parseFloat(product.price.replace(/[£,]/g, "")) || 0;
-                  const extra = Object.values(selectedVariants).reduce((acc, v: any) => acc + (parseFloat(v.price) || 0), 0);
-                  const cartProduct = {
-                    ...product,
-                    price: `£${(base + extra).toFixed(2)}`,
-                    selected_variants: selectedVariants
-                  };
-                  addToCart(cartProduct, qty);
-                  toast.success("Added to cart!");
-                  navigate("/cart");
-                }}
+                onClick={() => handlePurchaseAction("add_to_basket")}
+                className="h-[50px] px-8 border border-[#d1dbe8] bg-white text-primary text-sm font-semibold inline-flex items-center gap-2 hover:border-orange hover:text-orange transition-colors"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                Add to basket
+              </button>
+
+              <button
+                onClick={() => handlePurchaseAction("buy_now")}
                 className="h-[50px] px-10 bg-orange text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-orange-hover transition-colors"
               >
                 <ShoppingCart className="w-4 h-4" />
@@ -296,6 +378,29 @@ const ProductDetailPage = () => {
                   <span className="text-[#6e7a92]">{value}</span>
                 </p>
               ))}
+
+              <div className="pt-2">
+                <span className="font-semibold text-primary">Share:</span>
+                <div className="mt-2 flex items-center gap-2">
+                  {[
+                    { key: "facebook", href: shareLinks.facebook, Icon: Facebook, label: "Share on Facebook" },
+                    { key: "twitter", href: shareLinks.twitter, Icon: Twitter, label: "Share on Twitter" },
+                    { key: "whatsapp", href: shareLinks.whatsapp, Icon: MessageCircle, label: "Share on WhatsApp" },
+                  ].map(({ key, href, Icon, label }) => (
+                    <a
+                      key={key}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={label}
+                      title={label}
+                      className="w-9 h-9 rounded-full border border-[#d1dbe8] bg-white text-[#6e7a92] grid place-items-center transition-colors hover:border-orange hover:text-orange"
+                    >
+                      <Icon className="w-4 h-4" />
+                    </a>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -325,9 +430,20 @@ const ProductDetailPage = () => {
 
         {tab === "description" ? (
           <div className="max-w-[1450px]">
-            <p className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7 whitespace-pre-wrap">
-              {product.description || "No description provided."}
-            </p>
+            {description ? (
+              descriptionHasHtml ? (
+                <div
+                  className="prose prose-sm max-w-none text-[#6e7a92] leading-7 prose-p:my-3 prose-headings:text-primary prose-strong:text-primary prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-blockquote:border-orange prose-blockquote:text-[#5f6f8d]"
+                  dangerouslySetInnerHTML={{ __html: description }}
+                />
+              ) : (
+                <p className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7 whitespace-pre-wrap">
+                  {description}
+                </p>
+              )
+            ) : (
+              <p className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7">No description provided.</p>
+            )}
           </div>
         ) : (
           <div className="max-w-[800px]">
@@ -432,7 +548,7 @@ const ProductDetailPage = () => {
               <div className="mb-5 bg-[#f7f8fa]">
                 <img src={p.image} alt={p.name} className="w-full aspect-[1.02] object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
               </div>
-              <h3 className="font-sans text-[18px] md:text-[20px] leading-tight font-semibold text-primary group-hover:text-orange transition-colors">
+              <h3 className="font-sans text-[18px] md:text-[20px] leading-tight font-semibold text-orange">
                 {p.name}
               </h3>
               <p className="text-[18px] md:text-[20px] leading-none text-[#1f2f52] mt-3">{p.price}</p>

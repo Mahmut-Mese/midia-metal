@@ -7,6 +7,7 @@ import FloatingSidebar from "@/components/FloatingSidebar";
 import { ChevronDown } from "lucide-react";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { API_URL } from "@/lib/api";
+import Seo from "@/components/Seo";
 
 export default function CustomerLogin() {
     const [email, setEmail] = useState("");
@@ -39,14 +40,10 @@ export default function CustomerLogin() {
 
     return (
         <div className="min-h-screen bg-[#eaf0f3]">
+            <Seo title="Customer Login" description="Log in to your customer account." canonicalPath="/login" noindex />
             <Header />
 
-            <section className="pt-16 md:pt-24 pb-8 text-center">
-                <h1 className="font-sans text-[46px] md:text-[64px] leading-none font-semibold text-[#10275c]">My Account</h1>
-                <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-            </section>
-
-            <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-28">
+            <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-28">
                 <div className="max-w-md mx-auto bg-white p-8 border border-[#cad4e4]">
                     <h2 className="font-sans text-[32px] md:text-[42px] leading-none font-semibold text-primary mb-7">Login</h2>
                     <form onSubmit={handleLogin} className="space-y-5">

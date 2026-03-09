@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, stripHtml, truncateText } from "@/lib/seo";
 
 const ServiceDetailPage = () => {
   const { slug = "" } = useParams();
@@ -65,6 +67,32 @@ const ServiceDetailPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo
+        title={service.title}
+        description={truncateText(stripHtml(service.excerpt || service.content || `${service.title} service from Midia M Metal.`))}
+        image={service.image}
+        canonicalPath={`/services/${service.slug || slug}`}
+        structuredData={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", url: absoluteUrl("/") },
+            { name: "Services", url: absoluteUrl("/services") },
+            { name: service.title, url: absoluteUrl(`/services/${service.slug || slug}`) },
+          ]),
+          {
+            "@context": "https://schema.org",
+            "@type": "Service",
+            name: service.title,
+            description: truncateText(stripHtml(service.excerpt || service.content || service.title), 500),
+            provider: {
+              "@type": "Organization",
+              name: "Midia M Metal",
+              url: absoluteUrl("/"),
+            },
+            url: absoluteUrl(`/services/${service.slug || slug}`),
+            image: service.image ? absoluteUrl(service.image) : undefined,
+          },
+        ]}
+      />
       <Header />
 
       <section className="container mx-auto px-4 lg:px-8 py-10 md:py-14">

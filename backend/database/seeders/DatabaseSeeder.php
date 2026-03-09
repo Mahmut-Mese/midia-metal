@@ -13,6 +13,7 @@ use App\Models\PortfolioCategory;
 use App\Models\PortfolioProject;
 use App\Models\BlogPost;
 use App\Models\SiteSetting;
+use App\Models\Testimonial;
 
 class DatabaseSeeder extends Seeder
 {
@@ -118,6 +119,40 @@ class DatabaseSeeder extends Seeder
         ];
         foreach ($posts as $p) {
             BlogPost::create(array_merge($p, ['active' => true]));
+        }
+
+        // Testimonials
+        $testimonials = [
+            [
+                'name' => 'Daniel Harper',
+                'company' => 'Riverside Grill, London',
+                'content' => 'From design to installation, the team delivered on time and the canopy system has been excellent in daily service.',
+                'rating' => 5,
+                'active' => true,
+                'order' => 1,
+            ],
+            [
+                'name' => 'Sophie Bennett',
+                'company' => 'Bennett Catering Ltd',
+                'content' => 'Great communication and clean workmanship. The custom stainless fabrication matched our exact site requirements.',
+                'rating' => 5,
+                'active' => true,
+                'order' => 2,
+            ],
+            [
+                'name' => 'Michael Reed',
+                'company' => 'Northfield Kitchens',
+                'content' => 'Reliable delivery, practical advice, and strong aftercare. We have used them on multiple kitchen fit-out projects.',
+                'rating' => 5,
+                'active' => true,
+                'order' => 3,
+            ],
+        ];
+        foreach ($testimonials as $testimonial) {
+            Testimonial::updateOrCreate(
+                ['name' => $testimonial['name'], 'company' => $testimonial['company']],
+                $testimonial
+            );
         }
 
         // Site Settings

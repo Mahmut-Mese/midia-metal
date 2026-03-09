@@ -5,6 +5,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
 
 const BlogPage = () => {
   const [posts, setPosts] = useState<any[]>([]);
@@ -44,14 +46,33 @@ const BlogPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo
+        title={t("blog_hero_title", "Blog")}
+        description={truncateText("Read insights on commercial kitchen ventilation, stainless steel fabrication, canopy systems, hygiene, and maintenance from Midia M Metal.")}
+        image={posts[0]?.image}
+        canonicalPath="/blog"
+        structuredData={[
+          buildBreadcrumbJsonLd([
+            { name: "Home", url: absoluteUrl("/") },
+            { name: "Blog", url: absoluteUrl("/blog") },
+          ]),
+          {
+            "@context": "https://schema.org",
+            "@type": "Blog",
+            name: "Midia M Metal Blog",
+            url: absoluteUrl("/blog"),
+            blogPost: posts.slice(0, 10).map((post) => ({
+              "@type": "BlogPosting",
+              headline: post.title,
+              url: absoluteUrl(`/blog/${post.slug}`),
+              image: post.image ? absoluteUrl(post.image) : undefined,
+            })),
+          },
+        ]}
+      />
       <Header />
 
-      <section className="pt-16 md:pt-24 pb-16 md:pb-20 text-center">
-        <h1 className="font-sans text-[52px] md:text-[68px] leading-none font-semibold text-[#10275c]">{t("blog_hero_title", "Blog")}</h1>
-        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-      </section>
-
-      <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-24">
+      <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-20 md:pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_370px] gap-8 lg:gap-10">
           <div>
             <p className="text-[13px] text-[#9aa6bc] mb-8">Showing results for blog</p>
@@ -85,7 +106,7 @@ const BlogPage = () => {
                         </span>
                       </div>
                       <Link to={`/blog/${post.slug}`}>
-                        <h2 className="font-sans text-[32px] md:text-[42px] leading-[0.96] font-semibold text-[#10275c] hover:text-orange transition-colors mb-4">
+                        <h2 className="font-sans text-[32px] md:text-[42px] leading-[0.96] font-semibold text-orange hover:text-orange/80 transition-colors mb-4">
                           {post.title}
                         </h2>
                       </Link>
@@ -139,7 +160,7 @@ const BlogPage = () => {
                   <li key={post.id} className="flex gap-3">
                     <img src={post.image} alt={post.title} className="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
                     <div>
-                      <Link to={`/blog/${post.slug}`} className="text-[15px] font-semibold text-primary hover:text-orange transition-colors leading-snug">
+                      <Link to={`/blog/${post.slug}`} className="text-[15px] font-semibold text-orange hover:text-orange/80 transition-colors leading-snug">
                         {post.title}
                       </Link>
                       <p className="text-[12px] text-[#7f8aa2] mt-2">

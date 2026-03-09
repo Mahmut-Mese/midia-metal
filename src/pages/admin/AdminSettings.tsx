@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import ImageUpload from "@/components/admin/ImageUpload";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 
 type SettingRecord = {
     id: number;
@@ -21,7 +22,7 @@ type HeroSlideRecord = {
     isNew?: boolean;
 };
 
-const GROUP_ORDER = ["general", "home", "about", "contact", "services", "portfolio", "blog", "seo", "hero-slides"];
+const GROUP_ORDER = ["general", "shipping-tax", "home", "about", "contact", "services", "portfolio", "blog", "legal", "faq", "seo", "hero-slides"];
 
 export default function AdminSettings() {
     const [settings, setSettings] = useState<SettingRecord[]>([]);
@@ -284,7 +285,13 @@ export default function AdminSettings() {
                                         <label className="block text-sm font-bold text-[#10275c] capitalize">
                                             {setting.key.replace(/_/g, " ").replace(activeTab, "").trim() || setting.key}
                                         </label>
-                                        {setting.type === "textarea" ? (
+                                        {setting.type === "richtext" ? (
+                                            <RichTextEditor
+                                                label=""
+                                                value={setting.value || ""}
+                                                onChange={(value) => updateSetting(setting.key, value)}
+                                            />
+                                        ) : setting.type === "textarea" ? (
                                             <textarea
                                                 rows={6}
                                                 value={setting.value || ""}

@@ -6,6 +6,8 @@ import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
 import { API_URL } from "@/lib/api";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
 
 const SERVICES = [
     "Kitchen Canopy Systems",
@@ -89,15 +91,18 @@ const QuoteRequestPage = () => {
 
     return (
         <div className="min-h-screen bg-[#eaf0f3]">
+            <Seo
+                title="Request a Quote"
+                description={truncateText("Request a quote for commercial kitchen canopies, ventilation systems, custom fabrication, and stainless steel catering equipment from Midia M Metal.")}
+                canonicalPath="/get-a-quote"
+                structuredData={buildBreadcrumbJsonLd([
+                    { name: "Home", url: absoluteUrl("/") },
+                    { name: "Request a Quote", url: absoluteUrl("/get-a-quote") },
+                ])}
+            />
             <Header />
 
-            <section className="pt-16 md:pt-24 pb-8 text-center">
-                <h1 className="font-sans text-[46px] md:text-[64px] leading-none font-semibold text-[#10275c]">Get a Quote</h1>
-                <p className="mt-4 text-[#6e7a92] max-w-xl mx-auto">Tell us about your project and we'll get back to you with a detailed quote within 1–2 business days.</p>
-                <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-            </section>
-
-            <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-28 max-w-3xl">
+            <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-28 max-w-3xl">
                 {done ? (
                     <div className="bg-white border border-[#cad4e4] p-12 text-center">
                         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">

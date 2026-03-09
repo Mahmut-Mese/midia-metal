@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import CheckoutSteps from "@/components/CheckoutSteps";
 import FloatingSidebar from "@/components/FloatingSidebar";
 import { API_URL } from "@/lib/api";
+import Seo from "@/components/Seo";
 import { useCart } from "@/context/CartContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 
@@ -269,14 +270,10 @@ const PaymentPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo title="Payment" description="Secure payment page." canonicalPath="/payment" noindex />
       <Header />
 
-      <section className="pt-16 md:pt-24 pb-8 text-center">
-        <h1 className="font-sans text-[46px] md:text-[64px] leading-none font-semibold text-[#10275c]">Payment</h1>
-        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-      </section>
-
-      <section className="container mx-auto px-4 lg:px-8 pb-4 md:pb-6">
+      <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-4 md:pb-6">
         <CheckoutSteps currentStep={3} />
       </section>
 

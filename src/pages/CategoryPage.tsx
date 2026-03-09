@@ -4,6 +4,8 @@ import { ChevronDown } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildBreadcrumbJsonLd, stripHtml, truncateText } from "@/lib/seo";
 
 const CategoryPage = () => {
   const { slug = "" } = useParams<{ slug: string }>();
@@ -59,21 +61,27 @@ const CategoryPage = () => {
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
+      <Seo
+        title={`${category.name} Products`}
+        description={truncateText(stripHtml(category.description || `Browse ${category.name} products from Midia M Metal.`))}
+        image={category.image}
+        canonicalPath={`/shop/category/${category.slug || slug}`}
+        structuredData={buildBreadcrumbJsonLd([
+          { name: "Home", url: absoluteUrl("/") },
+          { name: "Shop", url: absoluteUrl("/shop") },
+          { name: category.name, url: absoluteUrl(`/shop/category/${category.slug || slug}`) },
+        ])}
+      />
       <Header />
 
-      <section className="pt-16 md:pt-24 pb-10 md:pb-14 text-center">
-        <h1 className="font-sans text-[46px] md:text-[64px] leading-none font-semibold text-[#10275c]">{category.title}</h1>
-        <ChevronDown className="w-5 h-5 mx-auto mt-6 text-primary" />
-      </section>
-
-      <section className="container mx-auto px-4 lg:px-8 pb-16 md:pb-20">
+      <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-16 md:pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-8 md:gap-10 items-center">
           <div className="bg-[#f4f5f7]">
-            <img src={category.image} alt={category.title} className="w-full h-[280px] md:h-[420px] object-cover" />
+            <img src={category.image} alt={category.name} className="w-full h-[280px] md:h-[420px] object-cover" />
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#10275c] mb-4">Category Overview</p>
-            <h2 className="font-sans text-[34px] md:text-[48px] leading-[0.96] font-semibold text-[#10275c] mb-5">{category.title}</h2>
+            <h2 className="font-sans text-[34px] md:text-[48px] leading-[0.96] font-semibold text-[#10275c] mb-5">{category.name}</h2>
             <p className="text-[15px] leading-8 text-[#6f7c95]">{category.description}</p>
           </div>
         </div>

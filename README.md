@@ -1,4 +1,4 @@
-# Welcome to your Lovable project
+# Midia Metal Solutions
 
 ## Project info
 

@@ -4,6 +4,8 @@ import { Gift, CirclePercent, ShoppingBag, WalletMinimal, ChevronLeft, ChevronRi
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { apiFetch } from "@/lib/api";
+import Seo from "@/components/Seo";
+import { absoluteUrl, buildOrganizationJsonLd, buildBreadcrumbJsonLd, stripHtml, truncateText } from "@/lib/seo";
 
 const getFeatures = (t: (k: string, d: string) => string) => [
   { icon: Gift, title: t("home_reward_title", "Commercial-grade fabrication"), desc: t("home_reward_desc", "Built for demanding kitchen and ventilation environments.") },
@@ -45,6 +47,29 @@ const Index = () => {
   }, []);
 
   const t = (key: string, def: string) => settings[key] || def;
+  const organizationJsonLd = buildOrganizationJsonLd({
+    name: t("site_name", "Midia M Metal"),
+    url: absoluteUrl("/"),
+    logo: absoluteUrl(t("site_logo", "/logo.png")),
+    email: t("contact_email", "info@midia-metal.com"),
+    telephone: t("contact_phone", "+44 123 456 7890"),
+    sameAs: [
+      t("social_facebook", ""),
+      t("social_twitter", ""),
+      t("social_instagram", ""),
+      t("social_dribbble", ""),
+    ].filter((url) => /^https?:\/\//i.test(url)),
+  });
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: t("site_name", "Midia M Metal"),
+    url: absoluteUrl("/"),
+    description: truncateText(stripHtml(t("meta_description", "Commercial kitchen ventilation and stainless steel fabrication specialists across the UK."))),
+  };
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Home", url: absoluteUrl("/") },
+  ]);
 
   const goToPrevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
@@ -65,6 +90,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[#f2f3f5]">
+      <Seo
+        title={t("meta_title", "Midia M Metal - Commercial Kitchen Solutions")}
+        description={truncateText(stripHtml(t("meta_description", "Specialist in commercial kitchen ventilation, stainless steel fabrication, and canopy installation across the UK.")))}
+        image={heroSlides[0]?.image || t("site_logo", "/logo.png")}
+        canonicalPath="/"
+        structuredData={[organizationJsonLd, websiteJsonLd, breadcrumbJsonLd]}
+      />
       <Header />
 
       {/* Hero Slider */}
@@ -150,7 +182,7 @@ const Index = () => {
                 )}
                 <img src={item.image} alt={item.name} className="w-full aspect-square object-cover" />
               </div>
-              <h3 className="font-sans text-[16px] md:text-[20px] leading-tight md:leading-7 font-semibold text-[#15264b] hover:text-orange transition-colors">{item.name}</h3>
+              <h3 className="font-sans text-[16px] md:text-[20px] leading-tight md:leading-7 font-semibold text-orange">{item.name}</h3>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {item.old_price && (
                   <span className="text-[16px] md:text-[20px] text-muted-foreground line-through">{item.old_price}</span>

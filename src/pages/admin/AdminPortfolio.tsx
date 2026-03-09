@@ -127,45 +127,47 @@ export default function AdminPortfolio() {
                 </button>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex flex-col lg:flex-row gap-4 mb-4">
                 <input
                     type="text"
                     placeholder="Search projects..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full lg:w-80 text-sm"
                 />
-                <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
-                >
-                    <option value="all">All Categories</option>
-                    {categories.map(c => (
-                        <option key={c.id} value={c.id.toString()}>{c.name}</option>
-                    ))}
-                </select>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Sort by:</span>
+                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
                     <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white flex-1 sm:flex-none"
                     >
-                        <option value="title">Title</option>
-                        <option value="year">Year</option>
-                        <option value="client">Client</option>
+                        <option value="all">All Categories</option>
+                        {categories.map(c => (
+                            <option key={c.id} value={c.id.toString()}>{c.name}</option>
+                        ))}
                     </select>
-                    <button
-                        onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-                        className="h-10 px-3 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
-                    >
-                        {sortOrder === "asc" ? "↑" : "↓"}
-                    </button>
+                    <div className="flex items-center gap-2 flex-1 sm:flex-none">
+                        <span className="text-sm text-gray-500 whitespace-nowrap">Sort by:</span>
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white flex-1 sm:flex-none"
+                        >
+                            <option value="title">Title</option>
+                            <option value="year">Year</option>
+                            <option value="client">Client</option>
+                        </select>
+                        <button
+                            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                            className="h-10 px-3 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                        >
+                            {sortOrder === "asc" ? "↑" : "↓"}
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div className="rounded-lg bg-white shadow overflow-hidden">
+            <div className="rounded-lg bg-white shadow overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -227,7 +229,7 @@ export default function AdminPortfolio() {
                             </button>
                         </div>
                         <form onSubmit={handleSave} className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="col-span-2">
                                     <label className="block text-sm font-medium text-gray-700">Title</label>
                                     <input
