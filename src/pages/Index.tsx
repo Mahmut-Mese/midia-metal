@@ -138,7 +138,7 @@ const Index = () => {
       {/* Trending Items */}
       <section className="container mx-auto px-4 lg:px-8 py-10 md:py-20">
         <p className="text-center text-[10px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-2">{t("home_catalog_label", "OUR CATALOG")}</p>
-        <h2 className="text-center text-[44px] leading-none md:text-[58px] font-semibold text-[#10275c] mb-8 md:mb-12 font-sans">{t("home_trending_title", "Trending items")}</h2>
+        <h2 className="text-center text-[44px] leading-none md:text-[38px] font-semibold text-[#10275c] mb-8 md:mb-12 font-sans">{t("home_trending_title", "Trending items")}</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {trendingItems.map((item) => (
             <Link to={`/shop/${item.slug}`} key={item.id} className="product-card">
@@ -150,12 +150,12 @@ const Index = () => {
                 )}
                 <img src={item.image} alt={item.name} className="w-full aspect-square object-cover" />
               </div>
-              <h3 className="font-sans text-[16px] md:text-[26px] leading-tight md:leading-7 font-semibold text-[#15264b] hover:text-orange transition-colors">{item.name}</h3>
+              <h3 className="font-sans text-[16px] md:text-[20px] leading-tight md:leading-7 font-semibold text-[#15264b] hover:text-orange transition-colors">{item.name}</h3>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {item.old_price && (
-                  <span className="text-[16px] md:text-[30px] text-muted-foreground line-through">{item.old_price}</span>
+                  <span className="text-[16px] md:text-[20px] text-muted-foreground line-through">{item.old_price}</span>
                 )}
-                <span className="text-[14px] md:text-[30px] font-medium text-[#15264b]/75">{item.price}</span>
+                <span className="text-[14px] md:text-[20px] font-medium text-[#15264b]/75">{item.price}</span>
               </div>
             </Link>
           ))}
@@ -179,7 +179,7 @@ const Index = () => {
           </div>
           <div className="relative overflow-hidden min-h-[200px] md:h-[240px] bg-[#e8edf1] flex items-center">
             <div className="flex-1 p-6 md:p-10 flex flex-col justify-center z-10">
-              <h3 className="text-[48px] md:text-[46px] leading-[0.95] md:leading-[1.02] font-semibold text-[#10275c] mb-3 md:mb-4 font-sans">{t("home_comfort_title", "Our products bring comfort to your home")}</h3>
+              <h3 className="text-[48px] md:text-[35px] leading-[0.95] md:leading-[1.02] font-semibold text-[#10275c] mb-3 md:mb-4 font-sans">{t("home_comfort_title", "Our products bring comfort to your home")}</h3>
               <p className="text-[#6f7e9a] text-xs md:text-sm mb-5 md:mb-7">{t("home_comfort_desc", "Dicta sunt explicabo. Nemo ipsam.")}</p>
               <Link to="/shop" className="inline-flex items-center justify-center w-fit px-5 md:px-7 py-2.5 md:py-3 bg-[#22a3e6] text-white text-xs md:text-sm font-semibold hover:bg-[#1c90cb] transition-colors">
                 {t("home_learn_more_label", "Learn More")}

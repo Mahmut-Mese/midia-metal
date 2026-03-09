@@ -12,6 +12,11 @@ export default function AdminPortfolio() {
     const [isEditing, setIsEditing] = useState(false);
     const [currentProject, setCurrentProject] = useState<any>(null);
 
+    const [searchTerm, setSearchTerm] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("all");
+    const [sortBy, setSortBy] = useState("title");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
     useEffect(() => {
         loadProjects();
         loadCategories();
@@ -88,6 +93,26 @@ export default function AdminPortfolio() {
         }
     };
 
+    const filteredProjects = projects
+        .filter((p) => {
+            const matchesSearch =
+                p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (p.client || "").toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesCategory = categoryFilter === "all" || p.portfolio_category_id?.toString() === categoryFilter;
+            return matchesSearch && matchesCategory;
+        })
+        .sort((a, b) => {
+            let valA = a[sortBy];
+            let valB = b[sortBy];
+
+            valA = valA?.toString().toLowerCase() || "";
+            valB = valB?.toString().toLowerCase() || "";
+
+            if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+            if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+            return 0;
+        });
+
     if (loading) return <div>Loading...</div>;
 
     return (
@@ -102,6 +127,44 @@ export default function AdminPortfolio() {
                 </button>
             </div>
 
+            <div className="flex flex-col md:flex-row gap-4 mb-4">
+                <input
+                    type="text"
+                    placeholder="Search projects..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                />
+                <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                >
+                    <option value="all">All Categories</option>
+                    {categories.map(c => (
+                        <option key={c.id} value={c.id.toString()}>{c.name}</option>
+                    ))}
+                </select>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Sort by:</span>
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                    >
+                        <option value="title">Title</option>
+                        <option value="year">Year</option>
+                        <option value="client">Client</option>
+                    </select>
+                    <button
+                        onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                        className="h-10 px-3 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                    >
+                        {sortOrder === "asc" ? "↑" : "↓"}
+                    </button>
+                </div>
+            </div>
+
             <div className="rounded-lg bg-white shadow overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -113,37 +176,43 @@ export default function AdminPortfolio() {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {projects.map((project) => (
-                            <tr key={project.id}>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex items-center">
-                                        <div className="h-10 w-10 flex-shrink-0">
-                                            {project.image ? <img className="h-10 w-10 rounded object-cover" src={project.image} alt="" /> : <div className="h-10 w-10 bg-gray-200 rounded"></div>}
-                                        </div>
-                                        <div className="ml-4">
-                                            <div className="text-sm font-medium text-gray-900">{project.title}</div>
-                                            <div className="text-xs text-gray-500">{project.client}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {project.portfolio_category?.name || "N/A"}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${project.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                        {project.active ? "Active" : "Inactive"}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button onClick={() => openEdit(project)} className="text-indigo-600 hover:text-indigo-900 mr-4">
-                                        <Edit2 className="h-4 w-4" />
-                                    </button>
-                                    <button onClick={() => handleDelete(project.id)} className="text-red-600 hover:text-red-900">
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </td>
+                        {filteredProjects.length === 0 ? (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-10 text-center text-sm text-gray-500">No projects found.</td>
                             </tr>
-                        ))}
+                        ) : (
+                            filteredProjects.map((project) => (
+                                <tr key={project.id}>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                            <div className="h-10 w-10 flex-shrink-0">
+                                                {project.image ? <img className="h-10 w-10 rounded object-cover" src={project.image} alt="" /> : <div className="h-10 w-10 bg-gray-200 rounded"></div>}
+                                            </div>
+                                            <div className="ml-4">
+                                                <div className="text-sm font-medium text-gray-900">{project.title}</div>
+                                                <div className="text-xs text-gray-500">{project.client}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {project.portfolio_category?.name || "N/A"}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${project.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            {project.active ? "Active" : "Inactive"}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button onClick={() => openEdit(project)} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                                            <Edit2 className="h-4 w-4" />
+                                        </button>
+                                        <button onClick={() => handleDelete(project.id)} className="text-red-600 hover:text-red-900">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>

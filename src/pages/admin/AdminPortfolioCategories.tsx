@@ -10,6 +10,10 @@ export default function AdminPortfolioCategories() {
     const [isEditing, setIsEditing] = useState(false);
     const [currentCategory, setCurrentCategory] = useState<any>(null);
 
+    const [searchTerm, setSearchTerm] = useState("");
+    const [sortBy, setSortBy] = useState("name");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
     useEffect(() => {
         loadCategories();
     }, []);
@@ -68,6 +72,25 @@ export default function AdminPortfolioCategories() {
         }
     };
 
+    const filteredCategories = categories
+        .filter((c) => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => {
+            let valA = a[sortBy];
+            let valB = b[sortBy];
+
+            if (sortBy === "projects_count") {
+                valA = parseInt(valA) || 0;
+                valB = parseInt(valB) || 0;
+            } else {
+                valA = valA?.toString().toLowerCase() || "";
+                valB = valB?.toString().toLowerCase() || "";
+            }
+
+            if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+            if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+            return 0;
+        });
+
     if (loading) return <div>Loading...</div>;
 
     return (
@@ -82,6 +105,33 @@ export default function AdminPortfolioCategories() {
                 </button>
             </div>
 
+            <div className="flex flex-col md:flex-row gap-4 mb-4">
+                <input
+                    type="text"
+                    placeholder="Search categories..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                />
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Sort by:</span>
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                    >
+                        <option value="name">Name</option>
+                        <option value="projects_count">Projects #</option>
+                    </select>
+                    <button
+                        onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                        className="h-10 px-3 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                    >
+                        {sortOrder === "asc" ? "↑" : "↓"}
+                    </button>
+                </div>
+            </div>
+
             <div className="rounded-lg bg-white shadow overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -93,27 +143,33 @@ export default function AdminPortfolioCategories() {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {categories.map((category) => (
-                            <tr key={category.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {category.name}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {category.slug}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {category.projects_count || 0}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button onClick={() => openEdit(category)} className="text-indigo-600 hover:text-indigo-900 mr-4">
-                                        <Edit2 className="h-4 w-4" />
-                                    </button>
-                                    <button onClick={() => handleDelete(category.id)} className="text-red-600 hover:text-red-900">
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </td>
+                        {filteredCategories.length === 0 ? (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-10 text-center text-sm text-gray-500">No categories found.</td>
                             </tr>
-                        ))}
+                        ) : (
+                            filteredCategories.map((category) => (
+                                <tr key={category.id}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        {category.name}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {category.slug}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {category.projects_count || 0}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button onClick={() => openEdit(category)} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                                            <Edit2 className="h-4 w-4" />
+                                        </button>
+                                        <button onClick={() => handleDelete(category.id)} className="text-red-600 hover:text-red-900">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>

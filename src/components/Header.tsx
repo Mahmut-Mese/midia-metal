@@ -93,7 +93,7 @@ const Header = () => {
           <img
             src={t("site_logo", "/logo.png")}
             alt={`${t("site_name", "Midia M Metal")} Logo`}
-            className="h-7 md:h-10 w-auto object-contain"
+            className="h-14 w-auto object-contain"
           />
         </Link>
 
@@ -111,7 +111,7 @@ const Header = () => {
             <Link
               key={item.path}
               to={item.path}
-              className={`text-[13px] leading-none font-medium transition-colors ${isPathActive(item.path)
+              className={`text-[15px] leading-none font-medium transition-colors ${isPathActive(item.path)
                 ? "text-primary underline underline-offset-[10px] decoration-[1.5px]"
                 : "text-primary hover:text-orange"
                 }`}
@@ -199,7 +199,7 @@ const Header = () => {
             <Link
               key={item.path}
               to={item.path}
-              className={`px-8 py-4 text-sm hover:bg-muted transition-colors ${isPathActive(item.path) ? "text-primary font-semibold" : "text-primary"
+              className={`px-8 py-4 text-[15px] hover:bg-muted transition-colors ${isPathActive(item.path) ? "text-primary font-semibold" : "text-primary"
                 }`}
               onClick={() => setMobileOpen(false)}
             >
@@ -220,7 +220,7 @@ const Header = () => {
 
           <aside className="absolute right-0 top-0 h-full w-[420px] bg-[#f3f5f8] border-l border-[#d7dfeb] p-10 overflow-y-auto">
             <div className="flex items-center justify-between mb-16">
-              <img src={t("site_logo", "/logo.png")} alt={`${t("site_name", "Midia M Metal")} Logo`} className="h-12 w-auto object-contain mix-blend-multiply" />
+              <img src={t("site_logo", "/logo.png")} alt={`${t("site_name", "Midia M Metal")} Logo`} className="h-14 w-auto object-contain mix-blend-multiply" />
               <button
                 onClick={() => setIsInfoSidebarOpen(false)}
                 className="w-14 h-14 rounded-full bg-[#e1e8f0] text-primary hover:bg-[#d6deea] transition-colors grid place-items-center"

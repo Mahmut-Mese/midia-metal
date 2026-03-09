@@ -12,6 +12,10 @@ export default function AdminCoupons() {
     const [editing, setEditing] = useState<any>(null);
     const [showForm, setShowForm] = useState(false);
 
+    const [searchTerm, setSearchTerm] = useState("");
+    const [sortBy, setSortBy] = useState("code");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
     useEffect(() => { loadCoupons(); }, []);
 
     const loadCoupons = async () => {
@@ -59,6 +63,28 @@ export default function AdminCoupons() {
         } catch { toast.error("Failed to delete"); }
     };
 
+    const filteredCoupons = coupons
+        .filter((c) => c.code.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => {
+            let valA = a[sortBy];
+            let valB = b[sortBy];
+
+            if (sortBy === "value" || sortBy === "min_order_amount") {
+                valA = parseFloat(valA) || 0;
+                valB = parseFloat(valB) || 0;
+            } else if (sortBy === "expires_at") {
+                valA = valA ? new Date(valA).getTime() : 0;
+                valB = valB ? new Date(valB).getTime() : 0;
+            } else {
+                valA = valA?.toString().toLowerCase() || "";
+                valB = valB?.toString().toLowerCase() || "";
+            }
+
+            if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+            if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+            return 0;
+        });
+
     if (loading) return <div className="p-8">Loading...</div>;
 
     return (
@@ -68,6 +94,35 @@ export default function AdminCoupons() {
                 <button onClick={openCreate} className="inline-flex items-center gap-2 bg-[#eb5c10] text-white px-5 py-2.5 rounded-md text-sm font-semibold hover:bg-[#d4500b]">
                     <Plus className="h-4 w-4" /> New Coupon
                 </button>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-4 mb-4">
+                <input
+                    type="text"
+                    placeholder="Search coupons..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                />
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Sort by:</span>
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                    >
+                        <option value="code">Code</option>
+                        <option value="value">Value</option>
+                        <option value="min_order_amount">Min Order</option>
+                        <option value="expires_at">Expiry</option>
+                    </select>
+                    <button
+                        onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                        className="h-10 px-3 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                    >
+                        {sortOrder === "asc" ? "↑" : "↓"}
+                    </button>
+                </div>
             </div>
 
             <div className="rounded-lg bg-white shadow overflow-hidden">
@@ -80,27 +135,28 @@ export default function AdminCoupons() {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {coupons.map((c) => (
-                            <tr key={c.id}>
-                                <td className="px-4 py-3 font-mono font-semibold text-sm text-gray-900">{c.code}</td>
-                                <td className="px-4 py-3 text-sm text-gray-600 capitalize">{c.type}</td>
-                                <td className="px-4 py-3 text-sm text-gray-900">{c.type === "percentage" ? `${c.value}%` : `£${c.value}`}</td>
-                                <td className="px-4 py-3 text-sm text-gray-600">{c.min_order_amount > 0 ? `£${c.min_order_amount}` : "—"}</td>
-                                <td className="px-4 py-3 text-sm text-gray-600">{c.max_uses ? `${c.used_count}/${c.max_uses}` : `${c.used_count}/∞`}</td>
-                                <td className="px-4 py-3 text-sm text-gray-600">{c.expires_at ? new Date(c.expires_at).toLocaleDateString() : "Never"}</td>
-                                <td className="px-4 py-3">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${c.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                        {c.active ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />} {c.active ? "Active" : "Inactive"}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3 flex gap-2">
-                                    <button onClick={() => openEdit(c)} className="text-indigo-600 hover:text-indigo-900"><Edit2 className="h-4 w-4" /></button>
-                                    <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700"><Trash2 className="h-4 w-4" /></button>
-                                </td>
-                            </tr>
-                        ))}
-                        {coupons.length === 0 && (
-                            <tr><td colSpan={8} className="px-6 py-12 text-center text-gray-400">No coupons yet. Create your first one!</td></tr>
+                        {filteredCoupons.length > 0 ? (
+                            filteredCoupons.map((c) => (
+                                <tr key={c.id}>
+                                    <td className="px-4 py-3 font-mono font-semibold text-sm text-gray-900">{c.code}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600 capitalize">{c.type}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-900">{c.type === "percentage" ? `${c.value}%` : `£${c.value}`}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">{c.min_order_amount > 0 ? `£${c.min_order_amount}` : "—"}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">{c.max_uses ? `${c.used_count}/${c.max_uses}` : `${c.used_count}/∞`}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">{c.expires_at ? new Date(c.expires_at).toLocaleDateString() : "Never"}</td>
+                                    <td className="px-4 py-3">
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${c.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                            {c.active ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />} {c.active ? "Active" : "Inactive"}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 flex gap-2">
+                                        <button onClick={() => openEdit(c)} className="text-indigo-600 hover:text-indigo-900"><Edit2 className="h-4 w-4" /></button>
+                                        <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700"><Trash2 className="h-4 w-4" /></button>
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr><td colSpan={8} className="px-6 py-12 text-center text-gray-400">No coupons found.</td></tr>
                         )}
                     </tbody>
                 </table>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ChevronDown, CreditCard, Building2, Wallet, Lock } from "lucide-react";
+import { ChevronDown, CreditCard, Building2, Wallet, Lock, Plus } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -41,6 +41,9 @@ function StripeCardForm({ totalFormatted, saveCard, setSaveCard, showSaveCheckbo
     try {
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
+        confirmParams: {
+          return_url: window.location.origin + "/payment",
+        },
         redirect: "if_required",
       });
       if (error) {
@@ -51,8 +54,9 @@ function StripeCardForm({ totalFormatted, saveCard, setSaveCard, showSaveCheckbo
       if (paymentIntent && paymentIntent.status === "succeeded") {
         await onSuccess(paymentIntent.id);
       }
-    } catch {
-      toast.error("Unexpected error. Please try again.");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Unexpected error. Please try again.");
       setPaying(false);
     }
   };
@@ -108,8 +112,28 @@ const PaymentPage = () => {
   const [loadingIntent, setLoadingIntent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveCard, setSaveCard] = useState(false);
+  const [savedCards, setSavedCards] = useState<any[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string>("new");
 
   const totalFormatted = `£${totalRaw.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  useEffect(() => {
+    if (token) {
+      fetch("http://127.0.0.1:8000/api/v1/customer/payment-methods", {
+        headers: { Accept: "application/json", Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setSavedCards(data);
+            if (data.length > 0) {
+              setSelectedCardId(data[0].stripe_payment_method_id);
+            }
+          }
+        })
+        .catch(() => { });
+    }
+  }, [token]);
 
   // Create PaymentIntent whenever card method is selected and amount > 0
   useEffect(() => {
@@ -183,6 +207,7 @@ const PaymentPage = () => {
             product_name: item.name,
             product_price: item.price.toString(),
             quantity: item.qty,
+            selected_variants: item.selected_variants,
           })),
           payment_method: method === "card"
             ? "Credit / Debit Card"
@@ -287,23 +312,80 @@ const PaymentPage = () => {
                 <h3 className="font-sans text-[24px] md:text-[30px] leading-none font-semibold text-primary mb-6 flex items-center gap-3">
                   <Lock className="w-5 h-5 text-orange" /> Card Details
                 </h3>
-                {loadingIntent ? (
-                  <div className="text-center py-8 text-[#6e7a92]">
-                    <div className="w-6 h-6 border-2 border-orange border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                    Initialising secure payment…
+
+                {savedCards.length > 0 && (
+                  <div className="mb-6 space-y-3">
+                    {savedCards.map(card => (
+                      <label key={card.id} className={`flex items-center gap-3 p-4 border cursor-pointer transition-colors bg-white ${selectedCardId === card.stripe_payment_method_id ? "border-orange ring-1 ring-orange/50" : "border-[#cad4e4] hover:border-orange/60"}`}>
+                        <input type="radio" name="savedCard" checked={selectedCardId === card.stripe_payment_method_id} onChange={() => setSelectedCardId(card.stripe_payment_method_id)} className="accent-orange" />
+                        <div className="flex-1">
+                          <p className="font-semibold text-primary text-sm">•••• •••• •••• {card.last4}</p>
+                          <p className="text-[#6e7a92] text-xs">Expires {card.exp_month}/{card.exp_year}</p>
+                        </div>
+                        <div className="w-10 h-6 bg-[#f4f7f9] border border-[#cad4e4] rounded flex items-center justify-center font-bold text-primary text-[10px] uppercase">
+                          {card.brand}
+                        </div>
+                      </label>
+                    ))}
+                    <label className={`flex items-center gap-3 p-4 border cursor-pointer transition-colors bg-white ${selectedCardId === "new" ? "border-orange ring-1 ring-orange/50" : "border-[#cad4e4] hover:border-orange/60"}`}>
+                      <input type="radio" name="savedCard" checked={selectedCardId === "new"} onChange={() => setSelectedCardId("new")} className="accent-orange" />
+                      <div className="w-10 h-6 flex items-center justify-center">
+                        <Plus className="w-5 h-5 text-primary" />
+                      </div>
+                      <span className="font-semibold text-primary text-sm">Add a new card</span>
+                    </label>
                   </div>
-                ) : clientSecret && stripeOptions ? (
-                  <Elements stripe={stripePromise} options={stripeOptions}>
-                    <StripeCardForm
-                      totalFormatted={totalFormatted}
-                      saveCard={saveCard}
-                      setSaveCard={setSaveCard}
-                      showSaveCheckbox={!!token}
-                      onSuccess={(id) => createOrder(id)}
-                    />
-                  </Elements>
+                )}
+
+                {selectedCardId === "new" ? (
+                  loadingIntent ? (
+                    <div className="text-center py-8 text-[#6e7a92]">
+                      <div className="w-6 h-6 border-2 border-orange border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                      Initialising secure payment…
+                    </div>
+                  ) : clientSecret && stripeOptions ? (
+                    <Elements stripe={stripePromise} options={stripeOptions}>
+                      <StripeCardForm
+                        totalFormatted={totalFormatted}
+                        saveCard={saveCard}
+                        setSaveCard={setSaveCard}
+                        showSaveCheckbox={!!token}
+                        onSuccess={(id) => createOrder(id)}
+                      />
+                    </Elements>
+                  ) : (
+                    <p className="text-[#6e7a92] text-sm">Unable to load payment form. Please refresh the page.</p>
+                  )
                 ) : (
-                  <p className="text-[#6e7a92] text-sm">Unable to load payment form. Please refresh the page.</p>
+                  <button
+                    onClick={async () => {
+                      if (!clientSecret) return;
+                      setIsSubmitting(true);
+                      try {
+                        const stripe = await stripePromise;
+                        if (!stripe) throw new Error("Stripe not loaded");
+                        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+                          payment_method: selectedCardId
+                        });
+                        if (error) {
+                          toast.error(error.message || "Payment failed");
+                        } else if (paymentIntent && paymentIntent.status === "succeeded") {
+                          await createOrder(paymentIntent.id);
+                        } else {
+                          toast.error("Payment was not successful. Please try again.");
+                        }
+                      } catch (err: any) {
+                        toast.error(err.message || "An error occurred");
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    }}
+                    disabled={isSubmitting || !clientSecret}
+                    className="w-full h-14 bg-orange text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-orange-hover transition-colors disabled:opacity-50 mt-4"
+                  >
+                    <Lock className="w-4 h-4" />
+                    {isSubmitting ? "Processing Payment…" : `Pay ${totalFormatted} Securely`}
+                  </button>
                 )}
               </div>
             )}
@@ -343,7 +425,14 @@ const PaymentPage = () => {
               </div>
               {cart.map((item, idx) => (
                 <div key={idx} className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                  <span className="text-sm md:text-base text-primary p-4 md:p-6">{item.name} x {item.qty}</span>
+                  <div className="text-sm md:text-base text-primary p-4 md:p-6">
+                    {item.name} x {item.qty}
+                    {item.selected_variants && Object.entries(item.selected_variants).map(([opt, v]: [string, any]) => (
+                      <div key={opt} className="text-[10px] text-orange font-bold uppercase tracking-tight mt-1">
+                        {opt}: {v.value}
+                      </div>
+                    ))}
+                  </div>
                   <span className="text-sm md:text-base text-primary p-4 md:p-6">{typeof item.price === "string" ? item.price : `£${item.price}`}</span>
                 </div>
               ))}

@@ -33,7 +33,7 @@ class ProductController extends Controller
 
     public function show($id)
     {
-        $product = Product::with('category')->where('active', true)
+        $product = Product::with(['category', 'reviews.customer'])->where('active', true)
             ->where(fn($q) => $q->where('id', $id)->orWhere('slug', $id))
             ->firstOrFail();
         return response()->json($product);

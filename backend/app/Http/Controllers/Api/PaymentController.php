@@ -43,6 +43,7 @@ class PaymentController extends Controller
                 $customer->update(['stripe_customer_id' => $stripeCust->id]);
             }
             $intentData['customer'] = $customer->stripe_customer_id;
+            $intentData['setup_future_usage'] = 'off_session';
         }
 
         $intent = PaymentIntent::create($intentData);

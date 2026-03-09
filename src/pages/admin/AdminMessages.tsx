@@ -7,6 +7,8 @@ export default function AdminMessages() {
     const [messages, setMessages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedMessage, setSelectedMessage] = useState<any>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filterStatus, setFilterStatus] = useState("all"); // all, read, unread
 
     useEffect(() => {
         loadMessages();
@@ -50,19 +52,53 @@ export default function AdminMessages() {
         }
     };
 
+    const filteredMessages = messages
+        .filter((msg) => {
+            const matchesSearch =
+                msg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                msg.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (msg.subject || "").toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchesStatus =
+                filterStatus === "all" ? true :
+                    filterStatus === "read" ? msg.read : !msg.read;
+
+            return matchesSearch && matchesStatus;
+        })
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
     if (loading) return <div>Loading...</div>;
 
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold font-sans text-[#10275c]">Contact Messages</h1>
 
+            <div className="flex flex-col md:flex-row gap-4 mb-4">
+                <input
+                    type="text"
+                    placeholder="Search messages..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                />
+                <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                >
+                    <option value="all">All Messages</option>
+                    <option value="unread">Unread</option>
+                    <option value="read">Read</option>
+                </select>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white rounded-lg shadow overflow-hidden border border-[#e1e5eb]">
                     <ul className="divide-y divide-[#e1e5eb]">
-                        {messages.length === 0 ? (
+                        {filteredMessages.length === 0 ? (
                             <li className="p-8 text-center text-gray-500">No messages found.</li>
                         ) : (
-                            messages.map((msg) => (
+                            filteredMessages.map((msg) => (
                                 <li
                                     key={msg.id}
                                     onClick={() => {

@@ -13,6 +13,8 @@ export default function AdminQuotes() {
     const [quotes, setQuotes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewing, setViewing] = useState<any>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
 
     useEffect(() => { loadQuotes(); }, []);
 
@@ -43,6 +45,17 @@ export default function AdminQuotes() {
         } catch { toast.error("Failed to delete"); }
     };
 
+    const filteredQuotes = quotes
+        .filter((q) => {
+            const matchesSearch =
+                q.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                q.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (q.service || "").toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === "all" || q.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        })
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
     if (loading) return <div className="p-8">Loading...</div>;
 
     return (
@@ -50,6 +63,26 @@ export default function AdminQuotes() {
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold font-sans text-[#10275c]">Quote Requests</h1>
                 <span className="text-sm text-gray-500">{quotes.filter(q => q.status === "new").length} new</span>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-4 mb-4">
+                <input
+                    type="text"
+                    placeholder="Search quotes..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                />
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white"
+                >
+                    <option value="all">All Statuses</option>
+                    <option value="new">New</option>
+                    <option value="reviewing">Reviewing</option>
+                    <option value="replied">Replied</option>
+                </select>
             </div>
 
             <div className="rounded-lg bg-white shadow overflow-hidden">
@@ -62,7 +95,7 @@ export default function AdminQuotes() {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {quotes.map((q) => {
+                        {filteredQuotes.map((q) => {
                             const sc = statusConfig[q.status] ?? statusConfig.new;
                             return (
                                 <tr key={q.id} className={q.status === "new" ? "bg-blue-50" : ""}>
@@ -82,8 +115,8 @@ export default function AdminQuotes() {
                                 </tr>
                             );
                         })}
-                        {quotes.length === 0 && (
-                            <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">No quote requests yet.</td></tr>
+                        {filteredQuotes.length === 0 && (
+                            <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400">No quote requests found.</td></tr>
                         )}
                     </tbody>
                 </table>

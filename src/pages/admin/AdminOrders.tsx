@@ -8,6 +8,9 @@ export default function AdminOrders() {
     const [loading, setLoading] = useState(true);
 
     const [viewingOrder, setViewingOrder] = useState<any>(null);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
     useEffect(() => {
         loadOrders();
@@ -40,12 +43,57 @@ export default function AdminOrders() {
         }
     };
 
+    const filteredOrders = orders
+        .filter((order) => {
+            const matchesSearch =
+                order.order_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                order.customer_email.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        })
+        .sort((a, b) => {
+            const dateA = new Date(a.created_at).getTime();
+            const dateB = new Date(b.created_at).getTime();
+            return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+        });
+
     if (loading) return <div>Loading...</div>;
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold font-sans text-[#10275c]">Orders</h1>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-4 mb-4">
+                <input
+                    type="text"
+                    placeholder="Search by ID, name or email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full md:w-80 text-sm"
+                />
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                >
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <select
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                </select>
             </div>
 
             <div className="rounded-lg bg-white shadow overflow-hidden">
@@ -61,37 +109,43 @@ export default function AdminOrders() {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {orders.map((order) => (
-                            <tr key={order.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {order.order_number}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
-                                    <div className="text-sm text-gray-500">{order.customer_email}</div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {new Date(order.created_at).toLocaleDateString()}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    £{order.total}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                                            order.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
-                                                order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                                    'bg-yellow-100 text-yellow-800'}`}>
-                                        {order.status}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button onClick={() => setViewingOrder(order)} className="text-indigo-600 hover:text-indigo-900 mr-4">
-                                        <Eye className="h-4 w-4" />
-                                    </button>
-                                </td>
+                        {filteredOrders.length === 0 ? (
+                            <tr>
+                                <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-500">No orders found.</td>
                             </tr>
-                        ))}
+                        ) : (
+                            filteredOrders.map((order) => (
+                                <tr key={order.id}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        {order.order_number}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
+                                        <div className="text-sm text-gray-500">{order.customer_email}</div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {new Date(order.created_at).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        £{order.total}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                                                order.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
+                                                    order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                                        'bg-yellow-100 text-yellow-800'}`}>
+                                            {order.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button onClick={() => setViewingOrder(order)} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                                            <Eye className="h-4 w-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
@@ -180,9 +234,14 @@ export default function AdminOrders() {
                                 <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">Order Items</h3>
                                 <div className="rounded-lg bg-gray-50 p-6 border">
                                     {viewingOrder.items?.map((item: any, idx: number) => (
-                                        <div key={idx} className="flex justify-between items-center py-2 border-b last:border-0">
+                                        <div key={idx} className="flex justify-between items-center py-4 border-b last:border-0">
                                             <div>
                                                 <p className="text-sm font-medium text-gray-900">{item.quantity}x {item.product_name}</p>
+                                                {item.variant_details && (
+                                                    <p className="text-xs text-[#eb5c10] font-bold uppercase tracking-wider mt-1">
+                                                        {item.variant_details.option}: {item.variant_details.value}
+                                                    </p>
+                                                )}
                                             </div>
                                             <p className="text-sm text-gray-900">{item.product_price}</p>
                                         </div>

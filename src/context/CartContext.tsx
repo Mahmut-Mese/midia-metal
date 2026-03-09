@@ -4,10 +4,12 @@ import { toast } from "sonner";
 
 export interface CartItem {
     id: number | string;
+    product_id: number | string;
     name: string;
     price: string | number;
     qty: number;
     image: string;
+    selected_variants?: Record<string, any>;
 }
 
 interface AppliedCoupon {
@@ -69,9 +71,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const loadSettings = async () => {
             try {
                 const res = await apiFetch("/v1/settings");
-                const rate = res.find((s: any) => s.key === "shipping_rate");
-                const vatEnabledSetting = res.find((s: any) => s.key === "vat_enabled");
-                const vatRateSetting = res.find((s: any) => s.key === "vat_rate");
+                const rate = res.find((s: any) => s.key === "shipping_flat_rate");
+                const vatRateSetting = res.find((s: any) => s.key === "tax_rate");
                 if (rate) setShippingRate(parseFloat(rate.value) || 0);
                 setVatEnabled(true);
                 if (vatRateSetting) setVatRate(parseFloat(vatRateSetting.value) || 20);
@@ -84,16 +85,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const addToCart = (product: any, quantity: number = 1) => {
         setCart((prev) => {
-            const id = product.id;
-            const existing = prev.find((item) => item.id === id);
+            // Sort keys to ensure consistent unique ID regardless of selection order
+            const variantKeys = Object.keys(product.selected_variants || {}).sort();
+            const variantId = variantKeys.length > 0
+                ? "-" + variantKeys.map(k => `${k}-${product.selected_variants[k].value}`).join("-")
+                : "";
+            const uniqueId = `${product.id}${variantId}`;
+
+            const existing = prev.find((item) => item.id === uniqueId);
             if (existing) {
                 return prev.map((item) =>
-                    item.id === id ? { ...item, qty: item.qty + quantity } : item
+                    item.id === uniqueId ? { ...item, qty: item.qty + quantity } : item
                 );
             }
             return [
                 ...prev,
-                { id: product.id, name: product.name, price: product.price, image: product.image, qty: quantity },
+                {
+                    id: uniqueId,
+                    product_id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    image: product.image,
+                    qty: quantity,
+                    selected_variants: product.selected_variants
+                },
             ];
         });
     };

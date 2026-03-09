@@ -236,7 +236,14 @@ const CheckoutPage = () => {
                   </div>
                   {cart.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                      <span className="text-sm md:text-base text-primary p-4 md:p-6">{item.name} x {item.qty}</span>
+                      <div className="text-sm md:text-base text-primary p-4 md:p-6">
+                        {item.name} x {item.qty}
+                        {item.selected_variants && Object.entries(item.selected_variants).map(([opt, v]: [string, any]) => (
+                          <div key={opt} className="text-[10px] text-orange font-bold uppercase tracking-tight mt-1">
+                            {opt}: {v.value}
+                          </div>
+                        ))}
+                      </div>
                       <span className="text-sm md:text-base text-primary p-4 md:p-6">{typeof item.price === "string" ? item.price : `£${item.price}`}</span>
                     </div>
                   ))}

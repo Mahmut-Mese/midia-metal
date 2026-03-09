@@ -16,7 +16,8 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         headers["Content-Type"] = "application/json";
     }
 
-    if (token) {
+    // Use passed-in token if available, otherwise fallback to admin token
+    if (!headers["Authorization"] && token) {
         headers["Authorization"] = `Bearer ${token}`;
     }
 

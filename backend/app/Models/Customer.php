@@ -30,6 +30,7 @@ class Customer extends Authenticatable
         'is_business',
         'company_name',
         'company_vat_number',
+        'stripe_customer_id',
     ];
 
     protected $hidden = [

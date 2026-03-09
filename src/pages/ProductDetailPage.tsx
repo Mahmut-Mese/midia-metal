@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Heart, Search, ShoppingCart, ChevronUp, ChevronDown } from "lucide-react";
+import { Heart, ShoppingCart, ChevronUp, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -7,19 +7,35 @@ import FloatingSidebar from "@/components/FloatingSidebar";
 import { apiFetch } from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { toast } from "sonner";
+import { Star, Maximize2, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { customer, token } = useCustomerAuth();
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState<"description" | "reviews">("description");
 
   const [product, setProduct] = useState<any>(null);
   const [related, setRelated] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, any>>({});
+
+  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const [mainImageIndex, setMainImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const [canReviewStatus, setCanReviewStatus] = useState<"loading" | "allowed" | "not_purchased" | "not_delivered" | "already_reviewed" | "unauthenticated">("loading");
+
+  const allImages = product ? [product.image, ...(product.gallery || [])].filter(Boolean) : [];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,10 +53,58 @@ const ProductDetailPage = () => {
         setLoading(false);
       }
     };
+
+    const fetchReviewStatus = async () => {
+      if (!token || !id) {
+        setCanReviewStatus("unauthenticated");
+        return;
+      }
+      try {
+        const data = await apiFetch(`/v1/customer/products/${id}/can-review`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (data.can_review) {
+          setCanReviewStatus("allowed");
+        } else {
+          setCanReviewStatus(data.reason || "not_purchased");
+        }
+      } catch (err) {
+        setCanReviewStatus("unauthenticated");
+      }
+    };
+
     if (id) {
+      setMainImageIndex(0);
       fetchData();
+      fetchReviewStatus();
     }
-  }, [id]);
+  }, [id, token]);
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) {
+      toast.error("Please login to submit a review.");
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      const data = await apiFetch(`/v1/customer/products/${id}/reviews`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ rating: reviewRating, comment: reviewComment })
+      });
+
+      toast.success("Review submitted successfully!");
+      setProduct({ ...product, reviews: [data, ...(product.reviews || [])] });
+      setReviewComment("");
+      setReviewRating(5);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit review.");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -72,16 +136,43 @@ const ProductDetailPage = () => {
 
       <section className="container mx-auto px-4 lg:px-8 pt-12 md:pt-14 pb-10">
         <div className="grid grid-cols-1 xl:grid-cols-[56%_44%] gap-10 xl:gap-12 items-start">
-          <div className="relative">
-            <img src={product.image} alt={product.name} className="w-full aspect-square object-contain" />
-            <button className="absolute right-2 md:right-4 top-1/3 w-11 h-11 rounded-full bg-[#f8fafc] text-primary grid place-items-center border border-[#d2dbe8]">
-              <Search className="w-5 h-5" />
-            </button>
+          <div className="flex flex-col gap-4">
+            <div className="relative group bg-white border border-[#e1e5eb] p-4 flex items-center justify-center">
+              <img src={allImages[mainImageIndex]} alt={product.name} className="w-full aspect-square object-contain" />
+              <button
+                onClick={() => {
+                  setLightboxIndex(mainImageIndex);
+                  setIsLightboxOpen(true);
+                }}
+                className="absolute top-4 right-4 w-10 h-10 bg-white shadow-md rounded-full flex items-center justify-center text-primary transition-colors hover:bg-orange hover:text-white"
+              >
+                <Maximize2 className="w-5 h-5" />
+              </button>
+            </div>
+            {allImages.length > 1 && (
+              <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+                {allImages.map((img: string, idx: number) => (
+                  <button
+                    key={idx}
+                    onClick={() => setMainImageIndex(idx)}
+                    className={`border-2 transition-colors overflow-hidden bg-white ${idx === mainImageIndex ? 'border-orange' : 'border-[#e1e5eb] hover:border-[#cad4e4]'}`}
+                  >
+                    <img src={img} alt={`Thumbnail ${idx}`} className="w-full aspect-square object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="pt-2">
             <h1 className="font-sans text-[30px] md:text-[40px] leading-[1] font-semibold text-[#10275c]">{product.name}</h1>
-            <p className="text-orange text-[28px] md:text-[34px] leading-none font-medium mt-3 mb-7">{product.price}</p>
+            <p className="text-orange text-[28px] md:text-[34px] leading-none font-medium mt-3 mb-7">
+              {(() => {
+                const base = parseFloat(product.price.replace(/[£,]/g, "")) || 0;
+                const extra = Object.values(selectedVariants).reduce((acc, v: any) => acc + (parseFloat(v.price) || 0), 0);
+                return `£${(base + extra).toFixed(2)}`;
+              })()}
+            </p>
 
             <div className="space-y-4 mb-8">
               {(product.description || "").split("\n\n").map((paragraph: string, index: number) => (
@@ -106,7 +197,14 @@ const ProductDetailPage = () => {
 
               <button
                 onClick={() => {
-                  addToCart(product, qty);
+                  const base = parseFloat(product.price.replace(/[£,]/g, "")) || 0;
+                  const extra = Object.values(selectedVariants).reduce((acc, v: any) => acc + (parseFloat(v.price) || 0), 0);
+                  const cartProduct = {
+                    ...product,
+                    price: `£${(base + extra).toFixed(2)}`,
+                    selected_variants: selectedVariants
+                  };
+                  addToCart(cartProduct, qty);
                   toast.success("Added to cart!");
                   navigate("/cart");
                 }}
@@ -146,10 +244,62 @@ const ProductDetailPage = () => {
                 <span className="font-semibold text-primary">Product ID:</span>{" "}
                 <span className="text-[#6e7a92]">{product.id}</span>
               </p>
+
+              {/* Variants Selection */}
+              {product.variants && product.variants.length > 0 && (() => {
+                // Group variants by option type (e.g. "Color", "Size")
+                const options = Array.from(new Set(product.variants.map((v: any) => v.option)));
+                return options.map((opt: any) => (
+                  <div key={opt} className="mt-4">
+                    <span className="font-semibold text-primary block mb-2 uppercase text-[11px] tracking-wider">{opt}:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {product.variants
+                        .filter((v: any) => v.option === opt)
+                        .map((v: any, idx: number) => {
+                          const isSelected = selectedVariants[opt]?.value === v.value;
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setSelectedVariants(prev => {
+                                  const updated = { ...prev };
+                                  if (isSelected) {
+                                    delete updated[opt];
+                                  } else {
+                                    updated[opt] = v;
+                                  }
+                                  return updated;
+                                });
+                              }}
+                              className={`px-4 py-2 text-xs font-bold border transition-all ${isSelected
+                                ? "bg-primary text-white border-primary shadow-md"
+                                : "bg-white text-[#6e7a92] border-[#cad4e4] hover:border-primary hover:text-primary"
+                                }`}
+                            >
+                              {v.value}
+                              {v.price && (
+                                <span className={isSelected ? "text-white/80 ml-1" : "text-orange ml-1"}>
+                                  (£{v.price})
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                ));
+              })()}
+
+              {product.specifications && Object.entries(product.specifications).map(([key, value]: [string, any]) => (
+                <p key={key}>
+                  <span className="font-semibold text-primary">{key}:</span>{" "}
+                  <span className="text-[#6e7a92]">{value}</span>
+                </p>
+              ))}
             </div>
           </div>
         </div>
-      </section>
+      </section >
 
       <section className="container mx-auto px-4 lg:px-8 pb-14">
         <div className="flex flex-wrap gap-0 mb-10">
@@ -169,7 +319,7 @@ const ProductDetailPage = () => {
               : "bg-[#f4f5f7] text-primary/70 hover:text-primary"
               }`}
           >
-            Reviews (0)
+            Reviews ({product.reviews?.length || 0})
           </button>
         </div>
 
@@ -180,7 +330,97 @@ const ProductDetailPage = () => {
             </p>
           </div>
         ) : (
-          <p className="text-[15px] text-[#6e7a92]">No reviews yet.</p>
+          <div className="max-w-[800px]">
+            <div className="mb-12">
+              <h3 className="text-xl font-semibold text-primary mb-6">Write a review</h3>
+              {canReviewStatus === "loading" ? (
+                <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm animate-pulse">Checking eligibility...</p>
+              ) : canReviewStatus === "unauthenticated" ? (
+                <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm">
+                  You must be <Link to="/login" className="text-orange underline">logged in</Link> and have purchased this product to write a review.
+                </p>
+              ) : canReviewStatus === "not_purchased" ? (
+                <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm">
+                  You can only write a review for this product if you have purchased it.
+                </p>
+              ) : canReviewStatus === "not_delivered" ? (
+                <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm">
+                  You can write a review once your order has been delivered.
+                </p>
+              ) : canReviewStatus === "already_reviewed" ? (
+                <p className="text-[#6e7a92] bg-[#eaf0f3] p-4 text-sm font-medium">
+                  You have already reviewed this product. Thank you for your feedback!
+                </p>
+              ) : (
+                <form onSubmit={handleReviewSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-[#6e7a92] mb-2 font-medium">Your Rating</label>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          className={`hover:scale-110 transition-transform ${star <= reviewRating ? 'text-orange' : 'text-gray-300'}`}
+                        >
+                          <Star className={`w-6 h-6 ${star <= reviewRating ? 'fill-orange' : ''}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-[#6e7a92] mb-2 font-medium">Your Review (Optional)</label>
+                    <textarea
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      className="w-full h-32 border border-[#d1dbe8] bg-[#f8fafc] p-4 text-sm focus:outline-none focus:border-orange resize-none"
+                      placeholder="Share your thoughts about this product..."
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReview}
+                    className="h-12 px-8 bg-primary text-white font-semibold flex items-center justify-center hover:bg-orange transition-colors disabled:opacity-50"
+                  >
+                    {isSubmittingReview ? "Submitting..." : "Submit Review"}
+                  </button>
+                </form>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <h3 className="text-xl font-semibold text-primary mb-6">Customer Reviews</h3>
+              {(!product.reviews || product.reviews.length === 0) ? (
+                <p className="text-[15px] text-[#6e7a92]">No reviews yet. Be the first to review this product!</p>
+              ) : (
+                product.reviews.map((review: any) => (
+                  <div key={review.id} className="border-b border-[#efefef] pb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-primary text-[15px]">
+                        {review.customer?.name}
+                      </span>
+                      <span className="text-xs text-[#9aa6bc]">
+                        {new Date(review.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex gap-1 mb-3">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-3.5 h-3.5 ${star <= review.rating ? 'fill-orange text-orange' : 'text-gray-300'}`}
+                        />
+                      ))}
+                    </div>
+                    {review.comment && (
+                      <p className="text-[14px] text-[#6e7a92] leading-relaxed">
+                        {review.comment}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         )}
       </section>
 
@@ -192,18 +432,70 @@ const ProductDetailPage = () => {
               <div className="mb-5 bg-[#f7f8fa]">
                 <img src={p.image} alt={p.name} className="w-full aspect-[1.02] object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
               </div>
-              <h3 className="font-sans text-[18px] md:text-[26px] leading-tight font-semibold text-primary group-hover:text-orange transition-colors">
+              <h3 className="font-sans text-[18px] md:text-[20px] leading-tight font-semibold text-primary group-hover:text-orange transition-colors">
                 {p.name}
               </h3>
-              <p className="text-[18px] md:text-[26px] leading-none text-[#1f2f52] mt-3">{p.price}</p>
+              <p className="text-[18px] md:text-[20px] leading-none text-[#1f2f52] mt-3">{p.price}</p>
             </Link>
           ))}
         </div>
       </section>
 
+      {/* Lightbox Modal */}
+      {
+        isLightboxOpen && (
+          <div
+            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 md:p-12 cursor-pointer"
+            onClick={() => setIsLightboxOpen(false)}
+          >
+            <button
+              onClick={() => setIsLightboxOpen(false)}
+              className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors z-50 p-2 cursor-pointer"
+            >
+              <X className="w-10 h-10" />
+            </button>
+
+            <div
+              className="relative w-full max-w-[1400px] h-full flex flex-col items-center justify-center cursor-default bg-transparent"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {allImages.length > 1 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex((prev) => (prev > 0 ? prev - 1 : allImages.length - 1)); }}
+                  className="absolute left-2 md:left-0 p-3 rounded-full bg-white/10 hover:bg-white/25 text-white transition-colors z-[60] cursor-pointer backdrop-blur-sm"
+                >
+                  <ChevronLeft className="w-8 h-8 md:w-10 md:h-10" />
+                </button>
+              )}
+
+              <img
+                src={allImages[lightboxIndex]}
+                alt={product.name}
+                className="max-w-full max-h-[92vh] object-contain select-none shadow-2xl"
+              />
+
+              {allImages.length > 1 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex((prev) => (prev < allImages.length - 1 ? prev + 1 : 0)); }}
+                  className="absolute right-2 md:right-0 p-3 rounded-full bg-white/10 hover:bg-white/25 text-white transition-colors z-[60] cursor-pointer backdrop-blur-sm"
+                >
+                  <ChevronRight className="w-8 h-8 md:w-10 md:h-10" />
+                </button>
+              )}
+            </div>
+
+            {allImages.length > 1 && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-sm tracking-widest">
+                {lightboxIndex + 1} / {allImages.length}
+              </div>
+            )}
+          </div>
+        )
+      }
+
       <Footer />
       <FloatingSidebar />
-    </div>
+    </div >
   );
 };
 

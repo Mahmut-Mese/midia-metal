@@ -43,6 +43,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/contact', [Api\FormController::class, 'contact']);
     Route::post('/orders', [Api\FormController::class, 'order']);
     Route::post('/quote', [Api\FormController::class, 'quote']);
+    Route::post('/newsletter', [Api\FormController::class, 'newsletter']);
     Route::post('/coupons/apply', [Api\FormController::class, 'applyCoupon']);
     Route::post('/payment/intent', [Api\PaymentController::class, 'createIntent']);
     // Testimonials
@@ -66,6 +67,10 @@ Route::prefix('v1')->group(function () {
 
         // Quotes
         Route::get('/customer/quotes', [Api\CustomerAuthController::class, 'customerQuotes']);
+
+        // Product Reviews
+        Route::get('/customer/products/{productId}/can-review', [Api\ProductReviewController::class, 'canReview']);
+        Route::post('/customer/products/{productId}/reviews', [Api\ProductReviewController::class, 'store']);
 
         // Saved Cards
         Route::get('/customer/payment-methods', [Api\PaymentController::class, 'listSavedCards']);
@@ -132,5 +137,20 @@ Route::prefix('admin')->group(function () {
         Route::post('/hero-slides', [Admin\SettingsController::class, 'storeHeroSlide']);
         Route::put('/hero-slides/{heroSlide}', [Admin\SettingsController::class, 'updateHeroSlide']);
         Route::delete('/hero-slides/{heroSlide}', [Admin\SettingsController::class, 'destroyHeroSlide']);
+
+        // Subscribers
+        Route::get('/subscribers', [Admin\SubscriberController::class, 'index']);
+
+        // Product Reviews
+        Route::apiResource('/product-reviews', Admin\ProductReviewController::class)->only(['index', 'destroy']);
+
+        // Customers
+        Route::get('/customers', [Admin\CustomerController::class, 'index']);
+        Route::get('/customers/{customer}', [Admin\CustomerController::class, 'show']);
+        Route::delete('/customers/{customer}', [Admin\CustomerController::class, 'destroy']);
+
+        // Analytics
+        Route::get('/stats/sales-overview', [Admin\StatController::class, 'salesOverview']);
+        Route::get('/stats/top-products', [Admin\StatController::class, 'topProducts']);
     });
 });

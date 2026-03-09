@@ -12,6 +12,7 @@ class Product extends Model
         'price',
         'old_price',
         'image',
+        'gallery',
         'description',
         'product_category_id',
         'tags',
@@ -20,9 +21,19 @@ class Product extends Model
         'active',
         'order',
         'stock_quantity',
-        'track_stock'
+        'track_stock',
+        'specifications',
+        'variants'
     ];
-    protected $casts = ['tags' => 'array', 'featured' => 'boolean', 'active' => 'boolean', 'track_stock' => 'boolean'];
+    protected $casts = [
+        'gallery' => 'array',
+        'tags' => 'array',
+        'featured' => 'boolean',
+        'active' => 'boolean',
+        'track_stock' => 'boolean',
+        'specifications' => 'array',
+        'variants' => 'array'
+    ];
 
     public function category()
     {
@@ -32,5 +43,10 @@ class Product extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(ProductReview::class);
     }
 }

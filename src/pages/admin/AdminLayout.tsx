@@ -12,7 +12,10 @@ import {
     Mail,
     ShoppingCart,
     MessageSquare,
-    Tag
+    Tag,
+    UserPlus,
+    Users,
+    Star
 } from "lucide-react";
 import { removeAuthToken, apiFetch } from "@/lib/api";
 
@@ -28,6 +31,9 @@ const navigation = [
     { name: "Quotes", href: "/admin/quotes", icon: MessageSquare },
     { name: "Coupons", href: "/admin/coupons", icon: Tag },
     { name: "Messages", href: "/admin/messages", icon: Mail },
+    { name: "Subscribers", href: "/admin/subscribers", icon: UserPlus },
+    { name: "Product Reviews", href: "/admin/product-reviews", icon: Star },
+    { name: "Customers", href: "/admin/customers", icon: Users },
     { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

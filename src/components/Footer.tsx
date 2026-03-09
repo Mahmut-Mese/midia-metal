@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Facebook, Twitter, Dribbble, Instagram, ArrowRight, ArrowUp } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 
 interface FooterProps {
   variant?: "default" | "home";
@@ -9,6 +10,9 @@ interface FooterProps {
 
 const Footer = ({ variant = "default" }: FooterProps) => {
   const [settings, setSettings] = useState<Record<string, string>>({});
+  const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -27,6 +31,34 @@ const Footer = ({ variant = "default" }: FooterProps) => {
   }, []);
 
   const t = (key: string, def: string) => settings[key] || def;
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !email.includes('@')) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    if (!agreed) {
+      toast.error("Please agree to the Privacy Policy.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await apiFetch("/v1/newsletter", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        headers: { "Content-Type": "application/json" }
+      });
+      toast.success("Successfully subscribed to newsletter!");
+      setEmail("");
+      setAgreed(false);
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (variant === "home") {
     return (
@@ -74,22 +106,32 @@ const Footer = ({ variant = "default" }: FooterProps) => {
             <div>
               <h4 className="text-lg font-semibold mb-5">{t("footer_newsletter_title", "Newsletter")}</h4>
               <p className="text-sm text-white/60 mb-4">{t("footer_newsletter_desc", "Get the latest updates and offers.")}</p>
-              <div className="border-b border-white/25 pb-3 flex items-center justify-between gap-3">
-                <input
-                  type="email"
-                  placeholder="Enter Your Email Address"
-                  className="w-full bg-transparent text-sm placeholder:text-white/55 focus:outline-none"
-                />
-                <button className="text-white hover:text-orange transition-colors" aria-label="Submit email">
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-              <label className="mt-6 flex items-start gap-2 text-xs text-white/65">
-                <input type="checkbox" className="mt-0.5 accent-orange" />
-                <span>
-                  I agree to the <a href="#" className="underline underline-offset-2">Privacy Policy.</a>
-                </span>
-              </label>
+              <form onSubmit={handleNewsletterSubmit}>
+                <div className="border-b border-white/25 pb-3 flex items-center justify-between gap-3">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter Your Email Address"
+                    required
+                    className="w-full bg-transparent text-sm placeholder:text-white/55 focus:outline-none"
+                  />
+                  <button type="submit" disabled={isSubmitting} className="text-white hover:text-orange transition-colors disabled:opacity-50" aria-label="Submit email">
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+                <label className="mt-6 flex items-start gap-2 text-xs text-white/65 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-0.5 accent-orange"
+                  />
+                  <span>
+                    I agree to the <Link to="/privacy-policy" className="underline underline-offset-2">Privacy Policy.</Link>
+                  </span>
+                </label>
+              </form>
             </div>
           </div>
         </div>

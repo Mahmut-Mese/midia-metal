@@ -47,6 +47,11 @@ const CartPage = () => {
                 <img src={item.image} alt={item.name} className="w-16 h-16 object-cover" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-primary leading-snug">{item.name}</p>
+                  {item.selected_variants && Object.entries(item.selected_variants).map(([opt, v]: [string, any]) => (
+                    <p key={opt} className="text-[10px] text-orange mt-0.5 font-bold uppercase tracking-tight">
+                      {opt}: {v.value}
+                    </p>
+                  ))}
                   <p className="text-xs text-muted-foreground mt-1">£{parseFloat(item.price.toString().replace(/[£,]/g, "")).toFixed(2)} each</p>
                 </div>
                 <button onClick={() => removeFromCart(item.id)} className="text-muted-foreground hover:text-destructive p-1" aria-label={`Remove ${item.name}`}>
@@ -80,7 +85,14 @@ const CartPage = () => {
               <div key={item.id} className="grid grid-cols-5 gap-6 px-6 py-8 items-center border-b border-[#cad4e4]">
                 <div className="flex items-center gap-5 min-w-0">
                   <img src={item.image} alt={item.name} className="w-20 h-20 object-cover flex-shrink-0" />
-                  <span className="text-base md:text-xl leading-tight font-semibold text-primary truncate">{item.name}</span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-base md:text-xl leading-tight font-semibold text-primary truncate">{item.name}</span>
+                    {item.selected_variants && Object.entries(item.selected_variants).map(([opt, v]: [string, any]) => (
+                      <span key={opt} className="text-xs text-orange font-bold uppercase tracking-widest mt-1 block">
+                        {opt}: {v.value}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <span className="text-lg md:text-xl leading-none text-primary">£{parseFloat(item.price.toString().replace(/[£,]/g, "")).toFixed(2)}</span>
                 <div className="w-[124px] h-[56px] border border-[#cad4e4] flex items-center px-5 bg-[#eaf0f3]">
@@ -145,9 +157,9 @@ const CartPage = () => {
             )}
 
             {vatEnabled && isBusiness && (
-              <div className="grid grid-cols-[38%_62%] border-b border-[#cad4e4]">
+              <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                 <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">VAT ({vatRate}%)</span>
-                <span className="text-sm md:text-lg text-primary p-4 md:p-6">£{vatAmount.toFixed(2)}</span>
+                <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmount.toFixed(2)}</span>
               </div>
             )}
 

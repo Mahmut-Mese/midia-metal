@@ -92,7 +92,7 @@ const CategoryPage = () => {
                     className="w-full aspect-square object-contain transition-transform duration-300 group-hover:scale-[1.02]"
                   />
                 </div>
-                <h4 className="font-sans text-[18px] md:text-[24px] leading-tight font-semibold text-primary group-hover:text-orange transition-colors">
+                <h4 className="font-sans text-[18px] md:text-[20px] leading-tight font-semibold text-primary group-hover:text-orange transition-colors">
                   {product.name}
                 </h4>
                 <p className="text-[16px] md:text-[20px] text-[#5e6e8c] mt-2">{product.price}</p>

@@ -7,9 +7,10 @@ interface ImageUploadProps {
     value: string;
     onChange: (url: string) => void;
     label?: string;
+    hidePreview?: boolean;
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, label }) => {
+const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, label, hidePreview = false }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
 
@@ -41,34 +42,36 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, label }) => 
     };
 
     return (
-        <div className="space-y-4">
+        <div className={hidePreview ? "inline-block" : "space-y-4"}>
             {label && <label className="block text-sm font-semibold text-[#10275c]">{label}</label>}
-            <div className="flex items-center gap-6">
-                <div className="relative group w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50 bg-[#F9FBFC]">
-                    {value ? (
-                        <>
-                            <img src={value} alt="Preview" className="w-full h-full object-cover" />
-                            <button
-                                type="button"
-                                onClick={handleRemove}
-                                className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </>
-                    ) : (
-                        <div className="text-gray-400 flex flex-col items-center gap-1">
-                            <Upload className="w-6 h-6" />
-                            <span className="text-[10px] font-medium">No Image</span>
-                        </div>
-                    )}
-                    {isUploading && (
-                        <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10 backdrop-blur-sm">
-                            <Loader2 className="w-8 h-8 animate-spin text-[#eb5c10]" />
-                        </div>
-                    )}
-                </div>
-                <div>
+            <div className={hidePreview ? "flex flex-col" : "flex items-center gap-6"}>
+                {!hidePreview && (
+                    <div className="relative group w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50 bg-[#F9FBFC]">
+                        {value ? (
+                            <>
+                                <img src={value} alt="Preview" className="w-full h-full object-cover" />
+                                <button
+                                    type="button"
+                                    onClick={handleRemove}
+                                    className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </>
+                        ) : (
+                            <div className="text-gray-400 flex flex-col items-center gap-1">
+                                <Upload className="w-6 h-6" />
+                                <span className="text-[10px] font-medium">No Image</span>
+                            </div>
+                        )}
+                        {isUploading && (
+                            <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10 backdrop-blur-sm">
+                                <Loader2 className="w-8 h-8 animate-spin text-[#eb5c10]" />
+                            </div>
+                        )}
+                    </div>
+                )}
+                <div className={hidePreview ? "w-full" : ""}>
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -82,9 +85,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, label }) => 
                         onClick={() => fileInputRef.current?.click()}
                         className="h-10 px-6 bg-[#eb5c10] text-white rounded-md text-sm font-bold shadow-md hover:bg-[#d4500b] disabled:opacity-50 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                     >
-                        {value ? "Change Image" : "Upload Image"}
+                        {value && !hidePreview ? "Change Image" : hidePreview ? (isUploading ? "Uploading..." : "Upload Image") : "Upload Image"}
                     </button>
-                    <p className="text-[11px] text-gray-500 mt-2 font-medium">Max size: 5MB (JPG, PNG, WebP)</p>
+                    {!hidePreview && <p className="text-[11px] text-gray-500 mt-2 font-medium">Max size: 5MB (JPG, PNG, WebP)</p>}
                 </div>
             </div>
         </div>

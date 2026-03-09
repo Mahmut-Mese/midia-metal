@@ -32,8 +32,11 @@ import AdminProductCategories from "./pages/admin/AdminProductCategories";
 import AdminPortfolio from "./pages/admin/AdminPortfolio";
 import AdminPortfolioCategories from "./pages/admin/AdminPortfolioCategories";
 import AdminMessages from "./pages/admin/AdminMessages";
+import AdminSubscribers from "./pages/admin/AdminSubscribers";
+import AdminProductReviews from "./pages/admin/AdminProductReviews";
 import AdminQuotes from "./pages/admin/AdminQuotes";
 import AdminCoupons from "./pages/admin/AdminCoupons";
+import AdminCustomers from "./pages/admin/AdminCustomers";
 import QuoteRequestPage from "./pages/QuoteRequestPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
@@ -99,6 +102,9 @@ const App = () => (
                   <Route path="quotes" element={<AdminQuotes />} />
                   <Route path="coupons" element={<AdminCoupons />} />
                   <Route path="messages" element={<AdminMessages />} />
+                  <Route path="subscribers" element={<AdminSubscribers />} />
+                  <Route path="product-reviews" element={<AdminProductReviews />} />
+                  <Route path="customers" element={<AdminCustomers />} />
                   <Route path="services" element={<AdminServices />} />
                   <Route path="settings" element={<AdminSettings />} />
                   <Route path="*" element={<div className="p-8 text-xl font-semibold text-[#10275c]">Coming Soon</div>} />

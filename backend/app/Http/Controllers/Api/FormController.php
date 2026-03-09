@@ -9,7 +9,10 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\QuoteRequest;
+use App\Models\Subscriber;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\AdminNotification;
 use Illuminate\Support\Str;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
@@ -28,7 +31,23 @@ class FormController extends Controller
         ]);
 
         ContactMessage::create($validated);
+
+        Mail::to('mahmutmese.uk@gmail.com')->send(new AdminNotification(
+            'New Contact Message',
+            "You have received a new message from {$validated['name']} ({$validated['email']}).\n\nSubject: " . ($validated['subject'] ?? 'No Subject') . "\n\nMessage:\n{$validated['message']}"
+        ));
+
         return response()->json(['message' => 'Message sent successfully'], 201);
+    }
+
+    public function newsletter(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email'
+        ]);
+
+        Subscriber::firstOrCreate(['email' => $validated['email']]);
+        return response()->json(['message' => 'Subscribed successfully'], 201);
     }
 
     public function quote(Request $request)
@@ -45,6 +64,12 @@ class FormController extends Controller
 
         $customerId = $request->user('customer')?->id ?? null;
         QuoteRequest::create(array_merge($validated, ['customer_id' => $customerId]));
+
+        Mail::to('mahmutmese.uk@gmail.com')->send(new AdminNotification(
+            'New Quote Request',
+            "You have received a new quote request from {$validated['name']} ({$validated['email']}).\n\nService: " . ($validated['service'] ?? 'N/A') . "\n\nDescription:\n{$validated['description']}"
+        ));
+
         return response()->json(['message' => 'Quote request submitted successfully'], 201);
     }
 
@@ -100,6 +125,7 @@ class FormController extends Controller
             'items.*.product_name' => 'required|string',
             'items.*.product_price' => 'required|string',
             'items.*.quantity' => 'required|integer|min:1',
+            'items.*.selected_variants' => 'nullable|array',
             'stripe_payment_intent_id' => 'nullable|string',
             'save_card' => 'nullable|boolean',
         ]);
@@ -145,6 +171,11 @@ class FormController extends Controller
             'payment_status' => 'pending',
         ]);
 
+        Mail::to('mahmutmese.uk@gmail.com')->send(new AdminNotification(
+            'New Order Received: ' . $order->order_number,
+            "A new order has been placed by {$order->customer_name} ({$order->customer_email}).\n\nOrder Number: {$order->order_number}\nTotal: £" . number_format($order->total, 2) . "\n\nCheck the admin panel for more details."
+        ));
+
         foreach ($validated['items'] as $item) {
             OrderItem::create([
                 'order_id' => $order->id,
@@ -152,6 +183,7 @@ class FormController extends Controller
                 'product_name' => $item['product_name'],
                 'product_price' => $item['product_price'],
                 'quantity' => $item['quantity'],
+                'variant_details' => $item['selected_variants'] ?? null,
             ]);
 
             // Decrement stock if tracked
@@ -171,34 +203,45 @@ class FormController extends Controller
             'wants_save' => !empty($validated['save_card'])
         ]);
 
-        if ($customer && $customer->stripe_customer_id && !empty($validated['stripe_payment_intent_id']) && !empty($validated['save_card'])) {
+        if ($customer && $customer->stripe_customer_id && !empty($validated['stripe_payment_intent_id'])) {
             try {
                 Stripe::setApiKey(config('services.stripe.secret'));
                 $intent = PaymentIntent::retrieve($validated['stripe_payment_intent_id']);
-                \Log::info("Retrieved PaymentIntent for saving: status={$intent->status}, pm={$intent->payment_method}");
 
                 if ($intent->payment_method) {
-                    $pm = StripePaymentMethod::retrieve($intent->payment_method);
-                    $pm->attach(['customer' => $customer->stripe_customer_id]);
-                    \Log::info("PaymentMethod {$pm->id} attached successfully to customer {$customer->stripe_customer_id}");
+                    if (empty($validated['save_card'])) {
+                        $isAlreadySaved = \App\Models\CustomerPaymentMethod::where('stripe_payment_method_id', $intent->payment_method)
+                            ->where('customer_id', $customer->id)
+                            ->exists();
 
-                    // Also save locally so it shows immediately in the dashboard without needing to run the sync endpoint
-                    \App\Models\CustomerPaymentMethod::updateOrCreate(
-                        ['stripe_payment_method_id' => $pm->id],
-                        [
-                            'customer_id' => $customer->id,
-                            'brand' => $pm->card->brand ?? 'card',
-                            'last4' => $pm->card->last4 ?? '****',
-                            'exp_month' => str_pad($pm->card->exp_month ?? '01', 2, '0', STR_PAD_LEFT),
-                            'exp_year' => $pm->card->exp_year ?? '2099',
-                        ]
-                    );
-                } else {
-                    \Log::warning("PaymentIntent has no payment_method attached. Cannot save card.");
+                        if (!$isAlreadySaved) {
+                            $pm = StripePaymentMethod::retrieve($intent->payment_method);
+                            if ($pm->customer) {
+                                $pm->detach();
+                            }
+                            \Log::info("PaymentMethod {$pm->id} detached successfully because save_card was false");
+                        } else {
+                            \Log::info("PaymentMethod {$intent->payment_method} was already saved. Skipping detachment.");
+                        }
+                    } else {
+                        $pm = StripePaymentMethod::retrieve($intent->payment_method);
+                        // Also save locally so it shows immediately in the dashboard without needing to run the sync endpoint
+                        \App\Models\CustomerPaymentMethod::updateOrCreate(
+                            ['stripe_payment_method_id' => $pm->id],
+                            [
+                                'customer_id' => $customer->id,
+                                'brand' => $pm->card->brand ?? 'card',
+                                'last4' => $pm->card->last4 ?? '****',
+                                'exp_month' => str_pad($pm->card->exp_month ?? '01', 2, '0', STR_PAD_LEFT),
+                                'exp_year' => $pm->card->exp_year ?? '2099',
+                            ]
+                        );
+                        \Log::info("PaymentMethod {$pm->id} synced locally to customer {$customer->stripe_customer_id}");
+                    }
                 }
             } catch (\Exception $e) {
                 // Silently log or ignore since order succeeds anyway
-                \Log::error("Failed to save card: " . $e->getMessage() . " at " . $e->getFile() . ':' . $e->getLine());
+                \Log::error("Failed to save or detach card: " . $e->getMessage() . " at " . $e->getFile() . ':' . $e->getLine());
             }
         }
 

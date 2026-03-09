@@ -33,6 +33,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'price' => 'required|string',
             'image' => 'nullable|string',
+            'gallery' => 'nullable|array',
             'description' => 'nullable|string',
             'product_category_id' => 'nullable|integer|exists:product_categories,id',
             'tags' => 'nullable|array',
@@ -43,6 +44,8 @@ class ProductController extends Controller
             'order' => 'integer',
             'track_stock' => 'boolean',
             'stock_quantity' => 'nullable|integer',
+            'specifications' => 'nullable|array',
+            'variants' => 'nullable|array',
         ]);
 
         $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(4);
@@ -62,6 +65,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'price' => 'required|string',
             'image' => 'nullable|string',
+            'gallery' => 'nullable|array',
             'description' => 'nullable|string',
             'product_category_id' => 'nullable|integer|exists:product_categories,id',
             'tags' => 'nullable|array',
@@ -72,6 +76,8 @@ class ProductController extends Controller
             'order' => 'integer',
             'track_stock' => 'boolean',
             'stock_quantity' => 'nullable|integer',
+            'specifications' => 'nullable|array',
+            'variants' => 'nullable|array',
         ]);
 
         if ($validated['name'] !== $product->name) {
