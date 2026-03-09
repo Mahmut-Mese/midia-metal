@@ -100,13 +100,13 @@ const Header = () => {
         {/* Desktop Nav */}
         <nav className="hidden lg:flex items-center gap-8">
           {[
-            { label: t("nav_home", "Home"), path: "/" },
-            { label: t("nav_services", "Services"), path: "/services" },
-            { label: t("nav_about", "About Us"), path: "/about" },
-            { label: t("nav_portfolio", "Portfolio"), path: "/portfolio" },
-            { label: t("nav_blog", "Blog"), path: "/blog" },
-            { label: t("nav_shop", "Shop"), path: "/shop" },
-            { label: t("nav_contact", "Contact"), path: "/contact" },
+            { label: t("header_nav_home", "Home"), path: "/" },
+            { label: t("header_nav_services", "Services"), path: "/services" },
+            { label: t("header_nav_about", "About Us"), path: "/about" },
+            { label: t("header_nav_portfolio", "Portfolio"), path: "/portfolio" },
+            { label: t("header_nav_blog", "Blog"), path: "/blog" },
+            { label: t("header_nav_shop", "Shop"), path: "/shop" },
+            { label: t("header_nav_contact", "Contact"), path: "/contact" },
           ].map((item) => (
             <Link
               key={item.path}
@@ -188,13 +188,13 @@ const Header = () => {
       {mobileOpen && (
         <nav className="lg:hidden absolute top-full left-0 right-0 bg-white border-b border-border shadow-lg flex flex-col">
           {[
-            { label: t("nav_home", "Home"), path: "/" },
-            { label: t("nav_services", "Services"), path: "/services" },
-            { label: t("nav_about", "About Us"), path: "/about" },
-            { label: t("nav_portfolio", "Portfolio"), path: "/portfolio" },
-            { label: t("nav_blog", "Blog"), path: "/blog" },
-            { label: t("nav_shop", "Shop"), path: "/shop" },
-            { label: t("nav_contact", "Contact"), path: "/contact" },
+            { label: t("header_nav_home", "Home"), path: "/" },
+            { label: t("header_nav_services", "Services"), path: "/services" },
+            { label: t("header_nav_about", "About Us"), path: "/about" },
+            { label: t("header_nav_portfolio", "Portfolio"), path: "/portfolio" },
+            { label: t("header_nav_blog", "Blog"), path: "/blog" },
+            { label: t("header_nav_shop", "Shop"), path: "/shop" },
+            { label: t("header_nav_contact", "Contact"), path: "/contact" },
           ].map((item) => (
             <Link
               key={item.path}

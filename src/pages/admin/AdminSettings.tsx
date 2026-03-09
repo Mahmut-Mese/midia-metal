@@ -22,7 +22,7 @@ type HeroSlideRecord = {
     isNew?: boolean;
 };
 
-const GROUP_ORDER = ["general", "shipping-tax", "home", "about", "contact", "services", "portfolio", "blog", "legal", "faq", "seo", "hero-slides"];
+const GROUP_ORDER = ["header", "footer", "general", "shipping-tax", "home", "about", "contact", "services", "portfolio", "blog", "legal", "seo", "hero-slides"];
 
 export default function AdminSettings() {
     const [settings, setSettings] = useState<SettingRecord[]>([]);
@@ -52,6 +52,7 @@ export default function AdminSettings() {
 
     const tabs = useMemo(() => {
         const seen = new Set(settings.map((setting) => setting.group || "general"));
+        seen.delete("faq"); // Explicitly remove faq group
         const dynamicGroups = Array.from(seen);
         const ordered = dynamicGroups.sort((a, b) => {
             const indexA = GROUP_ORDER.indexOf(a);
@@ -303,6 +304,19 @@ export default function AdminSettings() {
                                                 value={setting.value}
                                                 onChange={(url) => updateSetting(setting.key, url)}
                                             />
+                                        ) : setting.type === "boolean" ? (
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={["1", "true", "yes", "on"].includes(String(setting.value).toLowerCase())}
+                                                    onChange={(e) => updateSetting(setting.key, e.target.checked ? "1" : "0")}
+                                                    className="w-5 h-5 rounded border-gray-300 text-[#eb5c10] focus:ring-[#eb5c10] cursor-pointer"
+                                                    id={`setting-${setting.key}`}
+                                                />
+                                                <label htmlFor={`setting-${setting.key}`} className="text-sm text-gray-600 cursor-pointer">
+                                                    Enabled
+                                                </label>
+                                            </div>
                                         ) : (
                                             <input
                                                 type={setting.type === "url" ? "url" : "text"}

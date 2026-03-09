@@ -31,7 +31,7 @@ type FaqSection = {
   items: FaqItem[];
 };
 
-const proseClassName = "prose prose-sm max-w-none text-[#6e7a92] prose-p:my-0 prose-strong:text-[#10275c] prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1";
+const proseClassName = "prose prose-sm max-w-none text-[#6e7a92] prose-p:my-0 prose-strong:text-[#10275c] prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-ul:list-disc prose-ol:list-decimal";
 
 function parseFaqContent(content: string): FaqSection[] {
   if (typeof window === "undefined") {
@@ -116,34 +116,31 @@ function parseFaqContent(content: string): FaqSection[] {
 }
 
 export default function FaqPage() {
-  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [faqs, setFaqs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadSettings = async () => {
+    const loadFaqs = async () => {
       try {
-        const res = await apiFetch("/v1/settings");
-        const nextSettings: Record<string, string> = {};
-        res.forEach((item: any) => {
-          nextSettings[item.key] = item.value;
-        });
-        setSettings(nextSettings);
+        const res = await apiFetch("/v1/faqs");
+        setFaqs(res);
       } catch (error) {
-        console.error("Failed to load FAQ settings", error);
+        console.error("Failed to load FAQs", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadSettings();
+    loadFaqs();
   }, []);
 
-  const title = settings.faq_page_title || "Frequently Asked Questions";
-  const content = settings.faq_page_content || fallbackContent;
-  const sections = useMemo(() => parseFaqContent(content), [content]);
+  const title = "Frequently Asked Questions";
 
   return (
     <div className="min-h-screen bg-[#eaf0f3]">
       <Seo
         title={title}
-        description={truncateText(stripHtml(content))}
+        description="Frequently Asked Questions about Midia M Metal's products, services, delivery, and returns."
         canonicalPath="/faq"
         structuredData={buildBreadcrumbJsonLd([
           { name: "Home", url: absoluteUrl("/") },
@@ -158,44 +155,31 @@ export default function FaqPage() {
           </h1>
 
           <div className="space-y-10">
-            {sections.map((section, sectionIndex) => (
-              <div key={`${section.title}-${sectionIndex}`} className="space-y-4">
-                {section.title ? (
-                  <h2 className="font-sans text-[24px] md:text-[28px] leading-tight font-semibold text-[#10275c]">
-                    {section.title}
-                  </h2>
-                ) : null}
-
-                {section.introHtml.length > 0 ? (
-                  <div
-                    className={`${proseClassName} pb-2`}
-                    dangerouslySetInnerHTML={{ __html: section.introHtml.join("") }}
-                  />
-                ) : null}
-
-                {section.items.length > 0 ? (
-                  <Accordion type="single" collapsible className="border border-[#cad4e4]">
-                    {section.items.map((item, itemIndex) => (
-                      <AccordionItem
-                        key={`${item.question}-${itemIndex}`}
-                        value={`${sectionIndex}-${itemIndex}`}
-                        className="border-b border-[#cad4e4] last:border-b-0"
-                      >
-                        <AccordionTrigger className="px-5 md:px-6 py-5 text-left font-sans text-[16px] md:text-[18px] font-semibold text-[#10275c] hover:no-underline">
-                          {item.question}
-                        </AccordionTrigger>
-                        <AccordionContent className="px-5 md:px-6 pb-5">
-                          <div
-                            className={proseClassName}
-                            dangerouslySetInnerHTML={{ __html: item.answerHtml }}
-                          />
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                ) : null}
-              </div>
-            ))}
+            {loading ? (
+              <p className="text-center text-[#6e7a92]">Loading FAQs...</p>
+            ) : faqs.length === 0 ? (
+              <p className="text-center text-[#6e7a92]">No FAQs found.</p>
+            ) : (
+              <Accordion type="single" collapsible className="border border-[#cad4e4]">
+                {faqs.map((item, itemIndex) => (
+                  <AccordionItem
+                    key={item.id || itemIndex}
+                    value={`item-${itemIndex}`}
+                    className="border-b border-[#cad4e4] last:border-b-0"
+                  >
+                    <AccordionTrigger className="px-5 md:px-6 py-5 text-left font-sans text-[16px] md:text-[18px] font-semibold text-[#10275c] hover:no-underline">
+                      {item.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="px-5 md:px-6 pb-5">
+                      <div
+                        className={proseClassName}
+                        dangerouslySetInnerHTML={{ __html: item.answer }}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
           </div>
         </div>
       </section>

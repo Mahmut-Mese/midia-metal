@@ -169,7 +169,14 @@ const ShopPage = () => {
                       <h3 className="font-sans text-[16px] md:text-[20px] leading-tight font-semibold text-orange transition-colors">
                         {p.name}
                       </h3>
-                      <p className="text-[14px] md:text-[20px] text-[#5e6e8c] mt-1">{p.price}</p>
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <p className="text-[14px] md:text-[20px] font-semibold text-[#1f2f52]">{p.price}</p>
+                        {p.old_price && (
+                          <p className="text-[12px] md:text-[14px] text-[#9aa6bc] line-through font-normal">
+                            {p.old_price}
+                          </p>
+                        )}
+                      </div>
                     </Link>
                   ))}
                 </div>

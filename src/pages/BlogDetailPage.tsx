@@ -159,7 +159,7 @@ export default function BlogDetailPage() {
             ) : null}
 
             <div
-              className="prose prose-slate max-w-none text-[15px] leading-8 prose-headings:text-[#10275c] prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-blockquote:border-orange prose-strong:text-[#10275c]"
+              className="prose prose-slate max-w-none text-[15px] leading-8 prose-headings:text-[#10275c] prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-blockquote:border-orange prose-strong:text-[#10275c] prose-ul:list-disc prose-ol:list-decimal prose-li:my-1"
               dangerouslySetInnerHTML={{ __html: post.content || "" }}
             />
 

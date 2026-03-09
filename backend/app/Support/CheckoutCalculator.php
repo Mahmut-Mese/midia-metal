@@ -21,7 +21,7 @@ class CheckoutCalculator
         $productIds = collect($items)
             ->pluck('product_id')
             ->filter()
-            ->map(fn ($id) => (int) $id)
+            ->map(fn($id) => (int) $id)
             ->unique()
             ->values();
 
@@ -68,7 +68,7 @@ class CheckoutCalculator
         $subtotal = round($lineItems->sum('line_total'), 2);
         $settings = SiteSetting::pluck('value', 'key');
         $shipping = $subtotal > 0 ? round($this->parseMoney(
-            $settings->get('shipping_flat_rate', $settings->get('shipping_rate', '0'))
+            $settings->get('shipping_rate', '0')
         ), 2) : 0.0;
 
         $coupon = null;
@@ -86,7 +86,7 @@ class CheckoutCalculator
         }
 
         $vatEnabled = in_array(strtolower((string) $settings->get('vat_enabled', '0')), ['1', 'true', 'yes', 'on'], true);
-        $vatRate = (float) $settings->get('vat_rate', $settings->get('tax_rate', 20));
+        $vatRate = (float) $settings->get('vat_rate', 20);
         $taxableAmount = max(0, $subtotal + $shipping - $discountAmount);
         $taxAmount = $vatEnabled ? round($taxableAmount * ($vatRate / 100), 2) : 0.0;
         $total = round(max(0, $subtotal + $shipping + $taxAmount - $discountAmount), 2);

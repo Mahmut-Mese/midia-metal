@@ -256,13 +256,20 @@ const ProductDetailPage = () => {
 
           <div className="pt-2">
             <h1 className="font-sans text-[30px] md:text-[40px] leading-[1] font-semibold text-[#10275c]">{product.name}</h1>
-            <p className="text-orange text-[28px] md:text-[34px] leading-none font-medium mt-3 mb-7">
-              {(() => {
-                const base = parseFloat(product.price.replace(/[£,]/g, "")) || 0;
-                const extra = Object.values(selectedVariants).reduce((acc, v: any) => acc + (parseFloat(v.price) || 0), 0);
-                return `£${(base + extra).toFixed(2)}`;
-              })()}
-            </p>
+            <div className="flex items-baseline gap-3 mt-3 mb-7">
+              <p className="text-orange text-[28px] md:text-[34px] leading-none font-medium">
+                {(() => {
+                  const base = parseFloat(product.price.replace(/[£,]/g, "")) || 0;
+                  const extra = Object.values(selectedVariants).reduce((acc, v: any) => acc + (parseFloat(v.price) || 0), 0);
+                  return `£${(base + extra).toFixed(2)}`;
+                })()}
+              </p>
+              {product.old_price && (
+                <p className="text-[#9aa6bc] text-[20px] md:text-[24px] line-through font-normal">
+                  {product.old_price}
+                </p>
+              )}
+            </div>
 
             <div className="flex items-center gap-3 flex-wrap mb-8">
               <div className="w-[118px] h-[50px] border border-[#cad4e4] flex items-center px-5 bg-[#eaf0f3]">
@@ -356,11 +363,6 @@ const ProductDetailPage = () => {
                                 }`}
                             >
                               {v.value}
-                              {v.price && (
-                                <span className={isSelected ? "text-white/80 ml-1" : "text-orange ml-1"}>
-                                  (£{v.price})
-                                </span>
-                              )}
                             </button>
                           );
                         })}
@@ -430,7 +432,7 @@ const ProductDetailPage = () => {
             {description ? (
               descriptionHasHtml ? (
                 <div
-                  className="prose prose-sm max-w-none text-[#6e7a92] leading-7 prose-p:my-3 prose-headings:text-primary prose-strong:text-primary prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-blockquote:border-orange prose-blockquote:text-[#5f6f8d]"
+                  className="prose prose-sm max-w-none text-[#6e7a92] leading-7 prose-p:my-3 prose-headings:text-primary prose-strong:text-primary prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-blockquote:border-orange prose-blockquote:text-[#5f6f8d] prose-ul:list-disc prose-ol:list-decimal"
                   dangerouslySetInnerHTML={{ __html: description }}
                 />
               ) : (
@@ -548,7 +550,14 @@ const ProductDetailPage = () => {
               <h3 className="font-sans text-[18px] md:text-[20px] leading-tight font-semibold text-orange">
                 {p.name}
               </h3>
-              <p className="text-[18px] md:text-[20px] leading-none text-[#1f2f52] mt-3">{p.price}</p>
+              <div className="flex items-baseline gap-2 mt-3">
+                <p className="text-[18px] md:text-[20px] leading-none font-semibold text-[#1f2f52]">{p.price}</p>
+                {p.old_price && (
+                  <p className="text-[14px] md:text-[16px] text-[#9aa6bc] line-through font-normal">
+                    {p.old_price}
+                  </p>
+                )}
+              </div>
             </Link>
           ))}
         </div>

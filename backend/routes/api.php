@@ -48,6 +48,8 @@ Route::prefix('v1')->group(function () {
     Route::post('/payment/intent', [Api\PaymentController::class, 'createIntent'])->middleware(['customer.cookie', 'throttle:10,1']);
     // Testimonials
     Route::get('/testimonials', [Api\TestimonialController::class, 'index']);
+    // FAQs
+    Route::get('/faqs', [Api\FaqController::class, 'index']);
 
     // Customer Auth (Public)
     Route::post('/customer/register', [Api\CustomerAuthController::class, 'register'])->middleware('throttle:5,1');
@@ -138,6 +140,9 @@ Route::prefix('admin')->group(function () {
         Route::post('/hero-slides', [Admin\SettingsController::class, 'storeHeroSlide']);
         Route::put('/hero-slides/{heroSlide}', [Admin\SettingsController::class, 'updateHeroSlide']);
         Route::delete('/hero-slides/{heroSlide}', [Admin\SettingsController::class, 'destroyHeroSlide']);
+
+        // FAQs
+        Route::apiResource('/faqs', Admin\FaqController::class);
 
         // Product Reviews
         Route::apiResource('/product-reviews', Admin\ProductReviewController::class)->only(['index', 'destroy']);

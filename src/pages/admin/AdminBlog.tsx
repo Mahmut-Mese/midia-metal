@@ -3,6 +3,7 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { Plus, Edit2, Trash2, X } from "lucide-react";
 import ImageUpload from "@/components/admin/ImageUpload";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 
 export default function AdminBlog() {
     const [posts, setPosts] = useState<any[]>([]);
@@ -270,12 +271,10 @@ export default function AdminBlog() {
                                         />
                                     </div>
                                     <div className="col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700">Content (HTML)</label>
-                                        <textarea
-                                            rows={6}
+                                        <RichTextEditor
+                                            label="Content"
                                             value={currentPost.content || ""}
-                                            onChange={(e) => setCurrentPost({ ...currentPost, content: e.target.value })}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border font-mono"
+                                            onChange={(value) => setCurrentPost({ ...currentPost, content: value })}
                                         />
                                     </div>
                                     <div className="col-span-2 flex items-center">

@@ -18,11 +18,13 @@ const PortfolioDetailPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [projRes, relRes] = await Promise.all([
-          apiFetch(`/v1/portfolio/${slug}`),
-          apiFetch("/v1/portfolio")
-        ]);
+        const projRes = await apiFetch(`/v1/portfolio/${slug}`);
         setProject(projRes);
+
+        // Fetch related projects from the same category
+        const categorySlug = projRes.portfolio_category?.slug;
+        const relRes = await apiFetch(categorySlug ? `/v1/portfolio?category=${categorySlug}` : "/v1/portfolio");
+
         setRelated(relRes.filter((p: any) => p.slug !== slug).slice(0, 3));
       } catch (err) {
         console.error("Failed to fetch project detail", err);
@@ -101,8 +103,8 @@ const PortfolioDetailPage = () => {
             </p>
 
             {project.gallery && project.gallery.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                {project.gallery.slice(0, 2).map((imgUrl: string, idx: number) => (
+              <div className={`grid grid-cols-1 md:grid-cols-${Math.min(project.gallery.length, 2)} gap-4 mb-8`}>
+                {project.gallery.map((imgUrl: string, idx: number) => (
                   <img key={idx} src={imgUrl} alt="" className="w-full h-[280px] object-cover" />
                 ))}
               </div>
@@ -155,20 +157,22 @@ const PortfolioDetailPage = () => {
         </div>
       </section>
 
-      <section className="container mx-auto px-4 lg:px-8 pb-24">
-        <h3 className="font-sans text-[38px] md:text-[50px] leading-none font-semibold text-[#10275c] mb-8">Related Projects</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {related.map((item) => (
-            <Link key={item.id} to={`/portfolio/${item.slug}`} className="group">
-              <div className="mb-4 overflow-hidden">
-                <img src={item.image} alt={item.title} className="w-full h-[240px] object-cover transition-transform duration-300 group-hover:scale-105" />
-              </div>
-              <h4 className="font-sans text-[20px] font-semibold text-primary group-hover:text-orange transition-colors">{item.title}</h4>
-              <p className="text-[14px] text-[#6f7c95] mt-1">{item.portfolio_category?.name || "Uncategorized"}</p>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {related.length > 0 && (
+        <section className="container mx-auto px-4 lg:px-8 pb-24">
+          <h3 className="font-sans text-[38px] md:text-[50px] leading-none font-semibold text-[#10275c] mb-8">Related Projects</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {related.map((item) => (
+              <Link key={item.id} to={`/portfolio/${item.slug}`} className="group">
+                <div className="mb-4 overflow-hidden">
+                  <img src={item.image} alt={item.title} className="w-full h-[240px] object-cover transition-transform duration-300 group-hover:scale-105" />
+                </div>
+                <h4 className="font-sans text-[20px] font-semibold text-orange">{item.title}</h4>
+                <p className="text-[14px] text-[#6f7c95] mt-1">{item.portfolio_category?.name || "Uncategorized"}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <Footer />
       <FloatingSidebar />

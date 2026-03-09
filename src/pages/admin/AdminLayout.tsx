@@ -14,7 +14,8 @@ import {
     MessageSquare,
     Tag,
     Users,
-    Star
+    Star,
+    HelpCircle
 } from "lucide-react";
 import { removeAuthToken, apiFetch } from "@/lib/api";
 
@@ -32,6 +33,7 @@ const navigation = [
     { name: "Messages", href: "/admin/messages", icon: Mail },
     { name: "Product Reviews", href: "/admin/product-reviews", icon: Star },
     { name: "Customers", href: "/admin/customers", icon: Users },
+    { name: "FAQs", href: "/admin/faq", icon: HelpCircle },
     { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

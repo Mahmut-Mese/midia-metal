@@ -53,6 +53,7 @@ const AdminProductReviews = lazy(() => import("./pages/admin/AdminProductReviews
 const AdminQuotes = lazy(() => import("./pages/admin/AdminQuotes"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
 const AdminCustomers = lazy(() => import("./pages/admin/AdminCustomers"));
+const AdminFaq = lazy(() => import("./pages/admin/AdminFaq"));
 
 const RouteLoader = () => <div className="min-h-screen bg-[#eaf0f3]" aria-hidden="true" />;
 
@@ -108,6 +109,7 @@ const App = () => (
                     <Route path="messages" element={<AdminMessages />} />
                     <Route path="product-reviews" element={<AdminProductReviews />} />
                     <Route path="customers" element={<AdminCustomers />} />
+                    <Route path="faq" element={<AdminFaq />} />
                     <Route path="services" element={<AdminServices />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="*" element={<div className="p-8 text-xl font-semibold text-[#10275c]">Coming Soon</div>} />

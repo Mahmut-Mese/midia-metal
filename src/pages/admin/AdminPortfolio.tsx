@@ -63,26 +63,39 @@ export default function AdminPortfolio() {
                 client: "",
                 year: "",
                 portfolio_category_id: "",
+                services_list: [],
+                gallery: [],
                 active: true,
                 order: 0,
             }
         );
+        if (project) {
+            setCurrentProject({
+                ...project,
+                gallery: project.gallery || [],
+                services_list: project.services_list || [],
+            });
+        }
         setIsEditing(true);
     };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            const dataToSave = {
+                ...currentProject,
+                portfolio_category_id: currentProject.portfolio_category_id || null,
+            };
             if (currentProject.id) {
                 await apiFetch(`/admin/portfolio/${currentProject.id}`, {
                     method: "PUT",
-                    body: JSON.stringify(currentProject),
+                    body: JSON.stringify(dataToSave),
                 });
                 toast.success("Project updated");
             } else {
                 await apiFetch("/admin/portfolio", {
                     method: "POST",
-                    body: JSON.stringify(currentProject),
+                    body: JSON.stringify(dataToSave),
                 });
                 toast.success("Project created");
             }
@@ -91,6 +104,20 @@ export default function AdminPortfolio() {
         } catch (err: any) {
             toast.error(err.message || "Failed to save project");
         }
+    };
+
+    const handleAddGalleryImage = (url: string) => {
+        setCurrentProject((prev: any) => ({
+            ...prev,
+            gallery: [...(prev.gallery || []), url]
+        }));
+    };
+
+    const handleRemoveGalleryImage = (index: number) => {
+        setCurrentProject((prev: any) => ({
+            ...prev,
+            gallery: (prev.gallery || []).filter((_: any, i: number) => i !== index)
+        }));
     };
 
     const filteredProjects = projects
@@ -282,11 +309,40 @@ export default function AdminPortfolio() {
                                 </div>
                                 <div className="col-span-2">
                                     <ImageUpload
-                                        label="Project Image"
+                                        label="Main Project Image"
                                         value={currentProject.image}
                                         onChange={(url) => setCurrentProject({ ...currentProject, image: url })}
                                     />
                                 </div>
+
+                                <div className="col-span-2 space-y-2">
+                                    <label className="block text-sm font-semibold text-[#10275c]">Gallery Images</label>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {(currentProject.gallery || []).map((imgUrl: string, idx: number) => (
+                                            <div key={idx} className="relative group aspect-square border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-gray-50">
+                                                <img src={imgUrl} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveGalleryImage(idx)}
+                                                    className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {(currentProject.gallery || []).length < 8 && (
+                                            <div className="aspect-square">
+                                                <ImageUpload
+                                                    hidePreview={true}
+                                                    value=""
+                                                    onChange={handleAddGalleryImage}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] text-gray-500 mt-2 font-medium">Add up to 8 additional images for the project gallery.</p>
+                                </div>
+
                                 <div className="col-span-2">
                                     <label className="block text-sm font-medium text-gray-700">Description</label>
                                     <textarea

@@ -59,11 +59,11 @@ const Footer = () => {
             <h4 className="font-sans text-xl font-semibold mb-6">{t("footer_label_links", "Quick Links")}</h4>
             <ul className="space-y-2">
               {[
-                { label: t("nav_home", "Home"), path: "/" },
-                { label: t("nav_services", "Services"), path: "/services" },
-                { label: t("nav_about", "About Us"), path: "/about" },
-                { label: t("nav_shop", "Shop"), path: "/shop" },
-                { label: t("nav_contact", "Contact"), path: "/contact" },
+                { label: t("footer_nav_home", "Home"), path: "/" },
+                { label: t("footer_nav_services", "Services"), path: "/services" },
+                { label: t("footer_nav_about", "About Us"), path: "/about" },
+                { label: t("footer_nav_shop", "Shop"), path: "/shop" },
+                { label: t("footer_nav_contact", "Contact"), path: "/contact" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link to={item.path} className="text-white/80 text-sm hover:text-white transition-colors">
@@ -79,11 +79,11 @@ const Footer = () => {
             <h4 className="font-sans text-xl font-semibold mb-6">{t("footer_label_info", "Information")}</h4>
             <ul className="space-y-2">
               {[
-                { label: t("nav_privacy", "Privacy Policy"), path: "/privacy-policy" },
-                { label: t("nav_terms", "Terms & Conditions"), path: "/terms-of-service" },
-                { label: t("nav_cookies", "Cookies Page"), path: "/cookies" },
-                { label: t("nav_returns", "Returns & Refunds"), path: "/returns-policy" },
-                { label: t("nav_faq", "FAQ"), path: "/faq" },
+                { label: t("footer_info_privacy", "Privacy Policy"), path: "/privacy-policy" },
+                { label: t("footer_info_terms", "Terms & Conditions"), path: "/terms-of-service" },
+                { label: t("footer_info_cookies", "Cookies Page"), path: "/cookies" },
+                { label: t("footer_info_returns", "Returns & Refunds"), path: "/returns-policy" },
+                { label: t("footer_info_faq", "FAQ"), path: "/faq" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link to={item.path} className="text-white/80 text-sm hover:text-white transition-colors">
