@@ -17,6 +17,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/featured', [Api\ProductController::class, 'featured']);
     Route::get('/products/tags', [Api\ProductController::class, 'tags']);
     Route::get('/products/{id}', [Api\ProductController::class, 'show']);
+    Route::get('/products/{id}/related', [Api\ProductController::class, 'related']);
     Route::get('/product-categories', [Api\ProductController::class, 'categories']);
     Route::get('/product-categories/{slug}', [Api\ProductController::class, 'categoryDetail']);
     Route::get('/hero-slides', [Api\ProductController::class, 'heroSlides']);
@@ -40,20 +41,20 @@ Route::prefix('v1')->group(function () {
     Route::get('/settings', [Api\SettingsController::class, 'index']);
 
     // Forms
-    Route::post('/contact', [Api\FormController::class, 'contact']);
-    Route::post('/orders', [Api\FormController::class, 'order']);
-    Route::post('/quote', [Api\FormController::class, 'quote']);
-    Route::post('/coupons/apply', [Api\FormController::class, 'applyCoupon']);
-    Route::post('/payment/intent', [Api\PaymentController::class, 'createIntent']);
+    Route::post('/contact', [Api\FormController::class, 'contact'])->middleware('throttle:8,1');
+    Route::post('/orders', [Api\FormController::class, 'order'])->middleware(['customer.cookie', 'throttle:10,1']);
+    Route::post('/quote', [Api\FormController::class, 'quote'])->middleware(['customer.cookie', 'throttle:6,1']);
+    Route::post('/coupons/apply', [Api\FormController::class, 'applyCoupon'])->middleware('throttle:20,1');
+    Route::post('/payment/intent', [Api\PaymentController::class, 'createIntent'])->middleware(['customer.cookie', 'throttle:10,1']);
     // Testimonials
     Route::get('/testimonials', [Api\TestimonialController::class, 'index']);
 
     // Customer Auth (Public)
-    Route::post('/customer/register', [Api\CustomerAuthController::class, 'register']);
-    Route::post('/customer/login', [Api\CustomerAuthController::class, 'login']);
+    Route::post('/customer/register', [Api\CustomerAuthController::class, 'register'])->middleware('throttle:5,1');
+    Route::post('/customer/login', [Api\CustomerAuthController::class, 'login'])->middleware('throttle:5,1');
 
     // Customer Protected Routes
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['customer.cookie', 'auth:sanctum', 'customer.only', 'throttle:60,1'])->group(function () {
         Route::get('/customer/me', [Api\CustomerAuthController::class, 'me']);
         Route::post('/customer/logout', [Api\CustomerAuthController::class, 'logout']);
         Route::put('/customer/profile', [Api\CustomerAuthController::class, 'updateProfile']);
@@ -79,10 +80,10 @@ Route::prefix('v1')->group(function () {
 
 // Admin Auth
 Route::prefix('admin')->group(function () {
-    Route::post('/login', [Admin\AuthController::class, 'login']);
+    Route::post('/login', [Admin\AuthController::class, 'login'])->middleware('throttle:5,1');
 
     // Protected Admin Routes
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['admin.cookie', 'auth:sanctum', 'admin.only', 'throttle:120,1'])->group(function () {
         Route::get('/me', [Admin\AuthController::class, 'me']);
         Route::post('/logout', [Admin\AuthController::class, 'logout']);
 

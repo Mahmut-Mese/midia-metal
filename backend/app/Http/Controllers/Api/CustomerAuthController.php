@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Symfony\Component\HttpFoundation\Cookie;
 
 class CustomerAuthController extends Controller
 {
@@ -25,12 +26,12 @@ class CustomerAuthController extends Controller
             'phone' => $validated['phone'] ?? null,
         ]);
 
-        $token = $customer->createToken('customer-token')->plainTextToken;
+        $customer->tokens()->delete();
+        $token = $customer->createToken('customer-token', ['customer'], now()->addDays(7))->plainTextToken;
 
         return response()->json([
             'customer' => $customer,
-            'token' => $token,
-        ], 201);
+        ], 201)->cookie($this->customerTokenCookie($request, $token));
     }
 
     public function login(Request $request)
@@ -46,18 +47,22 @@ class CustomerAuthController extends Controller
             return response()->json(['message' => 'Invalid email or password'], 401);
         }
 
-        $token = $customer->createToken('customer-token')->plainTextToken;
+        $customer->tokens()->delete();
+        $token = $customer->createToken('customer-token', ['customer'], now()->addDays(7))->plainTextToken;
 
         return response()->json([
             'customer' => $customer,
-            'token' => $token,
-        ]);
+        ])->cookie($this->customerTokenCookie($request, $token));
     }
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Logged out successfully']);
+        if ($request->user()?->currentAccessToken()) {
+            $request->user()->currentAccessToken()->delete();
+        }
+
+        return response()->json(['message' => 'Logged out successfully'])
+            ->withoutCookie('customer_token', '/');
     }
 
     public function me(Request $request)
@@ -120,5 +125,20 @@ class CustomerAuthController extends Controller
         $customer->update(['password' => Hash::make($request->password)]);
 
         return response()->json(['message' => 'Password updated successfully']);
+    }
+
+    private function customerTokenCookie(Request $request, string $token): Cookie
+    {
+        return cookie(
+            'customer_token',
+            $token,
+            60 * 24 * 7,
+            '/',
+            null,
+            $request->isSecure(),
+            true,
+            false,
+            'lax'
+        );
     }
 }

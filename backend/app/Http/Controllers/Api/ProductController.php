@@ -69,6 +69,32 @@ class ProductController extends Controller
         return response()->json($payload);
     }
 
+    public function related($id)
+    {
+        $product = Product::where('id', $id)->orWhere('slug', $id)->firstOrFail();
+
+        $related = Product::with('category')
+            ->where('active', true)
+            ->where('id', '!=', $product->id)
+            ->where('product_category_id', $product->product_category_id)
+            ->orderBy('order')
+            ->take(4)
+            ->get();
+
+        if ($related->count() < 4) {
+            $extraIds = $related->pluck('id')->push($product->id);
+            $extras = Product::with('category')
+                ->where('active', true)
+                ->whereNotIn('id', $extraIds)
+                ->orderBy('order')
+                ->take(4 - $related->count())
+                ->get();
+            $related = $related->concat($extras);
+        }
+
+        return response()->json($related);
+    }
+
     public function categories()
     {
         return response()->json(

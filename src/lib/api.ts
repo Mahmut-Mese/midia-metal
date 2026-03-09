@@ -1,11 +1,28 @@
-export const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+export const API_URL = import.meta.env.VITE_API_URL || "/api";
 
-export const getAuthToken = () => localStorage.getItem("admin_token");
-export const setAuthToken = (token: string) => localStorage.setItem("admin_token", token);
-export const removeAuthToken = () => localStorage.removeItem("admin_token");
+const clearLegacyTokens = () => {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    localStorage.removeItem("admin_token");
+    localStorage.removeItem("customer_token");
+};
+
+export const getAuthToken = () => {
+    clearLegacyTokens();
+    return null;
+};
+
+export const setAuthToken = (_token: string) => {
+    clearLegacyTokens();
+};
+
+export const removeAuthToken = () => {
+    clearLegacyTokens();
+};
 
 export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
-    const token = getAuthToken();
     const headers: Record<string, string> = {
         Accept: "application/json",
         ...(options.headers as Record<string, string>),
@@ -16,13 +33,9 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         headers["Content-Type"] = "application/json";
     }
 
-    // Use passed-in token if available, otherwise fallback to admin token
-    if (!headers["Authorization"] && token && endpoint.startsWith("/admin")) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
-
     const response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
+        credentials: "include",
         headers,
     });
 

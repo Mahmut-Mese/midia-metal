@@ -23,7 +23,7 @@ const QuoteRequestPage = () => {
     const [files, setFiles] = useState<File[]>([]);
     const [submitting, setSubmitting] = useState(false);
     const [done, setDone] = useState(false);
-    const { customer, token } = useCustomerAuth();
+    const { customer } = useCustomerAuth();
 
     const update = (field: string, val: string) => setForm({ ...form, [field]: val });
 
@@ -67,10 +67,8 @@ const QuoteRequestPage = () => {
 
             const response = await fetch(`${API_URL}/v1/quote`, {
                 method: "POST",
-                headers: {
-                    Accept: "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
+                credentials: "include",
+                headers: { Accept: "application/json" },
                 body: fd,
             });
 

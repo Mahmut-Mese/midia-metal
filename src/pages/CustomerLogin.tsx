@@ -22,13 +22,14 @@ export default function CustomerLogin() {
         try {
             const response = await fetch(`${API_URL}/v1/customer/login`, {
                 method: "POST",
+                credentials: "include",
                 headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify({ email, password })
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || "Failed to log in");
 
-            login(data.token, data.customer);
+            login(data.customer);
             toast.success("Logged in successfully!");
             navigate("/account");
         } catch (err: any) {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { apiFetch, API_URL } from "@/lib/api";
+import { API_URL } from "@/lib/api";
 
 interface Customer {
     id: number;
@@ -19,7 +19,7 @@ interface CustomerAuthContextType {
     customer: Customer | null;
     token: string | null;
     isLoading: boolean;
-    login: (token: string, customerData: Customer) => void;
+    login: (customerData: Customer) => void;
     logout: () => void;
     updateCustomer: (customerData: Customer) => void;
 }
@@ -28,47 +28,61 @@ const CustomerAuthContext = createContext<CustomerAuthContextType | undefined>(u
 
 export function CustomerAuthProvider({ children }: { children: ReactNode }) {
     const [customer, setCustomer] = useState<Customer | null>(null);
-    const [token, setToken] = useState<string | null>(localStorage.getItem("customer_token"));
+    const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
+
         async function fetchCustomer() {
-            if (!token) {
-                setIsLoading(false);
-                return;
-            }
             try {
-                // Create custom request since apiFetch might use admin token logic
                 const response = await fetch(`${API_URL}/v1/customer/me`, {
-                    headers: {
-                        "Accept": "application/json",
-                        "Authorization": `Bearer ${token}`
-                    }
+                    credentials: "include",
+                    headers: { Accept: "application/json" },
                 });
+
                 if (response.ok) {
                     const data = await response.json();
+                    if (!isMounted) {
+                        return;
+                    }
+
                     setCustomer(data);
+                    setToken("cookie");
                 } else {
+                    if (!isMounted) {
+                        return;
+                    }
+
                     setToken(null);
-                    localStorage.removeItem("customer_token");
+                    setCustomer(null);
                 }
             } catch (error) {
                 console.error("Failed to fetch customer profile", error);
+                if (isMounted) {
+                    setToken(null);
+                    setCustomer(null);
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         }
-        fetchCustomer();
-    }, [token]);
 
-    const login = (newToken: string, customerData: Customer) => {
-        localStorage.setItem("customer_token", newToken);
-        setToken(newToken);
+        fetchCustomer();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    const login = (customerData: Customer) => {
+        setToken("cookie");
         setCustomer(customerData);
     };
 
     const logout = () => {
-        localStorage.removeItem("customer_token");
         setToken(null);
         setCustomer(null);
     };

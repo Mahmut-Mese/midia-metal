@@ -7,6 +7,7 @@ use App\Models\AdminUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Cookie;
 
 class AuthController extends Controller
 {
@@ -25,22 +26,41 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('admin-token')->plainTextToken;
+        $user->tokens()->delete();
+        $token = $user->createToken('admin-token', ['admin'], now()->addHours(8))->plainTextToken;
 
         return response()->json([
             'user' => $user->only(['id', 'name', 'email', 'role']),
-            'token' => $token,
-        ]);
+        ])->cookie($this->adminTokenCookie($request, $token));
     }
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Logged out successfully']);
+        if ($request->user()?->currentAccessToken()) {
+            $request->user()->currentAccessToken()->delete();
+        }
+
+        return response()->json(['message' => 'Logged out successfully'])
+            ->withoutCookie('admin_token', '/');
     }
 
     public function me(Request $request)
     {
         return response()->json($request->user()->only(['id', 'name', 'email', 'role']));
+    }
+
+    private function adminTokenCookie(Request $request, string $token): Cookie
+    {
+        return cookie(
+            'admin_token',
+            $token,
+            60 * 8,
+            '/',
+            null,
+            $request->isSecure(),
+            true,
+            false,
+            'lax'
+        );
     }
 }

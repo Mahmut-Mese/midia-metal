@@ -32,7 +32,7 @@ const QUOTE_STATUS_LABELS: Record<string, string> = {
 };
 
 export default function CustomerPortal() {
-    const { customer, token, logout, updateCustomer } = useCustomerAuth();
+    const { customer, isLoading, logout, updateCustomer } = useCustomerAuth();
     const { wishlist, removeFromWishlist } = useWishlist();
     const { addToCart } = useCart();
     const navigate = useNavigate();
@@ -72,7 +72,11 @@ export default function CustomerPortal() {
     const [savingPassword, setSavingPassword] = useState(false);
 
     useEffect(() => {
-        if (!token) { navigate("/login"); return; }
+        if (isLoading) {
+            return;
+        }
+
+        if (!customer) { navigate("/login"); return; }
         // Always re-fetch orders when Orders tab is active so admin status changes are reflected
         if (activeTab === "orders") {
             setLoadingOrders(true);
@@ -103,12 +107,13 @@ export default function CustomerPortal() {
                 company_vat_number: customer.company_vat_number || "",
             });
         }
-    }, [token, navigate, customer, activeTab]);
+    }, [customer, isLoading, navigate, activeTab]);
 
     const fetchOrders = async () => {
         try {
             const response = await fetch(`${API_URL}/v1/customer/orders`, {
-                headers: { "Accept": "application/json", "Authorization": `Bearer ${token}` }
+                credentials: "include",
+                headers: { Accept: "application/json" }
             });
             if (response.ok) setOrders(await response.json());
         } catch { toast.error("Failed to load orders"); }
@@ -118,7 +123,8 @@ export default function CustomerPortal() {
     const fetchQuotes = async () => {
         try {
             const response = await fetch(`${API_URL}/v1/customer/quotes`, {
-                headers: { "Accept": "application/json", "Authorization": `Bearer ${token}` }
+                credentials: "include",
+                headers: { Accept: "application/json" }
             });
             if (response.ok) setQuotes(await response.json());
         } catch { /* silently fail */ }
@@ -128,7 +134,8 @@ export default function CustomerPortal() {
     const fetchCards = async () => {
         try {
             const response = await fetch(`${API_URL}/v1/customer/payment-methods`, {
-                headers: { "Accept": "application/json", "Authorization": `Bearer ${token}` }
+                credentials: "include",
+                headers: { Accept: "application/json" }
             });
             if (response.ok) setSavedCards(await response.json());
         } catch { toast.error("Failed to load saved cards"); }
@@ -140,7 +147,8 @@ export default function CustomerPortal() {
         try {
             const response = await fetch(`${API_URL}/v1/customer/payment-methods/${id}`, {
                 method: "DELETE",
-                headers: { "Accept": "application/json", "Authorization": `Bearer ${token}` }
+                credentials: "include",
+                headers: { Accept: "application/json" }
             });
             if (response.ok) {
                 toast.success("Card removed successfully");
@@ -155,7 +163,8 @@ export default function CustomerPortal() {
         try {
             await fetch(`${API_URL}/v1/customer/logout`, {
                 method: "POST",
-                headers: { "Accept": "application/json", "Authorization": `Bearer ${token}` }
+                credentials: "include",
+                headers: { Accept: "application/json" }
             });
         } catch { }
         logout();
@@ -165,7 +174,8 @@ export default function CustomerPortal() {
     const downloadInvoice = async (id: number, orderNumber: string) => {
         try {
             const response = await fetch(`${API_URL}/v1/customer/orders/${id}/invoice`, {
-                headers: { "Authorization": `Bearer ${token}` }
+                credentials: "include",
+                headers: { Accept: "application/json" }
             });
             if (!response.ok) throw new Error("Failed to download");
             const blob = await response.blob();
@@ -201,7 +211,8 @@ export default function CustomerPortal() {
         try {
             const response = await fetch(`${API_URL}/v1/customer/profile`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": `Bearer ${token}` },
+                credentials: "include",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify(form)
             });
             if (!response.ok) throw new Error("Failed to update profile");
@@ -222,7 +233,8 @@ export default function CustomerPortal() {
         try {
             const response = await fetch(`${API_URL}/v1/customer/password`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": `Bearer ${token}` },
+                credentials: "include",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify(secForm)
             });
             const data = await response.json();
@@ -232,6 +244,19 @@ export default function CustomerPortal() {
         } catch (error: any) { toast.error(error.message); }
         finally { setSavingPassword(false); }
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-[#eaf0f3]">
+                <Seo title="My Account" description="Manage your orders, quotes, and saved details." canonicalPath="/account" noindex />
+                <Header />
+                <section className="container mx-auto px-4 lg:px-8 py-20 text-center">
+                    <p className="text-[#6e7a92]">Loading your account...</p>
+                </section>
+                <Footer />
+            </div>
+        );
+    }
 
     if (!customer) return null;
 

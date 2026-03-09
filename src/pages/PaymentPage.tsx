@@ -107,7 +107,7 @@ const PaymentPage = () => {
   const location = useLocation();
   const checkoutForm = location.state?.form;
   const { cart, subtotal: subtotalRaw, shippingRate, vatEnabled, vatRate, vatAmount, coupon, total: totalRaw, clearCart, isBusiness } = useCart();
-  const { token } = useCustomerAuth();
+  const { customer } = useCustomerAuth();
 
   const [method, setMethod] = useState<"card" | "bank" | "cod">("card");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -120,9 +120,10 @@ const PaymentPage = () => {
   const totalFormatted = `£${totalRaw.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   useEffect(() => {
-    if (token) {
+    if (customer) {
       fetch(`${API_URL}/v1/customer/payment-methods`, {
-        headers: { Accept: "application/json", Authorization: `Bearer ${token}` }
+        credentials: "include",
+        headers: { Accept: "application/json" }
       })
         .then(res => res.json())
         .then(data => {
@@ -134,8 +135,12 @@ const PaymentPage = () => {
           }
         })
         .catch(() => { });
+      return;
     }
-  }, [token]);
+
+    setSavedCards([]);
+    setSelectedCardId("new");
+  }, [customer]);
 
   // Create PaymentIntent whenever card method is selected and amount > 0
   useEffect(() => {
@@ -144,25 +149,37 @@ const PaymentPage = () => {
     const fetchIntent = async () => {
       setLoadingIntent(true);
       try {
-        const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json" };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-
         const res = await fetch(`${API_URL}/v1/payment/intent`, {
           method: "POST",
-          headers,
-          body: JSON.stringify({ amount: totalRaw, currency: "gbp" }),
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            items: cart.map((item) => ({
+              product_id: Number(item.product_id),
+              quantity: item.qty,
+              selected_variants: item.selected_variants ?? null,
+            })),
+            coupon_code: coupon?.code ?? null,
+            currency: "gbp",
+          }),
         });
         const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || "Could not initialize payment.");
+        }
         if (!cancelled) setClientSecret(data.client_secret ?? null);
-      } catch {
-        if (!cancelled) toast.error("Could not initialize payment. Please refresh.");
+      } catch (error: any) {
+        if (!cancelled) {
+          setClientSecret(null);
+          toast.error(error.message || "Could not initialize payment. Please refresh.");
+        }
       } finally {
         if (!cancelled) setLoadingIntent(false);
       }
     };
     fetchIntent();
     return () => { cancelled = true; };
-  }, [method, totalRaw, token]);
+  }, [method, totalRaw, cart, coupon?.code]);
 
   /** Called after:
    *  - Stripe payment succeeds (paymentIntentId provided)
@@ -179,15 +196,13 @@ const PaymentPage = () => {
 
       const shippingAddress = `${checkoutForm.shipping_address}, ${checkoutForm.shipping_city}, ${checkoutForm.shipping_postcode}, ${checkoutForm.shipping_country}`;
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
       const orderResponse = await fetch(`${API_URL}/v1/orders`, {
         method: "POST",
-        headers,
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({
           customer_name: `${checkoutForm.firstName} ${checkoutForm.lastName}`,
           customer_email: checkoutForm.email,
@@ -195,9 +210,6 @@ const PaymentPage = () => {
           shipping_address: shippingAddress,
           billing_address: billingAddress,
           notes: checkoutForm.notes,
-          shipping_amount: shippingRate,
-          tax_amount: vatAmount,
-          discount_amount: coupon?.discount ?? 0,
           coupon_code: coupon?.code ?? null,
           is_business: isBusiness,
           company_name: checkoutForm.company,
@@ -205,11 +217,9 @@ const PaymentPage = () => {
           stripe_payment_intent_id: paymentIntentId,
           save_card: method === "card" && selectedCardId === "new" ? saveCard : false,
           items: cart.map(item => ({
-            product_id: item.product_id ?? item.id,
-            product_name: item.name,
-            product_price: item.price.toString(),
+            product_id: Number(item.product_id),
             quantity: item.qty,
-            selected_variants: item.selected_variants,
+            selected_variants: item.selected_variants ?? null,
           })),
           payment_method: method === "card"
             ? "Credit / Debit Card"
@@ -347,7 +357,7 @@ const PaymentPage = () => {
                         totalFormatted={totalFormatted}
                         saveCard={saveCard}
                         setSaveCard={setSaveCard}
-                        showSaveCheckbox={!!token}
+                        showSaveCheckbox={!!customer}
                         onSuccess={(id) => createOrder(id)}
                       />
                     </Elements>

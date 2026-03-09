@@ -32,13 +32,14 @@ export default function CustomerRegister() {
         try {
             const response = await fetch(`${API_URL}/v1/customer/register`, {
                 method: "POST",
+                credentials: "include",
                 headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify(form)
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || "Registration failed");
 
-            login(data.token, data.customer);
+            login(data.customer);
             toast.success("Account created successfully!");
             navigate("/account");
         } catch (err: any) {

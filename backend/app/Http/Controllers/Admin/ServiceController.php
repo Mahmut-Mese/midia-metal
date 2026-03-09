@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Service;
+use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -30,6 +31,7 @@ class ServiceController extends Controller
             'active' => 'boolean',
             'order' => 'integer',
         ]);
+        $validated['content'] = HtmlSanitizer::richText($validated['content'] ?? null);
         $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(4);
         return response()->json(Service::create($validated), 201);
     }
@@ -51,6 +53,7 @@ class ServiceController extends Controller
             'active' => 'boolean',
             'order' => 'integer',
         ]);
+        $validated['content'] = HtmlSanitizer::richText($validated['content'] ?? null);
         $service->update($validated);
         return response()->json($service);
     }

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\CustomerPaymentMethod;
+use App\Support\CheckoutCalculator;
 use Illuminate\Http\Request;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
@@ -12,18 +14,31 @@ use Stripe\PaymentMethod as StripePaymentMethod;
 
 class PaymentController extends Controller
 {
+    public function __construct(private CheckoutCalculator $checkoutCalculator)
+    {
+    }
+
     /**
      * Create a Stripe PaymentIntent for the given amount.
      */
     public function createIntent(Request $request)
     {
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:0.5',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|integer',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.selected_variants' => 'nullable|array',
+            'coupon_code' => 'nullable|string',
             'currency' => 'nullable|string',
         ]);
 
+        $totals = $this->checkoutCalculator->calculate(
+            $validated['items'],
+            $validated['coupon_code'] ?? null,
+        );
+
         Stripe::setApiKey(config('services.stripe.secret'));
-        $amountInPence = (int) round($validated['amount'] * 100);
+        $amountInPence = (int) round($totals['total'] * 100);
 
         $intentData = [
             'amount' => $amountInPence,
@@ -32,7 +47,10 @@ class PaymentController extends Controller
         ];
 
         // If user is logged in, attach to a Stripe Customer
-        $customer = $request->user('customer');
+        $customer = auth('sanctum')->user();
+        if (!$customer instanceof Customer) {
+            $customer = null;
+        }
         if ($customer) {
             if (!$customer->stripe_customer_id) {
                 // Create new Stripe Customer
@@ -50,6 +68,7 @@ class PaymentController extends Controller
 
         return response()->json([
             'client_secret' => $intent->client_secret,
+            'amount' => $totals['total'],
         ]);
     }
 
@@ -58,7 +77,11 @@ class PaymentController extends Controller
      */
     public function listSavedCards(Request $request)
     {
-        $customer = $request->user('customer');
+        $customer = auth('sanctum')->user();
+        if (!$customer instanceof Customer) {
+            return response()->json([]);
+        }
+
         if (!$customer || !$customer->stripe_customer_id) {
             return response()->json([]);
         }
@@ -99,7 +122,11 @@ class PaymentController extends Controller
      */
     public function deleteSavedCard(Request $request, $id)
     {
-        $customer = $request->user('customer');
+        $customer = auth('sanctum')->user();
+        if (!$customer instanceof Customer) {
+            abort(403);
+        }
+
         $method = CustomerPaymentMethod::where('customer_id', $customer->id)
             ->where('id', $id)
             ->firstOrFail();

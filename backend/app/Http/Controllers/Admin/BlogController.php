@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BlogPost;
+use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -33,6 +34,7 @@ class BlogController extends Controller
             'active' => 'boolean',
             'published_at' => 'nullable|date',
         ]);
+        $validated['content'] = HtmlSanitizer::richText($validated['content'] ?? null);
         $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(4);
         if (empty($validated['published_at'])) {
             $validated['published_at'] = now();
@@ -57,6 +59,7 @@ class BlogController extends Controller
             'active' => 'boolean',
             'published_at' => 'nullable|date',
         ]);
+        $validated['content'] = HtmlSanitizer::richText($validated['content'] ?? null);
         $blog->update($validated);
         return response()->json($blog);
     }

@@ -30,7 +30,7 @@ const ProductDetailPage = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
-  const { customer, token } = useCustomerAuth();
+  const { customer } = useCustomerAuth();
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState<"description" | "reviews">("description");
 
@@ -67,10 +67,10 @@ const ProductDetailPage = () => {
         setLoading(true);
         const [prodRes, relRes] = await Promise.all([
           apiFetch(`/v1/products/${id}`),
-          apiFetch(`/v1/products?limit=3`)
+          apiFetch(`/v1/products/${id}/related`)
         ]);
         setProduct(prodRes);
-        setRelated(relRes.data.filter((p: any) => p.id !== prodRes.id).slice(0, 3));
+        setRelated(relRes.slice(0, 3));
       } catch (err) {
         console.error("Failed to load product", err);
       } finally {
@@ -79,14 +79,12 @@ const ProductDetailPage = () => {
     };
 
     const fetchReviewStatus = async () => {
-      if (!token || !id) {
+      if (!customer || !id) {
         setCanReviewStatus("unauthenticated");
         return;
       }
       try {
-        const data = await apiFetch(`/v1/customer/products/${id}/can-review`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+        const data = await apiFetch(`/v1/customer/products/${id}/can-review`);
         if (data.can_review) {
           setCanReviewStatus("allowed");
         } else {
@@ -102,11 +100,11 @@ const ProductDetailPage = () => {
       fetchData();
       fetchReviewStatus();
     }
-  }, [id, token]);
+  }, [id, customer]);
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) {
+    if (!customer) {
       toast.error("Please login to submit a review.");
       return;
     }
@@ -115,7 +113,6 @@ const ProductDetailPage = () => {
     try {
       const data = await apiFetch(`/v1/customer/products/${id}/reviews`, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ rating: reviewRating, comment: reviewComment })
       });
 

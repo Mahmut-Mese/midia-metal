@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ContactMessage;
 use App\Models\Coupon;
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -12,6 +13,7 @@ use App\Models\QuoteRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\AdminNotification;
+use App\Support\CheckoutCalculator;
 use Illuminate\Support\Str;
 use Stripe\Stripe;
 use Stripe\PaymentIntent;
@@ -19,6 +21,10 @@ use Stripe\PaymentMethod as StripePaymentMethod;
 
 class FormController extends Controller
 {
+    public function __construct(private CheckoutCalculator $checkoutCalculator)
+    {
+    }
+
     public function contact(Request $request)
     {
         $validated = $request->validate([
@@ -72,7 +78,11 @@ class FormController extends Controller
                 ->all();
         }
 
-        $customerId = $request->user('customer')?->id ?? null;
+        $authenticatedCustomer = auth('sanctum')->user();
+        if (!$authenticatedCustomer instanceof Customer) {
+            $authenticatedCustomer = null;
+        }
+        $customerId = $authenticatedCustomer?->id ?? null;
         QuoteRequest::create(array_merge($validated, [
             'customer_id' => $customerId,
             'files' => $storedFiles,
@@ -119,6 +129,11 @@ class FormController extends Controller
 
     public function order(Request $request)
     {
+        $authenticatedCustomer = auth('sanctum')->user();
+        if (!$authenticatedCustomer instanceof Customer) {
+            $authenticatedCustomer = null;
+        }
+
         $validated = $request->validate([
             'customer_name' => 'required|string',
             'customer_email' => 'required|email',
@@ -128,32 +143,27 @@ class FormController extends Controller
             'payment_method' => 'nullable|string',
             'notes' => 'nullable|string',
             'coupon_code' => 'nullable|string',
-            'discount_amount' => 'nullable|numeric',
-            'shipping_amount' => 'nullable|numeric',
-            'tax_amount' => 'nullable|numeric',
             'is_business' => 'nullable|boolean',
             'company_name' => 'nullable|string',
             'company_vat_number' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'nullable|integer',
-            'items.*.product_name' => 'required|string',
-            'items.*.product_price' => 'required|string',
+            'items.*.product_id' => 'required|integer',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.selected_variants' => 'nullable|array',
             'stripe_payment_intent_id' => 'nullable|string',
             'save_card' => 'nullable|boolean',
         ]);
 
-        // Calculate subtotal
-        $subtotal = collect($validated['items'])->sum(function ($item) {
-            $price = floatval(preg_replace('/[^0-9.]/', '', $item['product_price']));
-            return $price * $item['quantity'];
-        });
+        $totals = $this->checkoutCalculator->calculate(
+            $validated['items'],
+            $validated['coupon_code'] ?? null,
+        );
 
-        $shipping = floatval($validated['shipping_amount'] ?? 0);
-        $discountAmount = floatval($validated['discount_amount'] ?? 0);
-        $taxAmount = floatval($validated['tax_amount'] ?? 0);
-        $total = $subtotal + $shipping + $taxAmount - $discountAmount;
+        $subtotal = $totals['subtotal'];
+        $shipping = $totals['shipping'];
+        $discountAmount = $totals['discount_amount'];
+        $taxAmount = $totals['tax_amount'];
+        $total = $totals['total'];
         $paymentStatus = 'pending';
 
         if (!empty($validated['stripe_payment_intent_id'])) {
@@ -181,12 +191,8 @@ class FormController extends Controller
             }
         }
 
-        // Validate coupon if provided
-        if (!empty($validated['coupon_code'])) {
-            $coupon = Coupon::where('code', strtoupper($validated['coupon_code']))->first();
-            if ($coupon && $coupon->isValid($subtotal)) {
-                $coupon->increment('used_count');
-            }
+        if ($totals['coupon']) {
+            $totals['coupon']->increment('used_count');
         }
 
         $order = Order::create([
@@ -207,7 +213,7 @@ class FormController extends Controller
             'is_business' => $validated['is_business'] ?? false,
             'company_name' => $validated['company_name'] ?? null,
             'company_vat_number' => $validated['company_vat_number'] ?? null,
-            'customer_id' => $request->user('customer')?->id ?? null,
+            'customer_id' => $authenticatedCustomer?->id ?? null,
             'status' => 'pending',
             'payment_status' => $paymentStatus,
             'stripe_payment_intent_id' => $validated['stripe_payment_intent_id'] ?? null,
@@ -218,26 +224,24 @@ class FormController extends Controller
             "A new order has been placed by {$order->customer_name} ({$order->customer_email}).\n\nOrder Number: {$order->order_number}\nTotal: £" . number_format($order->total, 2) . "\n\nCheck the admin panel for more details."
         ));
 
-        foreach ($validated['items'] as $item) {
+        foreach ($totals['items'] as $item) {
             OrderItem::create([
                 'order_id' => $order->id,
-                'product_id' => $item['product_id'] ?? null,
+                'product_id' => $item['product_id'],
                 'product_name' => $item['product_name'],
                 'product_price' => $item['product_price'],
                 'quantity' => $item['quantity'],
-                'variant_details' => $item['selected_variants'] ?? null,
+                'variant_details' => $item['variant_details'],
             ]);
 
             // Decrement stock if tracked
-            if (!empty($item['product_id'])) {
-                Product::where('id', $item['product_id'])
-                    ->where('track_stock', true)
-                    ->decrement('stock_quantity', $item['quantity']);
-            }
+            Product::where('id', $item['product_id'])
+                ->where('track_stock', true)
+                ->decrement('stock_quantity', $item['quantity']);
         }
 
         // Handle saving the card to Stripe if requested
-        $customer = $request->user('customer');
+        $customer = $authenticatedCustomer;
         \Log::info("Order Save Card Check for intent {$validated['stripe_payment_intent_id']}", [
             'has_customer' => !!$customer,
             'stripe_customer_id' => $customer ? $customer->stripe_customer_id : null,

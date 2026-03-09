@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
-import { apiFetch, setAuthToken } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 export default function AdminLogin() {
     const [email, setEmail] = useState("");
@@ -15,11 +15,10 @@ export default function AdminLogin() {
         e.preventDefault();
         setLoading(true);
         try {
-            const data = await apiFetch("/admin/login", {
+            await apiFetch("/admin/login", {
                 method: "POST",
                 body: JSON.stringify({ email, password }),
             });
-            setAuthToken(data.token);
             toast.success("Welcome back, Admin!");
             navigate("/admin");
         } catch (error: any) {
