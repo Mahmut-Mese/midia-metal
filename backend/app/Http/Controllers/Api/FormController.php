@@ -9,7 +9,6 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\QuoteRequest;
-use App\Models\Subscriber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\AdminNotification;
@@ -40,30 +39,44 @@ class FormController extends Controller
         return response()->json(['message' => 'Message sent successfully'], 201);
     }
 
-    public function newsletter(Request $request)
-    {
-        $validated = $request->validate([
-            'email' => 'required|email'
-        ]);
-
-        Subscriber::firstOrCreate(['email' => $validated['email']]);
-        return response()->json(['message' => 'Subscribed successfully'], 201);
-    }
-
     public function quote(Request $request)
     {
-        $validated = $request->validate([
+        $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|email',
             'phone' => 'nullable|string',
             'service' => 'nullable|string',
             'description' => 'required|string',
-            'files' => 'nullable|array',
-            'files.*' => 'nullable|string',
-        ]);
+        ];
+
+        if ($request->hasFile('files')) {
+            $rules['files'] = 'nullable|array';
+            $rules['files.*'] = 'file|mimes:jpeg,png,jpg,gif,svg,webp,pdf,dwg,dxf|max:10240';
+        } else {
+            $rules['files'] = 'nullable|array';
+            $rules['files.*'] = 'nullable|string';
+        }
+
+        $validated = $request->validate($rules);
+
+        $storedFiles = $validated['files'] ?? [];
+        if ($request->hasFile('files')) {
+            $storedFiles = collect($request->file('files'))
+                ->map(function ($file) {
+                    $filename = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+                    $path = $file->storeAs('quote-attachments', $filename, 'public');
+
+                    return asset('storage/' . $path);
+                })
+                ->values()
+                ->all();
+        }
 
         $customerId = $request->user('customer')?->id ?? null;
-        QuoteRequest::create(array_merge($validated, ['customer_id' => $customerId]));
+        QuoteRequest::create(array_merge($validated, [
+            'customer_id' => $customerId,
+            'files' => $storedFiles,
+        ]));
 
         Mail::to('mahmutmese.uk@gmail.com')->send(new AdminNotification(
             'New Quote Request',
@@ -111,6 +124,7 @@ class FormController extends Controller
             'customer_email' => 'required|email',
             'customer_phone' => 'nullable|string',
             'shipping_address' => 'required|string',
+            'billing_address' => 'required|string',
             'payment_method' => 'nullable|string',
             'notes' => 'nullable|string',
             'coupon_code' => 'nullable|string',
@@ -140,6 +154,32 @@ class FormController extends Controller
         $discountAmount = floatval($validated['discount_amount'] ?? 0);
         $taxAmount = floatval($validated['tax_amount'] ?? 0);
         $total = $subtotal + $shipping + $taxAmount - $discountAmount;
+        $paymentStatus = 'pending';
+
+        if (!empty($validated['stripe_payment_intent_id'])) {
+            try {
+                Stripe::setApiKey(config('services.stripe.secret'));
+                $intent = PaymentIntent::retrieve($validated['stripe_payment_intent_id']);
+
+                if ($intent->status !== 'succeeded') {
+                    return response()->json([
+                        'message' => 'Payment has not completed successfully.',
+                    ], 422);
+                }
+
+                if ((int) $intent->amount !== (int) round($total * 100)) {
+                    return response()->json([
+                        'message' => 'Payment amount does not match the order total.',
+                    ], 422);
+                }
+
+                $paymentStatus = 'paid';
+            } catch (\Exception $e) {
+                return response()->json([
+                    'message' => 'We could not verify the payment for this order.',
+                ], 422);
+            }
+        }
 
         // Validate coupon if provided
         if (!empty($validated['coupon_code'])) {
@@ -155,6 +195,7 @@ class FormController extends Controller
             'customer_email' => $validated['customer_email'],
             'customer_phone' => $validated['customer_phone'] ?? null,
             'shipping_address' => $validated['shipping_address'],
+            'billing_address' => $validated['billing_address'],
             'payment_method' => $validated['payment_method'] ?? 'bank_transfer',
             'notes' => $validated['notes'] ?? null,
             'subtotal' => $subtotal,
@@ -168,7 +209,8 @@ class FormController extends Controller
             'company_vat_number' => $validated['company_vat_number'] ?? null,
             'customer_id' => $request->user('customer')?->id ?? null,
             'status' => 'pending',
-            'payment_status' => 'pending',
+            'payment_status' => $paymentStatus,
+            'stripe_payment_intent_id' => $validated['stripe_payment_intent_id'] ?? null,
         ]);
 
         Mail::to('mahmutmese.uk@gmail.com')->send(new AdminNotification(

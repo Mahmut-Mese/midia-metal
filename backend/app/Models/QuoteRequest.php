@@ -15,7 +15,16 @@ class QuoteRequest extends Model
         'description',
         'files',
         'status',
-        'admin_notes'
+        'response_message',
+        'quoted_valid_until',
     ];
-    protected $casts = ['files' => 'array'];
+    protected $casts = [
+        'files' => 'array',
+        'quoted_valid_until' => 'date',
+    ];
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
 }

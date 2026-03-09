@@ -43,7 +43,6 @@ Route::prefix('v1')->group(function () {
     Route::post('/contact', [Api\FormController::class, 'contact']);
     Route::post('/orders', [Api\FormController::class, 'order']);
     Route::post('/quote', [Api\FormController::class, 'quote']);
-    Route::post('/newsletter', [Api\FormController::class, 'newsletter']);
     Route::post('/coupons/apply', [Api\FormController::class, 'applyCoupon']);
     Route::post('/payment/intent', [Api\PaymentController::class, 'createIntent']);
     // Testimonials
@@ -116,6 +115,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/quotes', [Admin\QuoteController::class, 'index']);
         Route::get('/quotes/{quote}', [Admin\QuoteController::class, 'show']);
         Route::put('/quotes/{quote}', [Admin\QuoteController::class, 'update']);
+        Route::post('/quotes/{quote}/send-response', [Admin\QuoteController::class, 'sendResponse']);
         Route::delete('/quotes/{quote}', [Admin\QuoteController::class, 'destroy']);
 
         // Coupons
@@ -137,9 +137,6 @@ Route::prefix('admin')->group(function () {
         Route::post('/hero-slides', [Admin\SettingsController::class, 'storeHeroSlide']);
         Route::put('/hero-slides/{heroSlide}', [Admin\SettingsController::class, 'updateHeroSlide']);
         Route::delete('/hero-slides/{heroSlide}', [Admin\SettingsController::class, 'destroyHeroSlide']);
-
-        // Subscribers
-        Route::get('/subscribers', [Admin\SubscriberController::class, 'index']);
 
         // Product Reviews
         Route::apiResource('/product-reviews', Admin\ProductReviewController::class)->only(['index', 'destroy']);

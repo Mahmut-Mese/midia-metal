@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CheckoutSteps from "@/components/CheckoutSteps";
 import FloatingSidebar from "@/components/FloatingSidebar";
+import { API_URL } from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 
@@ -119,7 +120,7 @@ const PaymentPage = () => {
 
   useEffect(() => {
     if (token) {
-      fetch("http://127.0.0.1:8000/api/v1/customer/payment-methods", {
+      fetch(`${API_URL}/v1/customer/payment-methods`, {
         headers: { Accept: "application/json", Authorization: `Bearer ${token}` }
       })
         .then(res => res.json())
@@ -145,7 +146,7 @@ const PaymentPage = () => {
         const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json" };
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const res = await fetch("http://127.0.0.1:8000/api/v1/payment/intent", {
+        const res = await fetch(`${API_URL}/v1/payment/intent`, {
           method: "POST",
           headers,
           body: JSON.stringify({ amount: totalRaw, currency: "gbp" }),
@@ -183,7 +184,7 @@ const PaymentPage = () => {
       };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const orderResponse = await fetch("http://127.0.0.1:8000/api/v1/orders", {
+      const orderResponse = await fetch(`${API_URL}/v1/orders`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -201,9 +202,9 @@ const PaymentPage = () => {
           company_name: checkoutForm.company,
           company_vat_number: checkoutForm.companyVat,
           stripe_payment_intent_id: paymentIntentId,
-          save_card: saveCard,
+          save_card: method === "card" && selectedCardId === "new" ? saveCard : false,
           items: cart.map(item => ({
-            product_id: item.id,
+            product_id: item.product_id ?? item.id,
             product_name: item.name,
             product_price: item.price.toString(),
             quantity: item.qty,
@@ -450,7 +451,7 @@ const PaymentPage = () => {
                   <span className="text-sm md:text-base text-green-700 p-4 md:p-6">−£{coupon.discount.toFixed(2)}</span>
                 </div>
               )}
-              {vatEnabled && isBusiness && (
+              {vatEnabled && vatAmount > 0 && (
                 <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                   <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">VAT ({vatRate}%)</span>
                   <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmount.toFixed(2)}</span>

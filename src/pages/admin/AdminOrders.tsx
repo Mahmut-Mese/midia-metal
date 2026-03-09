@@ -105,13 +105,14 @@ export default function AdminOrders() {
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredOrders.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-500">No orders found.</td>
+                                <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500">No orders found.</td>
                             </tr>
                         ) : (
                             filteredOrders.map((order) => (
@@ -136,6 +137,15 @@ export default function AdminOrders() {
                                                     order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                                                         'bg-yellow-100 text-yellow-800'}`}>
                                             {order.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${order.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
+                                                order.payment_status === 'refunded' ? 'bg-slate-100 text-slate-700' :
+                                                    order.payment_status === 'failed' ? 'bg-red-100 text-red-800' :
+                                                        'bg-yellow-100 text-yellow-800'}`}>
+                                            {order.payment_status || "pending"}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -177,6 +187,12 @@ export default function AdminOrders() {
                                             <dt className="text-sm font-medium text-gray-500">Address</dt>
                                             <dd className="mt-1 text-sm text-gray-900">{viewingOrder.shipping_address}</dd>
                                         </div>
+                                        {viewingOrder.billing_address && (
+                                            <div className="sm:col-span-2">
+                                                <dt className="text-sm font-medium text-gray-500">Billing Address</dt>
+                                                <dd className="mt-1 text-sm text-gray-900">{viewingOrder.billing_address}</dd>
+                                            </div>
+                                        )}
                                         {viewingOrder.notes && (
                                             <div className="sm:col-span-2">
                                                 <dt className="text-sm font-medium text-gray-500">Notes</dt>
@@ -200,6 +216,32 @@ export default function AdminOrders() {
                                                 <option value="shipped">Shipped</option>
                                                 <option value="delivered">Delivered</option>
                                                 <option value="cancelled">Cancelled</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
+                                            <select
+                                                value={viewingOrder.payment_status ?? "pending"}
+                                                onChange={async (e) => {
+                                                    const payment_status = e.target.value;
+                                                    try {
+                                                        await apiFetch(`/admin/orders/${viewingOrder.id}`, {
+                                                            method: "PUT",
+                                                            body: JSON.stringify({ payment_status }),
+                                                        });
+                                                        setViewingOrder({ ...viewingOrder, payment_status });
+                                                        toast.success("Payment status updated");
+                                                        loadOrders();
+                                                    } catch {
+                                                        toast.error("Failed to update payment status");
+                                                    }
+                                                }}
+                                                className="block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm border"
+                                            >
+                                                <option value="pending">Pending</option>
+                                                <option value="paid">Paid</option>
+                                                <option value="failed">Failed</option>
+                                                <option value="refunded">Refunded</option>
                                             </select>
                                         </div>
                                         <div>
@@ -238,9 +280,13 @@ export default function AdminOrders() {
                                             <div>
                                                 <p className="text-sm font-medium text-gray-900">{item.quantity}x {item.product_name}</p>
                                                 {item.variant_details && (
-                                                    <p className="text-xs text-[#eb5c10] font-bold uppercase tracking-wider mt-1">
-                                                        {item.variant_details.option}: {item.variant_details.value}
-                                                    </p>
+                                                    <div className="mt-1 space-y-1">
+                                                        {Object.entries(item.variant_details).map(([opt, value]: [string, any]) => (
+                                                            <p key={opt} className="text-xs text-[#eb5c10] font-bold uppercase tracking-wider">
+                                                                {opt}: {value?.value ?? value}
+                                                            </p>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
                                             <p className="text-sm text-gray-900">{item.product_price}</p>

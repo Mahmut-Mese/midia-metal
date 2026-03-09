@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { Eye, Trash2, X, MessageSquare, CheckCircle, Clock, Reply } from "lucide-react";
+import { Eye, Trash2, X, MessageSquare, Clock, Reply, Send } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
     new: { label: "New", color: "bg-blue-100 text-blue-800", icon: MessageSquare },
@@ -43,6 +43,26 @@ export default function AdminQuotes() {
             setViewing(null);
             toast.success("Deleted");
         } catch { toast.error("Failed to delete"); }
+    };
+
+    const sendResponse = async (id: number) => {
+        if (!viewing || viewing.id !== id) return;
+        try {
+            await apiFetch(`/admin/quotes/${id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    status: viewing.status,
+                    response_message: viewing.response_message ?? "",
+                    quoted_valid_until: viewing.quoted_valid_until || null,
+                }),
+            });
+            const updated = await apiFetch(`/admin/quotes/${id}/send-response`, { method: "POST" });
+            setQuotes((prev) => prev.map((q) => (q.id === id ? updated : q)));
+            setViewing(updated);
+            toast.success("Quote response email sent");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to send quote response");
+        }
     };
 
     const filteredQuotes = quotes
@@ -155,7 +175,10 @@ export default function AdminQuotes() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Update Status</label>
                                 <select
                                     value={viewing.status}
-                                    onChange={(e) => handleUpdate(viewing.id, { status: e.target.value })}
+                                    onChange={(e) => {
+                                        setViewing({ ...viewing, status: e.target.value });
+                                        handleUpdate(viewing.id, { status: e.target.value });
+                                    }}
                                     className="border rounded px-3 py-2 text-sm w-full"
                                 >
                                     <option value="new">New</option>
@@ -164,14 +187,35 @@ export default function AdminQuotes() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Admin Notes</label>
-                                <textarea
-                                    rows={3}
-                                    defaultValue={viewing.admin_notes ?? ""}
-                                    onBlur={(e) => handleUpdate(viewing.id, { admin_notes: e.target.value })}
-                                    className="border rounded px-3 py-2 text-sm w-full resize-none"
-                                    placeholder="Internal notes..."
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Valid Until</label>
+                                <input
+                                    type="date"
+                                    value={viewing.quoted_valid_until ? String(viewing.quoted_valid_until).slice(0, 10) : ""}
+                                    onChange={(e) => setViewing({ ...viewing, quoted_valid_until: e.target.value })}
+                                    onBlur={(e) => handleUpdate(viewing.id, { quoted_valid_until: e.target.value || null })}
+                                    className="border rounded px-3 py-2 text-sm w-full"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Response</label>
+                                <textarea
+                                    rows={4}
+                                    value={viewing.response_message ?? ""}
+                                    onChange={(e) => setViewing({ ...viewing, response_message: e.target.value })}
+                                    onBlur={(e) => handleUpdate(viewing.id, { response_message: e.target.value })}
+                                    className="border rounded px-3 py-2 text-sm w-full resize-none"
+                                    placeholder="Visible to the customer in their account portal."
+                                />
+                            </div>
+                            <div className="flex flex-wrap justify-end gap-3 pt-2 border-t">
+                                <button
+                                    type="button"
+                                    onClick={() => sendResponse(viewing.id)}
+                                    className="inline-flex items-center gap-2 rounded bg-[#10275c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0d1f4e]"
+                                >
+                                    <Send className="h-4 w-4" />
+                                    Send Response Email
+                                </button>
                             </div>
                         </div>
                     </div>

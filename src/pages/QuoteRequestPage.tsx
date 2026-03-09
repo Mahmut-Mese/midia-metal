@@ -4,7 +4,8 @@ import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
-import { apiFetch, API_URL } from "@/lib/api";
+import { API_URL } from "@/lib/api";
+import { useCustomerAuth } from "@/context/CustomerAuthContext";
 
 const SERVICES = [
     "Kitchen Canopy Systems",
@@ -18,18 +19,22 @@ const SERVICES = [
 const QuoteRequestPage = () => {
     const [form, setForm] = useState({ name: "", email: "", phone: "", service: "", description: "" });
     const [files, setFiles] = useState<File[]>([]);
-    const [uploading, setUploading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [done, setDone] = useState(false);
-    const [token, setToken] = useState<string | null>(null);
-
-    useEffect(() => {
-        const t = localStorage.getItem("admin_token");
-        // Not really needed but kept for consistency; quote form is public
-        setToken(t);
-    }, []);
+    const { customer, token } = useCustomerAuth();
 
     const update = (field: string, val: string) => setForm({ ...form, [field]: val });
+
+    useEffect(() => {
+        if (!customer) return;
+
+        setForm((prev) => ({
+            ...prev,
+            name: prev.name || customer.name || "",
+            email: prev.email || customer.email || "",
+            phone: prev.phone || customer.phone || "",
+        }));
+    }, [customer]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const chosen = Array.from(e.target.files || []);
@@ -48,37 +53,35 @@ const QuoteRequestPage = () => {
         }
 
         setSubmitting(true);
-        let uploadedFiles: string[] = [];
-
-        // Upload files if any
-        if (files.length > 0) {
-            setUploading(true);
-            try {
-                for (const file of files) {
-                    const fd = new FormData();
-                    fd.append("file", file);
-                    const res = await fetch(`${API_URL}/admin/upload`, {
-                        method: "POST",
-                        headers: token ? { Authorization: `Bearer ${token}` } : {},
-                        body: fd,
-                    });
-                    const data = await res.json();
-                    if (data.url) uploadedFiles.push(data.url);
-                }
-            } catch {
-                toast.error("File upload failed. Submitting without attachments.");
-            } finally { setUploading(false); }
-        }
 
         try {
-            await apiFetch("/v1/quote", {
+            const fd = new FormData();
+            fd.append("name", form.name);
+            fd.append("email", form.email);
+            fd.append("phone", form.phone);
+            fd.append("service", form.service);
+            fd.append("description", form.description);
+            files.forEach((file) => fd.append("files[]", file));
+
+            const response = await fetch(`${API_URL}/v1/quote`, {
                 method: "POST",
-                body: JSON.stringify({ ...form, files: uploadedFiles }),
+                headers: {
+                    Accept: "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: fd,
             });
+
+            const data = await response.json().catch(() => ({ message: "Submission failed. Please try again." }));
+            if (!response.ok) {
+                throw new Error(data.message || "Submission failed. Please try again.");
+            }
+
             setDone(true);
+            setFiles([]);
             toast.success("Quote request submitted! We'll be in touch soon.");
-        } catch {
-            toast.error("Submission failed. Please try again.");
+        } catch (error: any) {
+            toast.error(error.message || "Submission failed. Please try again.");
         } finally {
             setSubmitting(false);
         }
@@ -160,10 +163,10 @@ const QuoteRequestPage = () => {
                             )}
                         </div>
 
-                        <button type="submit" disabled={submitting || uploading}
+                        <button type="submit" disabled={submitting}
                             className="w-full h-14 bg-orange text-white font-semibold text-sm hover:bg-[#d4500b] disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-                            {(submitting || uploading) && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {submitting ? "Submitting..." : uploading ? "Uploading files..." : "Submit Quote Request"}
+                            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                            {submitting ? "Submitting..." : "Submit Quote Request"}
                         </button>
                     </form>
                 )}

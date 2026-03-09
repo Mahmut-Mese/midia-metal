@@ -71,10 +71,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const loadSettings = async () => {
             try {
                 const res = await apiFetch("/v1/settings");
-                const rate = res.find((s: any) => s.key === "shipping_flat_rate");
-                const vatRateSetting = res.find((s: any) => s.key === "tax_rate");
+                const rate = res.find((s: any) => ["shipping_rate", "shipping_flat_rate"].includes(s.key));
+                const vatEnabledSetting = res.find((s: any) => s.key === "vat_enabled");
+                const vatRateSetting = res.find((s: any) => ["vat_rate", "tax_rate"].includes(s.key));
                 if (rate) setShippingRate(parseFloat(rate.value) || 0);
-                setVatEnabled(true);
+                setVatEnabled(vatEnabledSetting ? ["1", "true", "yes", "on"].includes(String(vatEnabledSetting.value).toLowerCase()) : false);
                 if (vatRateSetting) setVatRate(parseFloat(vatRateSetting.value) || 20);
             } catch (err) {
                 console.error("Failed to load settings", err);
@@ -157,7 +158,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const discount = coupon?.discount ?? 0;
     // VAT is calculated on (subtotal + shippingRate - discount)
     const taxableAmount = subtotal + shippingRate - discount;
-    const vatAmount = (vatEnabled && isBusiness) ? Math.round(taxableAmount * (vatRate / 100) * 100) / 100 : 0;
+    const vatAmount = vatEnabled ? Math.round(taxableAmount * (vatRate / 100) * 100) / 100 : 0;
     const total = cart.length > 0 ? taxableAmount + vatAmount : 0;
 
     return (

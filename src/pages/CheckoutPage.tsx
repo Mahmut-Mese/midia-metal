@@ -259,7 +259,7 @@ const CheckoutPage = () => {
                     </div>
                   )}
 
-                  {vatEnabled && isBusiness && (
+                  {vatEnabled && vatAmount > 0 && (
                     <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                       <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">VAT ({vatRate}%)</span>
                       <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmount.toFixed(2)}</span>

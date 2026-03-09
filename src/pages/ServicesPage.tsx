@@ -145,7 +145,7 @@ const ServicesPage = () => {
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground mb-3">{t("services_modern_label", "MODERN SOLUTIONS")}</p>
             <h2 className="font-sans text-[50px] md:text-[70px] leading-[0.93] font-semibold text-[#10275c] mb-5">{t("services_modern_title", "Project with Expert & Metal Welding Collaboration")}</h2>
             <p className="text-[#7b879f] text-sm leading-relaxed mb-7">
-              {t("services_modern_desc", "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.")}
+              {t("services_modern_desc", "From survey to fabrication and final installation, we build stainless steel systems for commercial kitchens, food production spaces, and ventilation projects.")}
             </p>
             <Link to="/shop" className="inline-flex items-center justify-center px-8 py-4 bg-orange text-white text-sm font-semibold hover:bg-[#d4500b] transition-colors">
               Visit Our Online Store
@@ -158,9 +158,9 @@ const ServicesPage = () => {
       <section className="container mx-auto px-4 lg:px-8 py-8 md:py-14">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8 text-center">
           {[
-            { title: t("services_feature_1_title", "Restaurant Expertise"), desc: t("services_feature_1_desc", "Lorem ipsum"), icon: <Hammer className="w-8 h-8 text-orange" /> },
-            { title: t("services_feature_2_title", "Quality Assurance"), desc: t("services_feature_2_desc", "Lorem ipsum"), icon: <Trophy className="w-8 h-8 text-orange" /> },
-            { title: t("services_feature_3_title", "Custom Solutions"), desc: t("services_feature_3_desc", "Lorem ipsum"), icon: <Settings2 className="w-8 h-8 text-orange" /> },
+            { title: t("services_feature_1_title", "Restaurant Expertise"), desc: t("services_feature_1_desc", "Specialist experience across extraction canopies, ducting, filters, and stainless steel fit-outs."), icon: <Hammer className="w-8 h-8 text-orange" /> },
+            { title: t("services_feature_2_title", "Quality Assurance"), desc: t("services_feature_2_desc", "Every project is built around hygiene, durability, and reliable installation standards."), icon: <Trophy className="w-8 h-8 text-orange" /> },
+            { title: t("services_feature_3_title", "Custom Solutions"), desc: t("services_feature_3_desc", "We tailor fabrication, dimensions, and finishes to the needs of each commercial site."), icon: <Settings2 className="w-8 h-8 text-orange" /> },
           ].map((f, i) => (
             <div key={i}>
               <div className="w-14 h-14 mx-auto mb-4 flex items-center justify-center">{f.icon}</div>

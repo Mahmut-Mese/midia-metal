@@ -1,4 +1,4 @@
-export const API_URL = "http://127.0.0.1:8000/api";
+export const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
 export const getAuthToken = () => localStorage.getItem("admin_token");
 export const setAuthToken = (token: string) => localStorage.setItem("admin_token", token);
@@ -17,7 +17,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     }
 
     // Use passed-in token if available, otherwise fallback to admin token
-    if (!headers["Authorization"] && token) {
+    if (!headers["Authorization"] && token && endpoint.startsWith("/admin")) {
         headers["Authorization"] = `Bearer ${token}`;
     }
 
@@ -27,7 +27,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     });
 
     if (!response.ok) {
-        if (response.status === 401) {
+        if (response.status === 401 && endpoint.startsWith("/admin")) {
             removeAuthToken();
             if (!window.location.pathname.startsWith("/admin/login")) {
                 window.location.href = "/admin/login";

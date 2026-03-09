@@ -6,10 +6,10 @@ import Footer from "@/components/Footer";
 import { apiFetch } from "@/lib/api";
 
 const getFeatures = (t: (k: string, d: string) => string) => [
-  { icon: Gift, title: t("home_reward_title", "Reward program"), desc: t("home_reward_desc", "Lorem ipsum") },
-  { icon: CirclePercent, title: t("home_discount_title", "Special discounts"), desc: t("home_discount_desc", "Lorem ipsum") },
-  { icon: ShoppingBag, title: t("home_shipping_title", "Fast shipping"), desc: t("home_shipping_desc", "Lorem ipsum") },
-  { icon: WalletMinimal, title: t("home_prices_title", "Great Prices"), desc: t("home_prices_desc", "Lorem ipsum") },
+  { icon: Gift, title: t("home_reward_title", "Commercial-grade fabrication"), desc: t("home_reward_desc", "Built for demanding kitchen and ventilation environments.") },
+  { icon: CirclePercent, title: t("home_discount_title", "Fast quote turnaround"), desc: t("home_discount_desc", "Clear commercial pricing and lead times for every enquiry.") },
+  { icon: ShoppingBag, title: t("home_shipping_title", "UK-wide delivery"), desc: t("home_shipping_desc", "Reliable dispatch for stocked products and fabricated components.") },
+  { icon: WalletMinimal, title: t("home_prices_title", "Installation support"), desc: t("home_prices_desc", "Supply, fabrication, installation, and aftercare in one workflow.") },
 ];
 
 const Index = () => {
@@ -138,7 +138,7 @@ const Index = () => {
       {/* Trending Items */}
       <section className="container mx-auto px-4 lg:px-8 py-10 md:py-20">
         <p className="text-center text-[10px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-2">{t("home_catalog_label", "OUR CATALOG")}</p>
-        <h2 className="text-center text-[44px] leading-none md:text-[38px] font-semibold text-[#10275c] mb-8 md:mb-12 font-sans">{t("home_trending_title", "Trending items")}</h2>
+        <h2 className="text-center text-[44px] leading-none md:text-[38px] font-semibold text-[#10275c] mb-8 md:mb-12 font-sans">{t("home_trending_title", "Best-selling products")}</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {trendingItems.map((item) => (
             <Link to={`/shop/${item.slug}`} key={item.id} className="product-card">
@@ -179,8 +179,8 @@ const Index = () => {
           </div>
           <div className="relative overflow-hidden min-h-[200px] md:h-[240px] bg-[#e8edf1] flex items-center">
             <div className="flex-1 p-6 md:p-10 flex flex-col justify-center z-10">
-              <h3 className="text-[48px] md:text-[35px] leading-[0.95] md:leading-[1.02] font-semibold text-[#10275c] mb-3 md:mb-4 font-sans">{t("home_comfort_title", "Our products bring comfort to your home")}</h3>
-              <p className="text-[#6f7e9a] text-xs md:text-sm mb-5 md:mb-7">{t("home_comfort_desc", "Dicta sunt explicabo. Nemo ipsam.")}</p>
+            <h3 className="text-[48px] md:text-[35px] leading-[0.95] md:leading-[1.02] font-semibold text-[#10275c] mb-3 md:mb-4 font-sans">{t("home_comfort_title", "Built for commercial kitchens")}</h3>
+            <p className="text-[#6f7e9a] text-xs md:text-sm mb-5 md:mb-7">{t("home_comfort_desc", "Stainless steel products and systems designed for hygiene, durability, and compliance.")}</p>
               <Link to="/shop" className="inline-flex items-center justify-center w-fit px-5 md:px-7 py-2.5 md:py-3 bg-[#22a3e6] text-white text-xs md:text-sm font-semibold hover:bg-[#1c90cb] transition-colors">
                 {t("home_learn_more_label", "Learn More")}
               </Link>
@@ -229,7 +229,7 @@ const Index = () => {
         ))}
       </section>
 
-      <Footer variant="home" />
+      <Footer />
     </div>
   );
 };

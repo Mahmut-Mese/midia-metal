@@ -109,6 +109,7 @@
             <div><strong>Order #:</strong> {{ $order->order_number }}</div>
             <div><strong>Date:</strong> {{ $order->created_at->format('M d, Y') }}</div>
             <div><strong>Status:</strong> {{ ucfirst($order->status) }}</div>
+            <div><strong>Payment:</strong> {{ ucfirst($order->payment_status) }}</div>
         </div>
     </div>
 
@@ -124,7 +125,7 @@
             @endif
             <div>{{ $order->customer_email }}</div>
             <div>{{ $order->customer_phone }}</div>
-            <div style="margin-top:5px; white-space:pre-wrap;">{{ $order->shipping_address }}</div>
+            <div style="margin-top:5px; white-space:pre-wrap;">{{ $order->billing_address ?: $order->shipping_address }}</div>
         </div>
         <div class="address-block">
             <h3>From</h3>
@@ -146,7 +147,16 @@
         <tbody>
             @foreach($order->items as $item)
                 <tr>
-                    <td>{{ $item->product_name }}</td>
+                    <td>
+                        {{ $item->product_name }}
+                        @if($item->variant_details)
+                            <div style="margin-top:6px; font-size:12px; color:#eb5c10;">
+                                @foreach($item->variant_details as $option => $value)
+                                    <div>{{ strtoupper($option) }}: {{ is_array($value) ? ($value['value'] ?? '') : $value }}</div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </td>
                     <td style="text-align:center;">{{ $item->quantity }}</td>
                     <td style="text-align:right;">
                         £{{ number_format(floatval(str_replace(['£', ','], '', $item->product_price)) * $item->quantity, 2) }}

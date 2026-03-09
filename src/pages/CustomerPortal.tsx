@@ -24,6 +24,11 @@ const STATUS_LABELS: Record<string, string> = {
     delivered: "Delivered",
     cancelled: "Cancelled",
 };
+const QUOTE_STATUS_LABELS: Record<string, string> = {
+    new: "New",
+    reviewing: "Reviewing",
+    replied: "Replied",
+};
 
 export default function CustomerPortal() {
     const { customer, token, logout, updateCustomer } = useCustomerAuth();
@@ -353,8 +358,15 @@ export default function CustomerPortal() {
                                                                 <h4 className="text-xs font-semibold uppercase text-[#6e7a92] mb-3">Items Ordered</h4>
                                                                 <div className="space-y-2">
                                                                     {order.items?.map((item: any) => (
-                                                                        <div key={item.id} className="flex justify-between text-sm">
-                                                                            <span className="text-primary">{item.quantity}x {item.product_name}</span>
+                                                                        <div key={item.id} className="flex justify-between gap-3 text-sm">
+                                                                            <div className="text-primary">
+                                                                                <p>{item.quantity}x {item.product_name}</p>
+                                                                                {item.variant_details && Object.entries(item.variant_details).map(([opt, value]: [string, any]) => (
+                                                                                    <p key={opt} className="text-[10px] text-orange font-bold uppercase tracking-tight mt-1">
+                                                                                        {opt}: {value?.value ?? value}
+                                                                                    </p>
+                                                                                ))}
+                                                                            </div>
                                                                             <span className="text-primary font-semibold">£{item.product_price}</span>
                                                                         </div>
                                                                     ))}
@@ -365,11 +377,13 @@ export default function CustomerPortal() {
                                                                 <h4 className="text-xs font-semibold uppercase text-[#6e7a92] mb-3">Order Details</h4>
                                                                 <div className="space-y-1 text-sm text-primary">
                                                                     {order.shipping_address && <p><span className="text-[#6e7a92]">Ship to:</span> {order.shipping_address}</p>}
+                                                                    {order.billing_address && <p><span className="text-[#6e7a92]">Bill to:</span> {order.billing_address}</p>}
                                                                     {order.customer_phone && <p><span className="text-[#6e7a92]">Phone:</span> {order.customer_phone}</p>}
+                                                                    {order.payment_status && <p><span className="text-[#6e7a92]">Payment:</span> {order.payment_status}</p>}
                                                                     {order.coupon_code && <p><span className="text-[#6e7a92]">Coupon:</span> {order.coupon_code}</p>}
                                                                     {order.discount_amount > 0 && <p><span className="text-[#6e7a92]">Discount:</span> -£{order.discount_amount}</p>}
                                                                     {order.tax_amount > 0 && <p><span className="text-[#6e7a92]">VAT:</span> £{order.tax_amount}</p>}
-                                                                    {order.shipping_amount > 0 && <p><span className="text-[#6e7a92]">Shipping:</span> £{order.shipping_amount}</p>}
+                                                                    {order.shipping > 0 && <p><span className="text-[#6e7a92]">Shipping:</span> £{order.shipping}</p>}
                                                                     <p className="font-bold border-t border-[#cad4e4] pt-2 mt-2"><span className="text-[#6e7a92] font-normal">Total:</span> £{order.total}</p>
                                                                 </div>
                                                             </div>
@@ -479,11 +493,34 @@ export default function CustomerPortal() {
                                                 <div>
                                                     <h3 className="font-semibold text-primary">#{quote.id} — {quote.service || "General Enquiry"}</h3>
                                                     <p className="text-[#6e7a92] text-sm mt-1">{new Date(quote.created_at).toLocaleDateString("en-GB")}</p>
-                                                    <p className="text-primary text-sm mt-2 line-clamp-2">{quote.message}</p>
+                                                    <p className="text-primary text-sm mt-2 line-clamp-2">{quote.description}</p>
+                                                    {quote.quoted_valid_until && (
+                                                        <p className="text-[#6e7a92] text-sm mt-1">
+                                                            Valid until {new Date(quote.quoted_valid_until).toLocaleDateString("en-GB")}
+                                                        </p>
+                                                    )}
+                                                    {quote.response_message && (
+                                                        <p className="text-[#6e7a92] text-sm mt-2">{quote.response_message}</p>
+                                                    )}
+                                                    {quote.files?.length > 0 && (
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                            {quote.files.map((file: string, index: number) => (
+                                                                <a
+                                                                    key={index}
+                                                                    href={file}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="text-xs font-semibold text-orange hover:underline"
+                                                                >
+                                                                    Attachment {index + 1}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="flex-shrink-0">
-                                                    <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${quote.status === 'approved' ? 'bg-green-100 text-green-700' : quote.status === 'rejected' ? 'bg-red-100 text-red-600' : 'bg-[#eaf0f3] text-primary'}`}>
-                                                        {quote.status || "pending"}
+                                                    <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${quote.status === 'replied' ? 'bg-green-100 text-green-700' : quote.status === 'reviewing' ? 'bg-yellow-100 text-yellow-800' : 'bg-[#eaf0f3] text-primary'}`}>
+                                                        {QUOTE_STATUS_LABELS[quote.status] || quote.status || "New"}
                                                     </span>
                                                 </div>
                                             </div>
