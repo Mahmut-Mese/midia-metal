@@ -46,6 +46,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/quote', [Api\FormController::class, 'quote'])->middleware(['customer.cookie', 'throttle:6,1']);
     Route::post('/coupons/apply', [Api\FormController::class, 'applyCoupon'])->middleware('throttle:20,1');
     Route::post('/payment/intent', [Api\PaymentController::class, 'createIntent'])->middleware(['customer.cookie', 'throttle:10,1']);
+    Route::post('/webhooks/easypost', [Api\EasyPostWebhookController::class, 'handle'])->middleware('throttle:60,1');
     // Testimonials
     Route::get('/testimonials', [Api\TestimonialController::class, 'index']);
     // FAQs
@@ -113,6 +114,9 @@ Route::prefix('admin')->group(function () {
         // Orders
         Route::apiResource('/orders', Admin\OrderController::class)->except(['store', 'update']);
         Route::put('/orders/{order}', [Admin\OrderController::class, 'update']);
+        Route::post('/orders/{order}/shipping/label', [Admin\OrderShippingController::class, 'createLabel']);
+        Route::post('/orders/{order}/shipping/track', [Admin\OrderShippingController::class, 'refreshTracking']);
+        Route::get('/orders/{order}/shipping/label/download', [Admin\OrderShippingController::class, 'downloadLabel']);
 
         // Quotes
         Route::get('/quotes', [Admin\QuoteController::class, 'index']);

@@ -12,7 +12,17 @@ class Order extends Model
         'customer_email',
         'customer_phone',
         'shipping_address',
+        'shipping_address_line1',
+        'shipping_address_line2',
+        'shipping_city',
+        'shipping_postcode',
+        'shipping_country',
         'billing_address',
+        'billing_address_line1',
+        'billing_address_line2',
+        'billing_city',
+        'billing_postcode',
+        'billing_country',
         'status',
         'subtotal',
         'shipping',
@@ -22,6 +32,14 @@ class Order extends Model
         'stripe_payment_intent_id',
         'notes',
         'tracking_number',
+        'shipping_provider',
+        'shipping_carrier',
+        'shipping_service',
+        'shipping_status',
+        'shipping_shipment_id',
+        'shipping_label_url',
+        'shipping_tracking_url',
+        'shipping_metadata',
         'coupon_code',
         'discount_amount',
         'tax_amount',
@@ -29,6 +47,10 @@ class Order extends Model
         'company_name',
         'company_vat_number',
         'customer_id',
+    ];
+
+    protected $casts = [
+        'shipping_metadata' => 'array',
     ];
 
     public function customer()

@@ -10,6 +10,9 @@ interface ImageUploadProps {
     hidePreview?: boolean;
 }
 
+const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
+const MAX_IMAGE_SIZE_LABEL = "2MB";
+
 const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, label, hidePreview = false }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -17,6 +20,16 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, label, hideP
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            toast.error("Please choose a valid image file.");
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+        }
+        if (file.size > MAX_IMAGE_SIZE_BYTES) {
+            toast.error(`Image is too large. Max size is ${MAX_IMAGE_SIZE_LABEL}.`);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
+        }
 
         setIsUploading(true);
         const formData = new FormData();
@@ -87,7 +100,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, label, hideP
                     >
                         {value && !hidePreview ? "Change Image" : hidePreview ? (isUploading ? "Uploading..." : "Upload Image") : "Upload Image"}
                     </button>
-                    {!hidePreview && <p className="text-[11px] text-gray-500 mt-2 font-medium">Max size: 5MB (JPG, PNG, WebP)</p>}
+                    {!hidePreview && <p className="text-[11px] text-gray-500 mt-2 font-medium">Max size: {MAX_IMAGE_SIZE_LABEL} (JPG, PNG, WebP)</p>}
                 </div>
             </div>
         </div>

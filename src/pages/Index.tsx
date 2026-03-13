@@ -70,6 +70,10 @@ const Index = () => {
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Home", url: absoluteUrl("/") },
   ]);
+  const weldingPrimaryImage = t("home_welding_image", t("home_gallery_1", "/images/welding.jpg"));
+  const weldingSecondaryImage = t("home_welding_secondary_image", t("home_gallery_5", "/images/workshop.jpg"));
+  const weldingServiceSlug = (t("home_welding_service_slug", "custom-fabrication") || "custom-fabrication").trim();
+  const weldingServicePath = `/services/${encodeURIComponent(weldingServiceSlug || "custom-fabrication")}`;
 
   const goToPrevSlide = () => {
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
@@ -145,6 +149,73 @@ const Index = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Metal Welding */}
+      <section className="container mx-auto px-4 lg:px-8 pb-8 md:pb-12">
+        <div className="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-4 md:gap-6">
+          <div className="bg-primary p-6 md:p-10 flex flex-col justify-between min-h-[320px] md:min-h-[440px]">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.2em] text-white/70 uppercase mb-3 md:mb-4">
+                {t("home_welding_label", "Metal welding services")}
+              </p>
+              <h2 className="font-sans text-[34px] md:text-[50px] leading-[0.95] font-semibold text-white mb-5 md:mb-6">
+                {t("home_welding_title", "Metal welding & bespoke fabrication")}
+              </h2>
+              <p className="text-sm md:text-[15px] leading-6 md:leading-7 text-white/80 max-w-xl">
+                {t(
+                  "home_welding_desc",
+                  "Custom stainless steel builds, repair work, on-site modifications, and workshop welding for commercial kitchens, industrial spaces, and made-to-order metalwork."
+                )}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-8">
+              <Link
+                to="/get-a-quote"
+                className="inline-flex items-center justify-center px-6 md:px-7 py-3 bg-orange text-white text-xs md:text-sm font-semibold hover:bg-orange-hover transition-colors"
+              >
+                {t("home_welding_primary_cta", "Request Welding Quote")}
+              </Link>
+              <Link
+                to={weldingServicePath}
+                className="inline-flex items-center justify-center px-6 md:px-7 py-3 border border-white/30 text-white text-xs md:text-sm font-semibold hover:bg-white hover:text-primary transition-colors"
+              >
+                {t("home_welding_secondary_cta", "View More")}
+              </Link>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden bg-[#e8edf1] min-h-[320px] md:min-h-[440px]">
+            <img
+              src={weldingPrimaryImage}
+              alt={t("home_welding_image_alt", "Metal welding and fabrication work")}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#10275c]/18 via-[#10275c]/6 to-[#10275c]/35" />
+
+            <div className="absolute left-4 right-4 bottom-4 md:left-6 md:right-auto md:bottom-6 flex items-end gap-3 md:gap-4">
+              <div className="hidden md:block w-[188px] h-[144px] overflow-hidden border border-white/30 shadow-[0_12px_30px_rgba(16,39,92,0.16)]">
+                <img
+                  src={weldingSecondaryImage}
+                  alt={t("home_welding_secondary_image_alt", "Workshop fabrication")}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="bg-[#f4f6f8] border border-[#d4dce6] px-4 md:px-5 py-4 md:py-5 max-w-[340px]">
+                <p className="text-[10px] font-bold tracking-[0.18em] text-[#7b879a] uppercase mb-2">
+                  {t("home_welding_card_label", "Workshop + site support")}
+                </p>
+                <p className="font-sans text-[18px] md:text-[22px] leading-[1.05] font-semibold text-primary mb-2">
+                  {t("home_welding_card_title", "From fabrication bench to final install")}
+                </p>
+                <p className="text-[12px] md:text-[13px] leading-5 text-[#6f7e9a]">
+                  {t("home_welding_card_desc", "Built for projects that need custom metalwork, fast adjustments, and practical welding support on the job.")}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>

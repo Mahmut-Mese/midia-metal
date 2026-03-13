@@ -24,6 +24,123 @@ type HeroSlideRecord = {
 
 const GROUP_ORDER = ["header", "footer", "general", "shipping-tax", "home", "about", "contact", "services", "portfolio", "blog", "legal", "seo", "hero-slides"];
 
+type SettingsSection = {
+    id: string;
+    title: string;
+    description?: string;
+    keys: string[];
+};
+
+const HOME_SECTIONS: SettingsSection[] = [
+    {
+        id: "features",
+        title: "Features Bar",
+        description: "The four icon highlights under the hero slider.",
+        keys: [
+            "home_reward_title",
+            "home_reward_desc",
+            "home_discount_title",
+            "home_discount_desc",
+            "home_shipping_title",
+            "home_shipping_desc",
+            "home_prices_title",
+            "home_prices_desc",
+        ],
+    },
+    {
+        id: "fabrication",
+        title: "Fabrication Section",
+        description: "The metal welding and bespoke fabrication block before categories.",
+        keys: [
+            "home_welding_label",
+            "home_welding_title",
+            "home_welding_desc",
+            "home_welding_primary_cta",
+            "home_welding_secondary_cta",
+            "home_welding_service_slug",
+            "home_welding_image",
+            "home_welding_image_alt",
+            "home_welding_secondary_image",
+            "home_welding_secondary_image_alt",
+            "home_welding_card_label",
+            "home_welding_card_title",
+            "home_welding_card_desc",
+        ],
+    },
+    {
+        id: "catalog",
+        title: "Catalog",
+        description: "The heading above the product grid and the ‘View More Products’ button label.",
+        keys: [
+            "home_catalog_label",
+            "home_trending_title",
+            "home_view_more_label",
+        ],
+    },
+    {
+        id: "cta",
+        title: "CTA Banners",
+        description: "The two large blocks below the product grid.",
+        keys: [
+            "home_installation_title",
+            "home_installation_desc",
+            "home_request_quote_label",
+            "home_comfort_title",
+            "home_comfort_desc",
+            "home_comfort_image",
+            "home_learn_more_label",
+        ],
+    },
+    {
+        id: "brands",
+        title: "Brands",
+        description: "The brand strip section near the bottom of the homepage.",
+        keys: [
+            "home_brand_1",
+            "home_brand_2",
+            "home_brand_3",
+            "home_brand_4",
+            "home_brands_title",
+        ],
+    },
+    {
+        id: "gallery",
+        title: "Gallery Strip",
+        description: "The image strip above the footer.",
+        keys: [
+            "home_gallery_1",
+            "home_gallery_2",
+            "home_gallery_3",
+            "home_gallery_4",
+            "home_gallery_5",
+            "home_gallery_6",
+        ],
+    },
+];
+
+const buildSections = (settings: SettingRecord[], sections: SettingsSection[]) => {
+    const byKey = new Map(settings.map((setting) => [setting.key, setting]));
+    const used = new Set<string>();
+
+    const resolvedSections = sections
+        .map((section) => {
+            const sectionSettings = section.keys
+                .map((key) => byKey.get(key))
+                .filter((setting): setting is SettingRecord => Boolean(setting));
+
+            sectionSettings.forEach((setting) => used.add(setting.key));
+            return { ...section, settings: sectionSettings };
+        })
+        .filter((section) => section.settings.length > 0);
+
+    const leftovers = settings
+        .filter((setting) => !used.has(setting.key))
+        .slice()
+        .sort((a, b) => a.key.localeCompare(b.key));
+
+    return { resolvedSections, leftovers };
+};
+
 export default function AdminSettings() {
     const [settings, setSettings] = useState<SettingRecord[]>([]);
     const [heroSlides, setHeroSlides] = useState<HeroSlideRecord[]>([]);
@@ -67,6 +184,7 @@ export default function AdminSettings() {
     }, [settings]);
 
     const filteredSettings = settings.filter((setting) => (setting.group || "general") === activeTab);
+    const homeGroups = useMemo(() => buildSections(filteredSettings, HOME_SECTIONS), [filteredSettings]);
 
     const updateSetting = (key: string, value: string) => {
         setSettings((prev) => prev.map((setting) => (
@@ -167,6 +285,53 @@ export default function AdminSettings() {
     };
 
     if (loading) return <div>Loading...</div>;
+
+    const renderSettingField = (setting: SettingRecord) => (
+        <div key={setting.id} className="space-y-2">
+            <label className="block text-sm font-bold text-[#10275c] capitalize">
+                {setting.key.replace(/_/g, " ").replace(activeTab, "").trim() || setting.key}
+            </label>
+            {setting.type === "richtext" ? (
+                <RichTextEditor
+                    label=""
+                    value={setting.value || ""}
+                    onChange={(value) => updateSetting(setting.key, value)}
+                />
+            ) : setting.type === "textarea" ? (
+                <textarea
+                    rows={6}
+                    value={setting.value || ""}
+                    onChange={(e) => updateSetting(setting.key, e.target.value)}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#eb5c10] focus:ring-[#eb5c10] sm:text-sm p-3 border"
+                />
+            ) : setting.type === "image" ? (
+                <ImageUpload
+                    value={setting.value}
+                    onChange={(url) => updateSetting(setting.key, url)}
+                />
+            ) : setting.type === "boolean" ? (
+                <div className="flex items-center gap-3">
+                    <input
+                        type="checkbox"
+                        checked={["1", "true", "yes", "on"].includes(String(setting.value).toLowerCase())}
+                        onChange={(e) => updateSetting(setting.key, e.target.checked ? "1" : "0")}
+                        className="w-5 h-5 rounded border-gray-300 text-[#eb5c10] focus:ring-[#eb5c10] cursor-pointer"
+                        id={`setting-${setting.key}`}
+                    />
+                    <label htmlFor={`setting-${setting.key}`} className="text-sm text-gray-600 cursor-pointer">
+                        Enabled
+                    </label>
+                </div>
+            ) : (
+                <input
+                    type={setting.type === "url" ? "url" : "text"}
+                    value={setting.value || ""}
+                    onChange={(e) => updateSetting(setting.key, e.target.value)}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#eb5c10] focus:ring-[#eb5c10] sm:text-sm p-3 border"
+                />
+            )}
+        </div>
+    );
 
     return (
         <div className="space-y-6 max-w-6xl">
@@ -281,52 +446,37 @@ export default function AdminSettings() {
                             {filteredSettings.length === 0 ? (
                                 <div className="text-sm text-gray-500">No settings in this section.</div>
                             ) : (
-                                filteredSettings.map((setting) => (
-                                    <div key={setting.id} className="space-y-2">
-                                        <label className="block text-sm font-bold text-[#10275c] capitalize">
-                                            {setting.key.replace(/_/g, " ").replace(activeTab, "").trim() || setting.key}
-                                        </label>
-                                        {setting.type === "richtext" ? (
-                                            <RichTextEditor
-                                                label=""
-                                                value={setting.value || ""}
-                                                onChange={(value) => updateSetting(setting.key, value)}
-                                            />
-                                        ) : setting.type === "textarea" ? (
-                                            <textarea
-                                                rows={6}
-                                                value={setting.value || ""}
-                                                onChange={(e) => updateSetting(setting.key, e.target.value)}
-                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#eb5c10] focus:ring-[#eb5c10] sm:text-sm p-3 border"
-                                            />
-                                        ) : setting.type === "image" ? (
-                                            <ImageUpload
-                                                value={setting.value}
-                                                onChange={(url) => updateSetting(setting.key, url)}
-                                            />
-                                        ) : setting.type === "boolean" ? (
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={["1", "true", "yes", "on"].includes(String(setting.value).toLowerCase())}
-                                                    onChange={(e) => updateSetting(setting.key, e.target.checked ? "1" : "0")}
-                                                    className="w-5 h-5 rounded border-gray-300 text-[#eb5c10] focus:ring-[#eb5c10] cursor-pointer"
-                                                    id={`setting-${setting.key}`}
-                                                />
-                                                <label htmlFor={`setting-${setting.key}`} className="text-sm text-gray-600 cursor-pointer">
-                                                    Enabled
-                                                </label>
+                                activeTab === "home" ? (
+                                    <div className="space-y-6">
+                                        {homeGroups.resolvedSections.map((section) => (
+                                            <div key={section.id} className="rounded-lg border border-gray-200 bg-[#f8fafc] p-6 space-y-6">
+                                                <div>
+                                                    <h2 className="text-lg font-semibold text-[#10275c]">{section.title}</h2>
+                                                    {section.description && (
+                                                        <p className="text-sm text-gray-500 mt-1">{section.description}</p>
+                                                    )}
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-6">
+                                                    {section.settings.map(renderSettingField)}
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <input
-                                                type={setting.type === "url" ? "url" : "text"}
-                                                value={setting.value || ""}
-                                                onChange={(e) => updateSetting(setting.key, e.target.value)}
-                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#eb5c10] focus:ring-[#eb5c10] sm:text-sm p-3 border"
-                                            />
+                                        ))}
+
+                                        {homeGroups.leftovers.length > 0 && (
+                                            <div className="rounded-lg border border-gray-200 bg-[#f8fafc] p-6 space-y-6">
+                                                <div>
+                                                    <h2 className="text-lg font-semibold text-[#10275c]">Other Home Settings</h2>
+                                                    <p className="text-sm text-gray-500 mt-1">Keys not mapped to a specific homepage section yet.</p>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-6">
+                                                    {homeGroups.leftovers.map(renderSettingField)}
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
-                                ))
+                                ) : (
+                                    filteredSettings.map(renderSettingField)
+                                )
                             )}
                         </div>
 

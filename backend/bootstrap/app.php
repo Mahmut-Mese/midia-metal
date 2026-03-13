@@ -19,6 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->encryptCookies(except: [
+            'admin_token',
+            'customer_token',
+        ]);
         $middleware->prependToGroup('api', [
             UseAdminTokenCookie::class,
             UseCustomerTokenCookie::class,

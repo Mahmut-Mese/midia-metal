@@ -6,7 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CheckoutSteps from "@/components/CheckoutSteps";
 import FloatingSidebar from "@/components/FloatingSidebar";
-import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import Seo from "@/components/Seo";
 import { useCart } from "@/context/CartContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
@@ -121,11 +121,7 @@ const PaymentPage = () => {
 
   useEffect(() => {
     if (customer) {
-      fetch(`${API_URL}/v1/customer/payment-methods`, {
-        credentials: "include",
-        headers: { Accept: "application/json" }
-      })
-        .then(res => res.json())
+      apiFetch("/v1/customer/payment-methods")
         .then(data => {
           if (Array.isArray(data)) {
             setSavedCards(data);
@@ -149,10 +145,8 @@ const PaymentPage = () => {
     const fetchIntent = async () => {
       setLoadingIntent(true);
       try {
-        const res = await fetch(`${API_URL}/v1/payment/intent`, {
+        const data = await apiFetch("/v1/payment/intent", {
           method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({
             items: cart.map((item) => ({
               product_id: Number(item.product_id),
@@ -163,10 +157,6 @@ const PaymentPage = () => {
             currency: "gbp",
           }),
         });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.message || "Could not initialize payment.");
-        }
         if (!cancelled) setClientSecret(data.client_secret ?? null);
       } catch (error: any) {
         if (!cancelled) {
@@ -196,19 +186,22 @@ const PaymentPage = () => {
 
       const shippingAddress = `${checkoutForm.shipping_address}, ${checkoutForm.shipping_city}, ${checkoutForm.shipping_postcode}, ${checkoutForm.shipping_country}`;
 
-      const orderResponse = await fetch(`${API_URL}/v1/orders`, {
+      const orderData = await apiFetch("/v1/orders", {
         method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
         body: JSON.stringify({
           customer_name: `${checkoutForm.firstName} ${checkoutForm.lastName}`,
           customer_email: checkoutForm.email,
           customer_phone: checkoutForm.phone,
           shipping_address: shippingAddress,
+          shipping_address_line1: checkoutForm.shipping_address,
+          shipping_city: checkoutForm.shipping_city,
+          shipping_postcode: checkoutForm.shipping_postcode,
+          shipping_country: checkoutForm.shipping_country,
           billing_address: billingAddress,
+          billing_address_line1: checkoutForm.billingSameAsShipping ? checkoutForm.shipping_address : checkoutForm.address,
+          billing_city: checkoutForm.billingSameAsShipping ? checkoutForm.shipping_city : checkoutForm.city,
+          billing_postcode: checkoutForm.billingSameAsShipping ? checkoutForm.shipping_postcode : checkoutForm.postcode,
+          billing_country: checkoutForm.billingSameAsShipping ? checkoutForm.shipping_country : checkoutForm.country,
           notes: checkoutForm.notes,
           coupon_code: coupon?.code ?? null,
           is_business: isBusiness,
@@ -228,8 +221,6 @@ const PaymentPage = () => {
               : "Cash on Delivery",
         }),
       });
-      const orderData = await orderResponse.json();
-      if (!orderResponse.ok) throw new Error(orderData.message ?? "Order failed");
 
       clearCart();
       toast.success("Order placed successfully!");

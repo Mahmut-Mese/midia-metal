@@ -1,0 +1,72 @@
+<svg width="1440" height="760" viewBox="0 0 1440 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="1440" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A1630"/>
+      <stop offset="1" stop-color="#152A56"/>
+    </linearGradient>
+    <linearGradient id="shot3a" x1="842" y1="132" x2="1160" y2="380" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A2F"/>
+      <stop offset="1" stop-color="#2F425E"/>
+    </linearGradient>
+    <linearGradient id="shot3b" x1="1124" y1="356" x2="1290" y2="614" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E3E8EE"/>
+      <stop offset="1" stop-color="#6D7B92"/>
+    </linearGradient>
+    <radialGradient id="glow3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1108 264) rotate(90) scale(160 200)">
+      <stop stop-color="#FF8A2F" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#FF8A2F" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1440" height="760" fill="url(#bg3)"/>
+  <rect x="74" y="86" width="1292" height="588" rx="10" fill="#0E1C39"/>
+  <rect x="74" y="86" width="1292" height="588" rx="10" stroke="#23395E"/>
+
+  <rect x="118" y="138" width="176" height="46" rx="23" fill="#F06A13"/>
+  <text x="152" y="168" fill="#FFF4EA" font-size="18" font-weight="700" font-family="Space Grotesk, Arial, sans-serif">WELDING SERVICES</text>
+
+  <text x="118" y="284" fill="#FFFFFF" font-size="72" font-weight="700" font-family="Space Grotesk, Arial, sans-serif">
+    <tspan x="118" dy="0">Need custom metal</tspan>
+    <tspan x="118" dy="82">welding, not just</tspan>
+    <tspan x="118" dy="82">off-the-shelf products?</tspan>
+  </text>
+
+  <text x="118" y="542" fill="#AAB8CB" font-size="25" font-family="Inter, Arial, sans-serif">
+    <tspan x="118" dy="0">We handle stainless steel fabrication, modifications,</tspan>
+    <tspan x="118" dy="34">repairs, and on-site welding for commercial kitchens,</tspan>
+    <tspan x="118" dy="34">industrial spaces, and bespoke metalwork projects.</tspan>
+  </text>
+
+  <rect x="118" y="612" width="208" height="54" fill="#F06A13"/>
+  <text x="154" y="646" fill="#FFFFFF" font-size="18" font-weight="700" font-family="Space Grotesk, Arial, sans-serif">Get Welding Quote</text>
+
+  <rect x="344" y="612" width="186" height="54" stroke="#41597C"/>
+  <text x="387" y="646" fill="#DCE5F0" font-size="18" font-weight="700" font-family="Space Grotesk, Arial, sans-serif">See Our Work</text>
+
+  <rect x="796" y="132" width="500" height="222" rx="8" fill="url(#shot3a)"/>
+  <rect x="822" y="158" width="448" height="170" rx="6" fill="#162846"/>
+  <rect x="858" y="194" width="164" height="96" rx="4" fill="#8291A4"/>
+  <rect x="1046" y="194" width="184" height="96" rx="4" fill="#C7D0DA"/>
+  <circle cx="1110" cy="262" r="140" fill="url(#glow3)"/>
+  <path d="M1040 194L1168 322" stroke="#FFE1AA" stroke-width="6" stroke-linecap="round"/>
+  <path d="M1012 222L1140 350" stroke="#FFC56E" stroke-width="3" stroke-linecap="round"/>
+  <path d="M1082 178L1210 306" stroke="#FFF1CF" stroke-width="4" stroke-linecap="round"/>
+
+  <rect x="796" y="378" width="228" height="244" rx="8" fill="#E9EEF4"/>
+  <rect x="822" y="404" width="176" height="192" rx="6" fill="#C5CED8"/>
+  <path d="M846 566L916 426L974 566H846Z" fill="#7E8EA2"/>
+  <path d="M890 436L944 566" stroke="#F06A13" stroke-width="5" stroke-linecap="round"/>
+  <text x="828" y="580" fill="#10275C" font-size="18" font-weight="700" font-family="Space Grotesk, Arial, sans-serif">Workshop fabrication</text>
+
+  <rect x="1048" y="378" width="248" height="244" rx="8" fill="url(#shot3b)"/>
+  <rect x="1076" y="406" width="192" height="188" rx="6" fill="#1C2B46"/>
+  <path d="M1098 562L1184 430L1248 562H1098Z" fill="#56657A"/>
+  <path d="M1122 514H1236" stroke="#F7FAFD" stroke-width="4" stroke-linecap="round"/>
+  <path d="M1122 538H1214" stroke="#F7FAFD" stroke-width="4" stroke-linecap="round"/>
+  <text x="1082" y="580" fill="#FFFFFF" font-size="18" font-weight="700" font-family="Space Grotesk, Arial, sans-serif">On-site repair support</text>
+
+  <rect x="1082" y="108" width="232" height="58" rx="29" fill="#F5F7FA"/>
+  <text x="1117" y="145" fill="#10275C" font-size="18" font-weight="700" font-family="Space Grotesk, Arial, sans-serif">Fast turnaround available</text>
+
+  <text x="76" y="714" fill="#8EA0BB" font-size="18" font-family="Inter, Arial, sans-serif">Option 3  High-contrast industrial statement section with stronger visual drama</text>
+</svg>

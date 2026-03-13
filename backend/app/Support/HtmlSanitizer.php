@@ -33,7 +33,7 @@ class HtmlSanitizer
 
         $content = strip_tags(
             $content,
-            '<p><br><strong><b><em><i><u><ul><ol><li><h1><h2><h3><h4><blockquote><a><span>'
+            '<p><br><strong><b><em><i><u><ul><ol><li><h1><h2><h3><h4><blockquote><a><span><img>'
         );
 
         $content = preg_replace_callback('/<a\b([^>]*)>/i', function ($matches) {
@@ -74,6 +74,34 @@ class HtmlSanitizer
             }
 
             return '<span style="color:' . e($color) . '">';
+        }, $content) ?? '';
+
+        $content = preg_replace_callback('/<img\b([^>]*)>/i', function ($matches) {
+            $attributes = $matches[1] ?? '';
+
+            if (!preg_match('/src\s*=\s*"([^"]+)"/i', $attributes, $srcMatch) &&
+                !preg_match("/src\s*=\s*'([^']+)'/i", $attributes, $srcMatch)) {
+                return '';
+            }
+
+            $src = trim($srcMatch[1]);
+
+            if (
+                preg_match('/^\s*javascript:/i', $src) ||
+                !preg_match('/^(https?:\/\/|\/|data:image\/)/i', $src)
+            ) {
+                return '';
+            }
+
+            $alt = '';
+            if (
+                preg_match('/alt\s*=\s*"([^"]*)"/i', $attributes, $altMatch) ||
+                preg_match("/alt\s*=\s*'([^']*)'/i", $attributes, $altMatch)
+            ) {
+                $alt = trim($altMatch[1]);
+            }
+
+            return '<img src="' . e($src) . '" alt="' . e($alt) . '" loading="lazy" style="max-width:100%;height:auto;display:block;" />';
         }, $content) ?? '';
 
         return $content;

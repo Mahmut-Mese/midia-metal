@@ -114,7 +114,7 @@ const ServiceDetailPage = () => {
 
             {service.content && (
               <div
-                className="text-[16px] text-[#6f7c95] leading-8 mb-8 space-y-4"
+                className="text-[16px] text-[#6f7c95] leading-8 mb-8 space-y-4 [&_img]:my-4 [&_img]:max-w-full [&_img]:h-auto"
                 dangerouslySetInnerHTML={{ __html: service.content }}
               />
             )}
