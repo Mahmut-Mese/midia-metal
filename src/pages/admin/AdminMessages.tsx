@@ -1,7 +1,19 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { Mail, CheckCircle, Trash2, X, Eye } from "lucide-react";
+import { CheckCircle, Trash2, RotateCcw } from "lucide-react";
+
+const getMessageTypeLabel = (messageType?: string) =>
+    messageType === "order_request" ? "Cancellation / Refund" : "Contact";
+
+const getRequestTypeLabel = (requestType?: string) =>
+    requestType === "cancel" ? "Cancel order" : "Cancel & refund";
+
+const getRequestStatusLabel = (requestStatus?: string) => {
+    if (requestStatus === "approved") return "Approved";
+    if (requestStatus === "rejected") return "Rejected";
+    return "Under Review";
+};
 
 export default function AdminMessages() {
     const [messages, setMessages] = useState<any[]>([]);
@@ -9,6 +21,7 @@ export default function AdminMessages() {
     const [selectedMessage, setSelectedMessage] = useState<any>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("all"); // all, read, unread
+    const [filterType, setFilterType] = useState("all");
 
     useEffect(() => {
         loadMessages();
@@ -57,13 +70,18 @@ export default function AdminMessages() {
             const matchesSearch =
                 msg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 msg.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (msg.subject || "").toLowerCase().includes(searchTerm.toLowerCase());
+                (msg.subject || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (msg.order?.order_number || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (msg.reason || "").toLowerCase().includes(searchTerm.toLowerCase());
 
             const matchesStatus =
                 filterStatus === "all" ? true :
                     filterStatus === "read" ? msg.read : !msg.read;
 
-            return matchesSearch && matchesStatus;
+            const matchesType =
+                filterType === "all" ? true : (msg.message_type || "contact") === filterType;
+
+            return matchesSearch && matchesStatus && matchesType;
         })
         .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -71,25 +89,36 @@ export default function AdminMessages() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold font-sans text-[#10275c]">Contact Messages</h1>
+            <h1 className="text-3xl font-bold font-sans text-[#10275c]">Messages</h1>
 
             <div className="flex flex-col lg:flex-row gap-4 mb-4">
                 <input
                     type="text"
-                    placeholder="Search messages..."
+                    placeholder="Search by customer, order or subject..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary w-full lg:w-80 text-sm"
                 />
-                <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white w-full lg:w-48"
-                >
-                    <option value="all">All Messages</option>
-                    <option value="unread">Unread</option>
-                    <option value="read">Read</option>
-                </select>
+                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white w-full lg:w-52"
+                    >
+                        <option value="all">All Types</option>
+                        <option value="order_request">Cancellation / Refund</option>
+                        <option value="contact">Contact</option>
+                    </select>
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        className="h-10 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white w-full lg:w-48"
+                    >
+                        <option value="all">All Messages</option>
+                        <option value="unread">Unread</option>
+                        <option value="read">Read</option>
+                    </select>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -114,8 +143,19 @@ export default function AdminMessages() {
                                             <p className={`text-sm ${!msg.read ? "font-bold text-[#10275c]" : "text-gray-600"}`}>
                                                 {msg.name}
                                             </p>
+                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${msg.message_type === "order_request" ? "bg-orange-100 text-[#cf4d08]" : "bg-slate-100 text-slate-600"}`}>
+                                                {getMessageTypeLabel(msg.message_type)}
+                                            </span>
+                                            {msg.request_status && (
+                                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${msg.request_status === "approved" ? "bg-green-100 text-green-700" : msg.request_status === "rejected" ? "bg-slate-200 text-slate-700" : "bg-yellow-100 text-yellow-700"}`}>
+                                                    {getRequestStatusLabel(msg.request_status)}
+                                                </span>
+                                            )}
                                         </div>
                                         <p className="text-xs text-gray-500 truncate">{msg.subject || msg.email}</p>
+                                        {msg.order?.order_number && (
+                                            <p className="text-[11px] text-[#6e7a92] mt-1">Order {msg.order.order_number}</p>
+                                        )}
                                         <p className="text-[10px] text-gray-400 mt-1">
                                             {new Date(msg.created_at).toLocaleString()}
                                         </p>
@@ -149,10 +189,44 @@ export default function AdminMessages() {
                             </div>
 
                             <div className="space-y-4 pt-4 border-t border-[#f0f2f5]">
+                                <div className="flex flex-wrap gap-2">
+                                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${selectedMessage.message_type === "order_request" ? "bg-orange-100 text-[#cf4d08]" : "bg-slate-100 text-slate-600"}`}>
+                                        {getMessageTypeLabel(selectedMessage.message_type)}
+                                    </span>
+                                    {selectedMessage.order?.order_number && (
+                                        <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-700">
+                                            Order {selectedMessage.order.order_number}
+                                        </span>
+                                    )}
+                                    {selectedMessage.request_type && (
+                                        <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+                                            {getRequestTypeLabel(selectedMessage.request_type)}
+                                        </span>
+                                    )}
+                                    {selectedMessage.request_status && (
+                                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${selectedMessage.request_status === "approved" ? "bg-green-100 text-green-700" : selectedMessage.request_status === "rejected" ? "bg-slate-200 text-slate-700" : "bg-yellow-100 text-yellow-700"}`}>
+                                            {getRequestStatusLabel(selectedMessage.request_status)}
+                                        </span>
+                                    )}
+                                </div>
                                 <div>
                                     <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Subject</label>
                                     <p className="text-sm font-semibold text-[#10275c]">{selectedMessage.subject || "No Subject"}</p>
                                 </div>
+                                {selectedMessage.reason && (
+                                    <div>
+                                        <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Reason</label>
+                                        <p className="text-sm font-semibold text-[#10275c]">{selectedMessage.reason}</p>
+                                    </div>
+                                )}
+                                {selectedMessage.details && (
+                                    <div>
+                                        <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Details</label>
+                                        <div className="mt-2 rounded-lg bg-orange-50 p-4 text-sm text-[#4b5563] leading-relaxed whitespace-pre-wrap">
+                                            {selectedMessage.details}
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Message</label>
                                     <div className="mt-2 p-4 bg-gray-50 rounded-lg text-sm text-[#4b5563] leading-relaxed whitespace-pre-wrap min-h-[150px]">
@@ -180,8 +254,8 @@ export default function AdminMessages() {
                         </div>
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-gray-400 p-8 text-center">
-                            <Mail className="h-12 w-12 mb-4 opacity-10" />
-                            <p className="font-semibold">Select a message to view details</p>
+                            <RotateCcw className="h-12 w-12 mb-4 opacity-10" />
+                            <p className="font-semibold">Select a message or cancellation request</p>
                         </div>
                     )}
                 </div>

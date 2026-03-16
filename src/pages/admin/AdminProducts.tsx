@@ -5,6 +5,22 @@ import { Plus, Edit2, Trash2, X } from "lucide-react";
 import ImageUpload from "@/components/admin/ImageUpload";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 
+const normalizeVariantStock = (value: unknown): number | null => {
+    const parsed = Number.parseInt(String(value ?? ""), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const mapVariantsToProductPrice = (variants: any[] = [], productPrice: string) =>
+    variants
+        .filter((variant) => variant?.option && variant?.value)
+        .map((variant) => ({
+            ...variant,
+            option: String(variant.option).trim(),
+            value: String(variant.value).trim(),
+            price: productPrice,
+            stock: normalizeVariantStock(variant.stock),
+        }));
+
 export default function AdminProducts() {
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -58,7 +74,7 @@ export default function AdminProducts() {
         const prod = product ? {
             ...product,
             specifications: product.specifications || {},
-            variants: product.variants || []
+            variants: mapVariantsToProductPrice(product.variants || [], product.price || "")
         } : null;
         setCurrentProduct(
             prod || {
@@ -107,7 +123,6 @@ export default function AdminProducts() {
             // Auto-add variant if inputs have data
             const varOptEl = document.getElementById('var_opt') as HTMLInputElement;
             const varValEl = document.getElementById('var_val') as HTMLInputElement;
-            const varPriceEl = document.getElementById('var_price') as HTMLInputElement;
             const varStockEl = document.getElementById('var_stock') as HTMLInputElement;
             if (varOptEl && varValEl && varOptEl.value && varValEl.value) {
                 finalProduct.variants = [
@@ -115,12 +130,14 @@ export default function AdminProducts() {
                     {
                         option: varOptEl.value,
                         value: varValEl.value,
-                        price: varPriceEl.value,
-                        stock: varStockEl.value ? parseInt(varStockEl.value) : null
+                        price: finalProduct.price,
+                        stock: normalizeVariantStock(varStockEl.value)
                     }
                 ];
-                varOptEl.value = ""; varValEl.value = ""; varPriceEl.value = ""; varStockEl.value = "";
+                varOptEl.value = ""; varValEl.value = ""; varStockEl.value = "";
             }
+
+            finalProduct.variants = mapVariantsToProductPrice(finalProduct.variants || [], finalProduct.price || "");
 
             if (finalProduct.id) {
                 await apiFetch(`/admin/products/${finalProduct.id}`, {
@@ -501,6 +518,7 @@ export default function AdminProducts() {
                                     <div className="col-span-2 border-t pt-6 bg-gray-50/50 p-6 rounded-lg">
                                         <label className="block text-sm font-bold text-[#10275c] mb-1 uppercase tracking-wider">Product Variants</label>
                                         <p className="text-xs text-gray-500 mb-4">Manage different versions of this product (e.g., Color Red, Blue or Size S, M, L)</p>
+                                        <p className="text-xs text-gray-500 mb-4">Variant pricing always uses the product price.</p>
 
                                         <div className="space-y-4">
                                             {/* Variant List Table */}
@@ -519,10 +537,56 @@ export default function AdminProducts() {
                                                         <tbody className="bg-white divide-y divide-gray-200">
                                                             {currentProduct.variants.map((v: any, idx: number) => (
                                                                 <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                                                                    <td className="px-3 py-2 text-sm font-medium text-gray-900">{v.option}</td>
-                                                                    <td className="px-3 py-2 text-sm text-gray-600">{v.value}</td>
-                                                                    <td className="px-3 py-2 text-sm text-gray-600">{v.price || '--'}</td>
-                                                                    <td className="px-3 py-2 text-sm text-gray-600">{v.stock ?? '--'}</td>
+                                                                    <td className="px-3 py-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={v.option ?? ""}
+                                                                            onChange={(e) => {
+                                                                                const newVariants = [...(currentProduct.variants || [])];
+                                                                                newVariants[idx] = {
+                                                                                    ...newVariants[idx],
+                                                                                    option: e.target.value,
+                                                                                    price: currentProduct.price || "",
+                                                                                };
+                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                            }}
+                                                                            className="w-full text-sm font-medium text-gray-900 bg-transparent border border-transparent focus:border-gray-300 rounded px-1 py-1"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-3 py-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={v.value ?? ""}
+                                                                            onChange={(e) => {
+                                                                                const newVariants = [...(currentProduct.variants || [])];
+                                                                                newVariants[idx] = {
+                                                                                    ...newVariants[idx],
+                                                                                    value: e.target.value,
+                                                                                    price: currentProduct.price || "",
+                                                                                };
+                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                            }}
+                                                                            className="w-full text-sm text-gray-600 bg-transparent border border-transparent focus:border-gray-300 rounded px-1 py-1"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-sm text-gray-600">{currentProduct.price || "--"}</td>
+                                                                    <td className="px-3 py-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            min={0}
+                                                                            value={v.stock ?? ""}
+                                                                            onChange={(e) => {
+                                                                                const newVariants = [...(currentProduct.variants || [])];
+                                                                                newVariants[idx] = {
+                                                                                    ...newVariants[idx],
+                                                                                    stock: normalizeVariantStock(e.target.value),
+                                                                                    price: currentProduct.price || "",
+                                                                                };
+                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                            }}
+                                                                            className="w-full text-sm text-gray-600 bg-transparent border border-transparent focus:border-gray-300 rounded px-1 py-1"
+                                                                        />
+                                                                    </td>
                                                                     <td className="px-3 py-2 text-right">
                                                                         <button
                                                                             type="button"
@@ -544,7 +608,7 @@ export default function AdminProducts() {
                                             )}
 
                                             {/* New Variant Inputs */}
-                                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end p-4 border rounded-md bg-white shadow-sm">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end p-4 border rounded-md bg-white shadow-sm">
                                                 <div>
                                                     <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Option</label>
                                                     <input id="var_opt" type="text" placeholder="Size" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
@@ -552,10 +616,6 @@ export default function AdminProducts() {
                                                 <div>
                                                     <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Value</label>
                                                     <input id="var_val" type="text" placeholder="Large" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Price</label>
-                                                    <input id="var_price" type="text" placeholder="850.00" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
                                                 </div>
                                                 <div>
                                                     <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Stock</label>
@@ -566,7 +626,6 @@ export default function AdminProducts() {
                                                     onClick={() => {
                                                         const optEl = document.getElementById('var_opt') as HTMLInputElement;
                                                         const valEl = document.getElementById('var_val') as HTMLInputElement;
-                                                        const priceEl = document.getElementById('var_price') as HTMLInputElement;
                                                         const stockEl = document.getElementById('var_stock') as HTMLInputElement;
 
                                                         if (optEl.value && valEl.value) {
@@ -577,12 +636,12 @@ export default function AdminProducts() {
                                                                     {
                                                                         option: optEl.value,
                                                                         value: valEl.value,
-                                                                        price: priceEl.value || null,
-                                                                        stock: stockEl.value ? parseInt(stockEl.value) : null
+                                                                        price: currentProduct.price || "",
+                                                                        stock: normalizeVariantStock(stockEl.value)
                                                                     }
                                                                 ]
                                                             });
-                                                            optEl.value = ""; valEl.value = ""; priceEl.value = ""; stockEl.value = "";
+                                                            optEl.value = ""; valEl.value = ""; stockEl.value = "";
                                                         } else {
                                                             toast.error("Option (e.g. Size) and Value (e.g. XL) are required");
                                                         }

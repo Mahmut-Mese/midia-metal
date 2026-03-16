@@ -116,22 +116,22 @@ const Index = () => {
             />
           ))}
           {heroSlides.length > 1 && (
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col gap-px">
+            <>
               <button
                 onClick={goToPrevSlide}
                 aria-label="Previous slide"
-                className="w-12 h-16 bg-primary flex items-center justify-center text-primary-foreground hover:bg-navy-light transition-colors"
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-12 h-16 bg-primary flex items-center justify-center text-primary-foreground hover:bg-navy-light transition-colors"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button
                 onClick={goToNextSlide}
                 aria-label="Next slide"
-                className="w-12 h-16 bg-primary flex items-center justify-center text-primary-foreground hover:bg-navy-light transition-colors"
+                className="absolute right-0 top-1/2 -translate-y-1/2 w-12 h-16 bg-primary flex items-center justify-center text-primary-foreground hover:bg-navy-light transition-colors"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
-            </div>
+            </>
           )}
         </div>
       </section>
@@ -154,7 +154,13 @@ const Index = () => {
       </section>
 
       {/* Metal Welding */}
-      <section className="container mx-auto px-4 lg:px-8 pb-8 md:pb-12">
+      <section className="container mx-auto px-4 lg:px-8 pt-4 md:pt-8 pb-8 md:pb-12">
+        <p className="text-center text-[10px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-2">
+          {t("home_fabrication_section_label", "OUR FABRICATION")}
+        </p>
+        <h2 className="text-[30px] md:text-[40px] leading-tight font-semibold text-[#10275c] font-sans text-center mb-6 md:mb-8">
+          {t("home_fabrication_section_title", "Fabrication")}
+        </h2>
         <div className="grid grid-cols-1 xl:grid-cols-[0.9fr_1.1fr] gap-4 md:gap-6">
           <div className="bg-primary p-6 md:p-10 flex flex-col justify-between min-h-[320px] md:min-h-[440px]">
             <div>
@@ -221,7 +227,13 @@ const Index = () => {
       </section>
 
       {/* Categories */}
-      <section className="container mx-auto px-4 lg:px-8 pb-8 md:pb-12">
+      <section className="container mx-auto px-4 lg:px-8 pt-4 md:pt-8 pb-8 md:pb-12">
+        <p className="text-center text-[10px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-2">
+          {t("home_categories_section_label", "OUR CATEGORIES")}
+        </p>
+        <h2 className="text-[30px] md:text-[40px] leading-tight font-semibold text-[#10275c] font-sans text-center mb-6 md:mb-8">
+          {t("home_categories_section_title", "Product Categories")}
+        </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {categories.map((cat) => (
             <Link

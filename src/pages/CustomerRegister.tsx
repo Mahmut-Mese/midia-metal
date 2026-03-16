@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
 import { ChevronDown } from "lucide-react";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
-import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import Seo from "@/components/Seo";
 
 export default function CustomerRegister() {
@@ -30,14 +30,10 @@ export default function CustomerRegister() {
         }
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/v1/customer/register`, {
+            const data = await apiFetch("/v1/customer/register", {
                 method: "POST",
-                credentials: "include",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify(form)
             });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || "Registration failed");
 
             login(data.customer);
             toast.success("Account created successfully!");

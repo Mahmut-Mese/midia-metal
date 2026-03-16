@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\QuoteRequest;
+use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\AdminNotification;
@@ -25,6 +26,13 @@ class FormController extends Controller
     {
     }
 
+    protected function getAdminNotificationEmail(): string
+    {
+        return (string) (SiteSetting::where('key', 'contact_email')->value('value')
+            ?: config('mail.from.address')
+            ?: 'mahmutmese.uk@gmail.com');
+    }
+
     public function contact(Request $request)
     {
         $validated = $request->validate([
@@ -37,7 +45,7 @@ class FormController extends Controller
 
         ContactMessage::create($validated);
 
-        Mail::to('mahmutmese.uk@gmail.com')->send(new AdminNotification(
+        Mail::to($this->getAdminNotificationEmail())->send(new AdminNotification(
             'New Contact Message',
             "You have received a new message from {$validated['name']} ({$validated['email']}).\n\nSubject: " . ($validated['subject'] ?? 'No Subject') . "\n\nMessage:\n{$validated['message']}"
         ));
@@ -88,12 +96,74 @@ class FormController extends Controller
             'files' => $storedFiles,
         ]));
 
-        Mail::to('mahmutmese.uk@gmail.com')->send(new AdminNotification(
+        Mail::to($this->getAdminNotificationEmail())->send(new AdminNotification(
             'New Quote Request',
             "You have received a new quote request from {$validated['name']} ({$validated['email']}).\n\nService: " . ($validated['service'] ?? 'N/A') . "\n\nDescription:\n{$validated['description']}"
         ));
 
         return response()->json(['message' => 'Quote request submitted successfully'], 201);
+    }
+
+    public function refundRequest(Request $request)
+    {
+        $authenticatedCustomer = auth('sanctum')->user();
+        if (!$authenticatedCustomer instanceof Customer) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $validated = $request->validate([
+            'order_id' => 'required|integer',
+            'reason' => 'required|string|max:255',
+            'details' => 'required|string|max:5000',
+            'request_type' => 'nullable|in:cancel,cancel_refund',
+        ]);
+
+        $order = Order::query()
+            ->whereKey($validated['order_id'])
+            ->where('customer_id', $authenticatedCustomer->id)
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'We could not find that order on your account.',
+            ], 404);
+        }
+
+        $requestType = $validated['request_type'] ?? 'cancel_refund';
+        $subject = ($requestType === 'cancel' ? 'Order Cancellation Request - ' : 'Cancellation & Refund Request - ') . $order->order_number;
+        $message = implode("\n\n", [
+            "Order Number: {$order->order_number}",
+            "Customer: {$authenticatedCustomer->name} ({$authenticatedCustomer->email})",
+            "Payment Method: {$order->payment_method}",
+            "Request Type: " . ($requestType === 'cancel' ? 'Cancel Order' : 'Cancel and Refund'),
+            "Reason: {$validated['reason']}",
+            "Details:\n{$validated['details']}",
+        ]);
+
+        ContactMessage::create([
+            'name' => $authenticatedCustomer->name,
+            'email' => $authenticatedCustomer->email,
+            'phone' => $authenticatedCustomer->phone,
+            'order_id' => $order->id,
+            'subject' => $subject,
+            'message_type' => 'order_request',
+            'request_type' => $requestType,
+            'request_status' => 'pending',
+            'reason' => $validated['reason'],
+            'details' => $validated['details'],
+            'message' => $message,
+        ]);
+
+        Mail::to($this->getAdminNotificationEmail())->send(new AdminNotification(
+            $subject,
+            $message
+        ));
+
+        return response()->json([
+            'message' => $requestType === 'cancel'
+                ? 'Your cancellation request has been sent. We will review it and contact you shortly.'
+                : 'Your cancellation and refund request has been sent. We will review it and contact you shortly.',
+        ], 201);
     }
 
     public function applyCoupon(Request $request)
@@ -239,7 +309,7 @@ class FormController extends Controller
             'stripe_payment_intent_id' => $validated['stripe_payment_intent_id'] ?? null,
         ]);
 
-        Mail::to('mahmutmese.uk@gmail.com')->send(new AdminNotification(
+        Mail::to($this->getAdminNotificationEmail())->send(new AdminNotification(
             'New Order Received: ' . $order->order_number,
             "A new order has been placed by {$order->customer_name} ({$order->customer_email}).\n\nOrder Number: {$order->order_number}\nTotal: £" . number_format($order->total, 2) . "\n\nCheck the admin panel for more details."
         ));

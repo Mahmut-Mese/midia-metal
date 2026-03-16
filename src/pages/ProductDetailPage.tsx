@@ -24,6 +24,7 @@ import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { toast } from "sonner";
 import Seo from "@/components/Seo";
 import { absoluteUrl, buildBreadcrumbJsonLd, priceToNumber, stripHtml, truncateText } from "@/lib/seo";
+import { getAvailableStock } from "@/lib/stock";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
@@ -50,6 +51,13 @@ const ProductDetailPage = () => {
   const [canReviewStatus, setCanReviewStatus] = useState<"loading" | "allowed" | "not_purchased" | "not_delivered" | "already_reviewed" | "unauthenticated">("loading");
 
   const allImages = product ? [product.image, ...(product.gallery || [])].filter(Boolean) : [];
+  const availableStock = product ? getAvailableStock({ ...product, selected_variants: selectedVariants }) : null;
+  const isOutOfStock = availableStock !== null && availableStock <= 0;
+  const stockLabel = availableStock === null
+    ? "Stock: Available"
+    : isOutOfStock
+      ? "Stock: Out of stock"
+      : `Stock: ${availableStock}`;
   const fallbackShareUrl = typeof window !== "undefined" ? window.location.href : "";
   const shareUrl = product?.share_url || fallbackShareUrl;
   const shareText = encodeURIComponent(`${product?.name || "Product"} | Midia M Metal`);
@@ -102,6 +110,12 @@ const ProductDetailPage = () => {
     }
   }, [id, customer]);
 
+  useEffect(() => {
+    if (availableStock !== null && availableStock > 0 && qty > availableStock) {
+      setQty(availableStock);
+    }
+  }, [availableStock, qty]);
+
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customer) {
@@ -128,12 +142,22 @@ const ProductDetailPage = () => {
   };
 
   const handlePurchaseAction = (mode: "add_to_basket" | "buy_now") => {
-    const base = parseFloat(product.price.replace(/[£,]/g, "")) || 0;
-    const extra = Object.values(selectedVariants).reduce((acc, v: any) => acc + (parseFloat(v.price) || 0), 0);
+    if (isOutOfStock) {
+      toast.error("This product is out of stock.");
+      return;
+    }
+
+    if (availableStock !== null && qty > availableStock) {
+      toast.error(`Only ${availableStock} unit(s) are in stock.`);
+      setQty(availableStock);
+      return;
+    }
+
     const cartProduct = {
       ...product,
-      price: `£${(base + extra).toFixed(2)}`,
+      price: product.price,
       selected_variants: selectedVariants,
+      available_stock: availableStock,
     };
 
     addToCart(cartProduct, qty);
@@ -259,9 +283,8 @@ const ProductDetailPage = () => {
             <div className="flex items-baseline gap-3 mt-3 mb-7">
               <p className="text-orange text-[28px] md:text-[34px] leading-none font-medium">
                 {(() => {
-                  const base = parseFloat(product.price.replace(/[£,]/g, "")) || 0;
-                  const extra = Object.values(selectedVariants).reduce((acc, v: any) => acc + (parseFloat(v.price) || 0), 0);
-                  return `£${(base + extra).toFixed(2)}`;
+                  const base = parseFloat(String(product.price).replace(/[£,]/g, ""));
+                  return Number.isFinite(base) ? `£${base.toFixed(2)}` : product.price;
                 })()}
               </p>
               {product.old_price && (
@@ -271,22 +294,29 @@ const ProductDetailPage = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap mb-8">
-              <div className="w-[118px] h-[50px] border border-[#cad4e4] flex items-center px-5 bg-[#eaf0f3]">
-                <span className="text-base text-primary">{qty}</span>
-                <div className="ml-auto flex flex-col">
-                  <button onClick={() => setQty(qty + 1)} className="text-[#7f8ca5] hover:text-primary">
-                    <ChevronUp className="w-3 h-3" />
-                  </button>
-                  <button onClick={() => setQty(Math.max(1, qty - 1))} className="text-[#7f8ca5] hover:text-primary">
-                    <ChevronDown className="w-3 h-3" />
-                  </button>
+            <div className="flex items-center gap-3 flex-wrap mb-3">
+              <div>
+                <div className="w-[118px] h-[50px] border border-[#cad4e4] flex items-center px-5 bg-[#eaf0f3]">
+                  <span className="text-base text-primary">{qty}</span>
+                  <div className="ml-auto flex flex-col">
+                    <button
+                      onClick={() => setQty(availableStock === null ? qty + 1 : Math.min(qty + 1, availableStock))}
+                      disabled={isOutOfStock || (availableStock !== null && qty >= availableStock)}
+                      className="text-[#7f8ca5] hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronUp className="w-3 h-3" />
+                    </button>
+                    <button onClick={() => setQty(Math.max(1, qty - 1))} className="text-[#7f8ca5] hover:text-primary">
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <button
                 onClick={() => handlePurchaseAction("add_to_basket")}
-                className="h-[50px] px-8 border border-[#d1dbe8] bg-white text-primary text-sm font-semibold inline-flex items-center gap-2 hover:border-orange hover:text-orange transition-colors"
+                disabled={isOutOfStock}
+                className="h-[50px] px-8 border border-[#d1dbe8] bg-white text-primary text-sm font-semibold inline-flex items-center gap-2 hover:border-orange hover:text-orange transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ShoppingCart className="w-4 h-4" />
                 Add to basket
@@ -294,7 +324,8 @@ const ProductDetailPage = () => {
 
               <button
                 onClick={() => handlePurchaseAction("buy_now")}
-                className="h-[50px] px-10 bg-orange text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-orange-hover transition-colors"
+                disabled={isOutOfStock}
+                className="h-[50px] px-10 bg-orange text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-orange-hover transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ShoppingCart className="w-4 h-4" />
                 Buy now
@@ -316,6 +347,9 @@ const ProductDetailPage = () => {
                 <Heart className={`w-5 h-5 ${isInWishlist(product.id) ? 'fill-orange' : ''}`} />
               </button>
             </div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#6e7a92] mb-8">
+              {stockLabel}
+            </p>
 
             <div className="space-y-2 text-[12px] md:text-[14px]">
               <p>

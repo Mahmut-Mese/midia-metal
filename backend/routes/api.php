@@ -70,6 +70,7 @@ Route::prefix('v1')->group(function () {
 
         // Quotes
         Route::get('/customer/quotes', [Api\CustomerAuthController::class, 'customerQuotes']);
+        Route::post('/customer/refund-requests', [Api\FormController::class, 'refundRequest']);
 
         // Product Reviews
         Route::get('/customer/products/{productId}/can-review', [Api\ProductReviewController::class, 'canReview']);
@@ -132,6 +133,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/messages', [Admin\ContactController::class, 'index']);
         Route::get('/messages/{contactMessage}', [Admin\ContactController::class, 'show']);
         Route::put('/messages/{contactMessage}/read', [Admin\ContactController::class, 'markRead']);
+        Route::put('/messages/{contactMessage}/request-status', [Admin\ContactController::class, 'updateRequestStatus']);
         Route::delete('/messages/{contactMessage}', [Admin\ContactController::class, 'destroy']);
 
         // Upload

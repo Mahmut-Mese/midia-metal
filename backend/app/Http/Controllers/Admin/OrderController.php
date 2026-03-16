@@ -10,7 +10,11 @@ class OrderController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Order::with('items');
+        $query = Order::with('items')->withCount([
+            'customerRequests',
+            'customerRequests as unread_customer_requests_count' => fn ($customerRequestsQuery) => $customerRequestsQuery->where('read', false),
+        ]);
+
         if ($request->search) {
             $query->where('order_number', 'like', "%{$request->search}%")
                 ->orWhere('customer_name', 'like', "%{$request->search}%")
@@ -24,19 +28,19 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        return response()->json($order->load('items'));
+        return response()->json($order->load(['items', 'customerRequests']));
     }
 
     public function update(Request $request, Order $order)
     {
         $validated = $request->validate([
             'status' => 'nullable|in:pending,processing,shipped,delivered,cancelled',
-            'payment_status' => 'nullable|in:pending,paid,failed,refunded',
+            'payment_status' => 'nullable|in:pending,paid,failed,refund_pending,refunded,refund_failed',
             'notes' => 'nullable|string',
             'tracking_number' => 'nullable|string|max:255',
         ]);
         $order->update($validated);
-        return response()->json($order->load('items'));
+        return response()->json($order->load(['items', 'customerRequests']));
     }
 
     public function destroy(Order $order)

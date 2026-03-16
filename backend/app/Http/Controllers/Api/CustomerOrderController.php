@@ -11,7 +11,7 @@ class CustomerOrderController extends Controller
 {
     public function index(Request $request)
     {
-        $orders = Order::with('items')
+        $orders = Order::with(['items', 'customerRequests'])
             ->where('customer_id', $request->user()->id)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -21,7 +21,7 @@ class CustomerOrderController extends Controller
 
     public function show(Request $request, $id)
     {
-        $order = Order::with('items')
+        $order = Order::with(['items', 'customerRequests'])
             ->where('customer_id', $request->user()->id)
             ->where('id', $id)
             ->firstOrFail();

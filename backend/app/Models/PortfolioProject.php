@@ -13,6 +13,7 @@ class PortfolioProject extends Model
         'description',
         'location',
         'client',
+        'customer_number',
         'year',
         'portfolio_category_id',
         'services_list',

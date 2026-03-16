@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
 import { ChevronDown } from "lucide-react";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
-import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import Seo from "@/components/Seo";
 
 export default function CustomerLogin() {
@@ -20,14 +20,10 @@ export default function CustomerLogin() {
         e.preventDefault();
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/v1/customer/login`, {
+            const data = await apiFetch("/v1/customer/login", {
                 method: "POST",
-                credentials: "include",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify({ email, password })
             });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || "Failed to log in");
 
             login(data.customer);
             toast.success("Logged in successfully!");

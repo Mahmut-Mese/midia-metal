@@ -62,4 +62,11 @@ class Order extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    public function customerRequests()
+    {
+        return $this->hasMany(ContactMessage::class)
+            ->where('message_type', 'order_request')
+            ->latest();
+    }
 }

@@ -51,6 +51,7 @@ class ProductController extends Controller
 
         $validated['description'] = HtmlSanitizer::richText($validated['description'] ?? null);
         $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(4);
+        $validated['variants'] = $this->normalizeVariants($validated['variants'] ?? null, (string) $validated['price']);
 
         $product = Product::create($validated);
         return response()->json($product->load('category'), 201);
@@ -83,6 +84,7 @@ class ProductController extends Controller
         ]);
 
         $validated['description'] = HtmlSanitizer::richText($validated['description'] ?? null);
+        $validated['variants'] = $this->normalizeVariants($validated['variants'] ?? null, (string) $validated['price']);
 
         if ($validated['name'] !== $product->name) {
             $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(4);
@@ -101,5 +103,37 @@ class ProductController extends Controller
     public function categories()
     {
         return response()->json(ProductCategory::orderBy('order')->get());
+    }
+
+    private function normalizeVariants(mixed $variants, string $productPrice): ?array
+    {
+        if (!is_array($variants) || count($variants) === 0) {
+            return null;
+        }
+
+        $normalized = [];
+        foreach ($variants as $variant) {
+            if (!is_array($variant)) {
+                continue;
+            }
+
+            $option = trim((string) ($variant['option'] ?? ''));
+            $value = trim((string) ($variant['value'] ?? ''));
+            if ($option === '' || $value === '') {
+                continue;
+            }
+
+            $stock = $variant['stock'] ?? null;
+            $stock = is_numeric($stock) ? max(0, (int) $stock) : null;
+
+            $normalized[] = [
+                'option' => $option,
+                'value' => $value,
+                'price' => $productPrice,
+                'stock' => $stock,
+            ];
+        }
+
+        return count($normalized) > 0 ? $normalized : null;
     }
 }

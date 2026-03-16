@@ -51,8 +51,8 @@ class CheckoutCalculator
                 ]);
             }
 
-            [$variantDetails, $variantExtra] = $this->resolveVariants($product, $item['selected_variants'] ?? [], $quantity, $index);
-            $unitPrice = round($this->parseMoney($product->price) + $variantExtra, 2);
+            $variantDetails = $this->resolveVariants($product, $item['selected_variants'] ?? [], $quantity, $index);
+            $unitPrice = round($this->parseMoney($product->price), 2);
 
             return [
                 'product_id' => $product->id,
@@ -102,15 +102,15 @@ class CheckoutCalculator
         ];
     }
 
-    private function resolveVariants(Product $product, mixed $selectedVariants, int $quantity, int $index): array
+    private function resolveVariants(Product $product, mixed $selectedVariants, int $quantity, int $index): ?array
     {
         if (!is_array($selectedVariants) || count($selectedVariants) === 0) {
-            return [null, 0.0];
+            return null;
         }
 
         $available = collect($product->variants ?? []);
         $resolved = [];
-        $extra = 0.0;
+        $basePrice = round($this->parseMoney($product->price), 2);
 
         foreach ($selectedVariants as $option => $selection) {
             $value = is_array($selection) ? ($selection['value'] ?? null) : null;
@@ -142,13 +142,12 @@ class CheckoutCalculator
             $resolved[$option] = [
                 'option' => $variant['option'] ?? $option,
                 'value' => $variant['value'] ?? $value,
-                'price' => $variant['price'] ?? null,
+                'price' => $this->formatMoney($basePrice),
                 'stock' => $variant['stock'] ?? null,
             ];
-            $extra += $this->parseMoney($variant['price'] ?? 0);
         }
 
-        return [$resolved, round($extra, 2)];
+        return count($resolved) > 0 ? $resolved : null;
     }
 
     private function parseMoney(mixed $value): float

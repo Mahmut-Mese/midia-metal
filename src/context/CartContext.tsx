@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
+import { clampQuantityToStock, getAvailableStock } from "@/lib/stock";
 
 export interface CartItem {
     id: number | string;
@@ -10,6 +11,9 @@ export interface CartItem {
     qty: number;
     image: string;
     selected_variants?: Record<string, any>;
+    track_stock?: boolean;
+    stock_quantity?: number | null;
+    available_stock?: number | null;
 }
 
 interface AppliedCoupon {
@@ -60,6 +64,52 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [cart]);
 
     useEffect(() => {
+        const itemsMissingStock = cart.filter((item) => item.available_stock === undefined);
+        if (itemsMissingStock.length === 0) return;
+
+        const uniqueProductIds = Array.from(new Set(itemsMissingStock.map((item) => item.product_id)));
+
+        let cancelled = false;
+
+        const hydrateCartStock = async () => {
+            try {
+                const products = await Promise.all(
+                    uniqueProductIds.map((productId) => apiFetch(`/v1/products/${productId}`))
+                );
+
+                if (cancelled) return;
+
+                const byId = new Map(products.map((product: Record<string, unknown>) => [String(product.id), product]));
+
+                setCart((prev) => prev.map((item) => {
+                    if (item.available_stock !== undefined) return item;
+
+                    const product = byId.get(String(item.product_id));
+                    if (!product) return item;
+
+                    return {
+                        ...item,
+                        track_stock: Boolean(product.track_stock),
+                        stock_quantity: typeof product.stock_quantity === "number" ? product.stock_quantity : null,
+                        available_stock: getAvailableStock({
+                            ...product,
+                            selected_variants: item.selected_variants,
+                        }),
+                    };
+                }));
+            } catch (err) {
+                console.error("Failed to hydrate cart stock", err);
+            }
+        };
+
+        hydrateCartStock();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [cart]);
+
+    useEffect(() => {
         if (coupon) {
             localStorage.setItem("midia_coupon", JSON.stringify(coupon));
         } else {
@@ -85,6 +135,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const addToCart = (product: any, quantity: number = 1) => {
+        let toastMessage: string | null = null;
+
         setCart((prev) => {
             // Sort keys to ensure consistent unique ID regardless of selection order
             const variantKeys = Object.keys(product.selected_variants || {}).sort();
@@ -92,13 +144,40 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 ? "-" + variantKeys.map(k => `${k}-${product.selected_variants[k].value}`).join("-")
                 : "";
             const uniqueId = `${product.id}${variantId}`;
+            const availableStock = getAvailableStock(product);
+
+            if (availableStock !== null && availableStock <= 0) {
+                toastMessage = `${product.name} is out of stock.`;
+                return prev;
+            }
 
             const existing = prev.find((item) => item.id === uniqueId);
             if (existing) {
-                return prev.map((item) =>
-                    item.id === uniqueId ? { ...item, qty: item.qty + quantity } : item
-                );
+                const requestedQty = itemQty(existing) + quantity;
+                const nextQty = clampQuantityToStock(requestedQty, availableStock);
+
+                if (availableStock !== null && nextQty < requestedQty) {
+                    toastMessage = `Only ${availableStock} unit(s) of ${product.name} are in stock.`;
+                }
+
+                return prev.map((item) => (
+                    item.id === uniqueId
+                        ? {
+                            ...item,
+                            qty: nextQty,
+                            track_stock: product.track_stock,
+                            stock_quantity: product.stock_quantity ?? null,
+                            available_stock: availableStock,
+                        }
+                        : item
+                ));
             }
+
+            const nextQty = clampQuantityToStock(quantity, availableStock);
+            if (availableStock !== null && nextQty < quantity) {
+                toastMessage = `Only ${availableStock} unit(s) of ${product.name} are in stock.`;
+            }
+
             return [
                 ...prev,
                 {
@@ -107,11 +186,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     name: product.name,
                     price: product.price,
                     image: product.image,
-                    qty: quantity,
-                    selected_variants: product.selected_variants
+                    qty: nextQty,
+                    selected_variants: product.selected_variants,
+                    track_stock: product.track_stock,
+                    stock_quantity: product.stock_quantity ?? null,
+                    available_stock: availableStock,
                 },
             ];
         });
+
+        if (toastMessage) {
+            toast.error(toastMessage);
+        }
     };
 
     const removeFromCart = (id: number | string) => {
@@ -119,9 +205,27 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const updateQuantity = (id: number | string, qty: number) => {
+        let toastMessage: string | null = null;
+
         setCart((prev) =>
-            prev.map((item) => (item.id === id ? { ...item, qty: Math.max(1, qty) } : item))
+            prev.map((item) => {
+                if (item.id !== id) return item;
+
+                const nextQty = clampQuantityToStock(qty, item.available_stock ?? null);
+                if (item.available_stock !== null && item.available_stock !== undefined && nextQty < qty) {
+                    toastMessage = `Only ${item.available_stock} unit(s) of ${item.name} are in stock.`;
+                }
+
+                return {
+                    ...item,
+                    qty: nextQty === 0 ? 1 : nextQty,
+                };
+            })
         );
+
+        if (toastMessage) {
+            toast.error(toastMessage);
+        }
     };
 
     const clearCart = () => {
@@ -175,6 +279,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         </CartContext.Provider>
     );
 };
+
+const itemQty = (item: CartItem) => item.qty;
 
 export const useCart = () => {
     const context = useContext(CartContext);

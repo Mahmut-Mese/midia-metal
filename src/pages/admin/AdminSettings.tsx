@@ -118,6 +118,33 @@ const HOME_SECTIONS: SettingsSection[] = [
     },
 ];
 
+const SHIPPING_TAX_KEYS = new Set([
+    "shipping_rate",
+    "shipping_flat_rate",
+    "shipping_type",
+    "vat_enabled",
+    "vat_rate",
+    "tax_enabled",
+    "tax_rate",
+]);
+
+const LEGACY_DUPLICATE_KEYS: Record<string, string> = {
+    shipping_flat_rate: "shipping_rate",
+    tax_enabled: "vat_enabled",
+    tax_rate: "vat_rate",
+};
+
+const LABEL_OVERRIDES: Record<string, string> = {
+    home_reward_title: "1.title",
+    home_reward_desc: "1.description",
+    home_discount_title: "2.title",
+    home_discount_desc: "2.description",
+    home_shipping_title: "3.title",
+    home_shipping_desc: "3.description",
+    home_prices_title: "4.title",
+    home_prices_desc: "4.description",
+};
+
 const buildSections = (settings: SettingRecord[], sections: SettingsSection[]) => {
     const byKey = new Map(settings.map((setting) => [setting.key, setting]));
     const used = new Set<string>();
@@ -139,6 +166,29 @@ const buildSections = (settings: SettingRecord[], sections: SettingsSection[]) =
         .sort((a, b) => a.key.localeCompare(b.key));
 
     return { resolvedSections, leftovers };
+};
+
+const normalizeSettingsForDisplay = (settings: SettingRecord[]) => {
+    const keys = new Set(settings.map((setting) => setting.key));
+
+    return settings
+        .filter((setting) => {
+            const canonicalKey = LEGACY_DUPLICATE_KEYS[setting.key];
+            return !(canonicalKey && keys.has(canonicalKey));
+        })
+        .map((setting) => {
+            const nextSetting = { ...setting };
+
+            if (SHIPPING_TAX_KEYS.has(nextSetting.key)) {
+                nextSetting.group = "shipping-tax";
+            }
+
+            if (nextSetting.key === "vat_enabled" || (nextSetting.key === "tax_enabled" && !keys.has("vat_enabled"))) {
+                nextSetting.type = "boolean";
+            }
+
+            return nextSetting;
+        });
 };
 
 export default function AdminSettings() {
@@ -167,8 +217,10 @@ export default function AdminSettings() {
         loadData();
     }, []);
 
+    const displaySettings = useMemo(() => normalizeSettingsForDisplay(settings), [settings]);
+
     const tabs = useMemo(() => {
-        const seen = new Set(settings.map((setting) => setting.group || "general"));
+        const seen = new Set(displaySettings.map((setting) => setting.group || "general"));
         seen.delete("faq"); // Explicitly remove faq group
         const dynamicGroups = Array.from(seen);
         const ordered = dynamicGroups.sort((a, b) => {
@@ -181,9 +233,15 @@ export default function AdminSettings() {
         });
 
         return [...ordered, "hero-slides"];
-    }, [settings]);
+    }, [displaySettings]);
 
-    const filteredSettings = settings.filter((setting) => (setting.group || "general") === activeTab);
+    useEffect(() => {
+        if (!tabs.includes(activeTab)) {
+            setActiveTab(tabs[0] ?? "general");
+        }
+    }, [activeTab, tabs]);
+
+    const filteredSettings = displaySettings.filter((setting) => (setting.group || "general") === activeTab);
     const homeGroups = useMemo(() => buildSections(filteredSettings, HOME_SECTIONS), [filteredSettings]);
 
     const updateSetting = (key: string, value: string) => {
@@ -289,7 +347,7 @@ export default function AdminSettings() {
     const renderSettingField = (setting: SettingRecord) => (
         <div key={setting.id} className="space-y-2">
             <label className="block text-sm font-bold text-[#10275c] capitalize">
-                {setting.key.replace(/_/g, " ").replace(activeTab, "").trim() || setting.key}
+                {LABEL_OVERRIDES[setting.key] || setting.key.replace(/_/g, " ").replace(activeTab, "").trim() || setting.key}
             </label>
             {setting.type === "richtext" ? (
                 <RichTextEditor

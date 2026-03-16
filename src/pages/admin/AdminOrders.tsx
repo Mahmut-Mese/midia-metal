@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { Download, Eye, RefreshCcw, Truck, X } from "lucide-react";
+import { Download, Eye, RefreshCcw, RotateCcw, Truck, X } from "lucide-react";
 import { API_URL } from "@/lib/api";
 
 const MOCK_TRACKING_CODES = [
@@ -13,6 +13,23 @@ const MOCK_TRACKING_CODES = [
   "EZ6000000006",
   "EZ7000000007",
 ];
+
+const getRequestTypeLabel = (requestType?: string) =>
+  requestType === "cancel" ? "Cancel order" : "Cancel & refund";
+
+const getRequestStatusLabel = (requestStatus?: string) => {
+  if (requestStatus === "approved") return "Approved";
+  if (requestStatus === "rejected") return "Rejected";
+  return "Pending Review";
+};
+
+const getPaymentStatusBadgeClass = (paymentStatus?: string) => {
+  if (paymentStatus === "paid") return "bg-green-100 text-green-800";
+  if (paymentStatus === "refunded") return "bg-slate-100 text-slate-700";
+  if (paymentStatus === "refund_pending") return "bg-blue-100 text-blue-700";
+  if (paymentStatus === "failed" || paymentStatus === "refund_failed") return "bg-red-100 text-red-800";
+  return "bg-yellow-100 text-yellow-800";
+};
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -119,6 +136,24 @@ export default function AdminOrders() {
     }
   };
 
+  const handleReviewRequest = async (requestId: number, requestStatus: "approved" | "rejected") => {
+    if (!viewingOrder) return;
+
+    try {
+      await apiFetch(`/admin/messages/${requestId}/request-status`, {
+        method: "PUT",
+        body: JSON.stringify({ request_status: requestStatus }),
+      });
+
+      const updatedOrder = await apiFetch(`/admin/orders/${viewingOrder.id}`);
+      setViewingOrder(updatedOrder);
+      await loadOrders();
+      toast.success(requestStatus === "approved" ? "Cancellation request approved" : "Cancellation request rejected");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to review request");
+    }
+  };
+
   const filteredOrders = orders
     .filter((order) => {
       const matchesSearch =
@@ -195,7 +230,21 @@ export default function AdminOrders() {
             ) : (
               filteredOrders.map((order) => (
                 <tr key={order.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.order_number}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{order.order_number}</div>
+                    {order.customer_requests_count > 0 && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#cf4d08]">
+                          {order.customer_requests_count} request{order.customer_requests_count > 1 ? "s" : ""}
+                        </span>
+                        {order.unread_customer_requests_count > 0 && (
+                          <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-red-700">
+                            {order.unread_customer_requests_count} unread
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
                     <div className="text-sm text-gray-500">{order.customer_email}</div>
@@ -210,7 +259,7 @@ export default function AdminOrders() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${order.payment_status === "paid" ? "bg-green-100 text-green-800" : order.payment_status === "refunded" ? "bg-slate-100 text-slate-700" : order.payment_status === "failed" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPaymentStatusBadgeClass(order.payment_status)}`}>
                       {order.payment_status || "pending"}
                     </span>
                   </td>
@@ -295,13 +344,83 @@ export default function AdminOrders() {
                       >
                         <option value="pending">Pending</option>
                         <option value="paid">Paid</option>
+                        <option value="refund_pending">Refund Pending</option>
                         <option value="failed">Failed</option>
+                        <option value="refund_failed">Refund Failed</option>
                         <option value="refunded">Refunded</option>
                       </select>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {viewingOrder.customer_requests?.length > 0 && (
+                <section className="rounded-xl border border-[#fed7aa] bg-[#fff7ed] p-6 space-y-5">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-full bg-white p-2 text-[#eb5c10]">
+                      <RotateCcw className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#10275c]">Cancellation & Refund Requests</h3>
+                      <p className="mt-1 text-sm text-[#6e7a92]">
+                        Customer requests for this order appear here so admins can review them alongside status and payment updates.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {viewingOrder.customer_requests.map((request: any) => (
+                      <article key={request.id} className="rounded-lg border border-[#fdba74] bg-white p-5 space-y-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#cf4d08]">
+                              {getRequestTypeLabel(request.request_type)}
+                            </span>
+                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${request.request_status === "approved" ? "bg-green-100 text-green-700" : request.request_status === "rejected" ? "bg-slate-200 text-slate-700" : "bg-yellow-100 text-yellow-700"}`}>
+                              {getRequestStatusLabel(request.request_status)}
+                            </span>
+                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${request.read ? "bg-slate-100 text-slate-600" : "bg-red-100 text-red-700"}`}>
+                              {request.read ? "Read" : "Unread"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#6e7a92]">{new Date(request.created_at).toLocaleString()}</p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Reason</p>
+                          <p className="mt-1 text-sm font-semibold text-[#10275c]">{request.reason || "No reason provided"}</p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Details</p>
+                          <div className="mt-2 rounded-lg bg-[#fffaf5] p-4 text-sm leading-relaxed text-[#4b5563] whitespace-pre-wrap">
+                            {request.details || request.message}
+                          </div>
+                        </div>
+
+                        {request.request_status === "pending" && (
+                          <div className="flex flex-wrap gap-3 pt-2">
+                            <button
+                              type="button"
+                              onClick={() => handleReviewRequest(request.id, "approved")}
+                              className="inline-flex items-center rounded-md bg-[#eb5c10] px-4 py-2 text-sm font-semibold text-white hover:bg-[#cf4d08]"
+                            >
+                              Accept Cancellation
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReviewRequest(request.id, "rejected")}
+                              className="inline-flex items-center rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9]"
+                            >
+                              Reject Request
+                            </button>
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <section className="rounded-xl border border-[#cad4e4] bg-[#f8fafc] p-6 space-y-5">
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">

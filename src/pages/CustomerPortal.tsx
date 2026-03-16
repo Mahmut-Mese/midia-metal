@@ -12,8 +12,16 @@ import {
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCart } from "@/context/CartContext";
-import { API_URL } from "@/lib/api";
+import { API_URL, apiFetch } from "@/lib/api";
 import Seo from "@/components/Seo";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 type Tab = "orders" | "wishlist" | "quotes" | "profile" | "addresses" | "payment-methods" | "security";
 
@@ -30,6 +38,61 @@ const QUOTE_STATUS_LABELS: Record<string, string> = {
     reviewing: "Reviewing",
     replied: "Replied",
 };
+const REFUND_REASONS = [
+    "Changed my mind",
+    "Wrong item received",
+    "Item arrived damaged",
+    "Item not as described",
+    "Order arrived too late",
+    "Other",
+];
+
+const isCashOnDeliveryPayment = (paymentMethod?: string | null) =>
+    (paymentMethod || "").toLowerCase().includes("cash on delivery");
+
+const getOrderRequestLabel = (paymentMethod?: string | null) =>
+    isCashOnDeliveryPayment(paymentMethod) ? "Cancel Order" : "Cancel & Refund";
+
+const getSubmittedOrderRequestLabel = (requestType?: string | null) =>
+    requestType === "cancel" ? "Cancellation Requested" : "Cancellation & Refund Requested";
+
+const getCustomerOrderRequestStatusLabel = (requestType?: string | null, requestStatus?: string | null) => {
+    if (requestStatus === "approved") {
+        return requestType === "cancel" ? "Cancellation Accepted" : "Cancellation & Refund Accepted";
+    }
+
+    if (requestStatus === "rejected") {
+        return requestType === "cancel" ? "Cancellation Rejected" : "Cancellation & Refund Rejected";
+    }
+
+    return getSubmittedOrderRequestLabel(requestType);
+};
+
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+    pending: "Pending",
+    paid: "Paid",
+    failed: "Failed",
+    refund_pending: "Refund in Progress",
+    refunded: "Refunded",
+    refund_failed: "Refund Failed",
+};
+
+const getOrderRequestTitle = (paymentMethod?: string | null) =>
+    isCashOnDeliveryPayment(paymentMethod) ? "Cancel order" : "Cancel order & request refund";
+
+const getOrderRequestDescription = (paymentMethod?: string | null) =>
+    isCashOnDeliveryPayment(paymentMethod)
+        ? "Tell us why you want to cancel this order before it is completed."
+        : "Tell us why you want to cancel this order and request a refund.";
+
+const getOrderRequestDetailsPlaceholder = (paymentMethod?: string | null) =>
+    isCashOnDeliveryPayment(paymentMethod)
+        ? "Add any details that will help us process your cancellation."
+        : "Add the issue, affected items, and any refund details we should review.";
+
+const hasOrderRequest = (order: any) => (order?.customer_requests?.length ?? 0) > 0;
+
+const getLatestOrderRequest = (order: any) => order?.customer_requests?.[0] ?? null;
 
 export default function CustomerPortal() {
     const { customer, isLoading, logout, updateCustomer } = useCustomerAuth();
@@ -42,6 +105,12 @@ export default function CustomerPortal() {
     const [loadingOrders, setLoadingOrders] = useState(true);
     const [loadingQuotes, setLoadingQuotes] = useState(true);
     const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+    const [requestDialogOrder, setRequestDialogOrder] = useState<any | null>(null);
+    const [requestForm, setRequestForm] = useState({
+        reason: REFUND_REASONS[0],
+        details: "",
+    });
+    const [submittingRequest, setSubmittingRequest] = useState(false);
 
     // Saved Cards state
     const [savedCards, setSavedCards] = useState<any[]>([]);
@@ -161,11 +230,7 @@ export default function CustomerPortal() {
 
     const handleLogout = async () => {
         try {
-            await fetch(`${API_URL}/v1/customer/logout`, {
-                method: "POST",
-                credentials: "include",
-                headers: { Accept: "application/json" }
-            });
+            await apiFetch("/v1/customer/logout", { method: "POST" });
         } catch { }
         logout();
         navigate("/");
@@ -205,18 +270,85 @@ export default function CustomerPortal() {
         navigate("/cart");
     };
 
+    const handleOpenOrderRequestDialog = (order: any) => {
+        setRequestDialogOrder(order);
+        setRequestForm({
+            reason: REFUND_REASONS[0],
+            details: "",
+        });
+    };
+
+    const handleCloseOrderRequestDialog = () => {
+        if (submittingRequest) {
+            return;
+        }
+
+        setRequestDialogOrder(null);
+        setRequestForm({
+            reason: REFUND_REASONS[0],
+            details: "",
+        });
+    };
+
+    const handleSubmitOrderRequest = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!requestDialogOrder) {
+            toast.error("Select an order first");
+            return;
+        }
+
+        setSubmittingRequest(true);
+
+        try {
+            const submittedAt = new Date().toISOString();
+            const submittedRequestType = isCashOnDeliveryPayment(requestDialogOrder.payment_method) ? "cancel" : "cancel_refund";
+            const response = await apiFetch("/v1/customer/refund-requests", {
+                method: "POST",
+                body: JSON.stringify({
+                    order_id: Number(requestDialogOrder.id),
+                    reason: requestForm.reason,
+                    details: requestForm.details,
+                    request_type: submittedRequestType,
+                }),
+            });
+
+            setOrders((currentOrders) => currentOrders.map((order) => (
+                order.id === requestDialogOrder.id
+                    ? {
+                        ...order,
+                        customer_requests: [
+                            {
+                                id: `local-${order.id}`,
+                                request_type: submittedRequestType,
+                                request_status: "pending",
+                                reason: requestForm.reason,
+                                details: requestForm.details,
+                                read: false,
+                                created_at: submittedAt,
+                            },
+                            ...(order.customer_requests ?? []),
+                        ],
+                    }
+                    : order
+            )));
+            toast.success(response.message);
+            handleCloseOrderRequestDialog();
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            setSubmittingRequest(false);
+        }
+    };
+
     const handleSaveProfile = async (e: React.FormEvent) => {
         e.preventDefault();
         setSavingProfile(true);
         try {
-            const response = await fetch(`${API_URL}/v1/customer/profile`, {
+            const updated = await apiFetch("/v1/customer/profile", {
                 method: "PUT",
-                credentials: "include",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify(form)
             });
-            if (!response.ok) throw new Error("Failed to update profile");
-            const updated = await response.json();
             updateCustomer(updated);
             toast.success("Profile updated successfully!");
         } catch (error: any) { toast.error(error.message); }
@@ -231,14 +363,10 @@ export default function CustomerPortal() {
         }
         setSavingPassword(true);
         try {
-            const response = await fetch(`${API_URL}/v1/customer/password`, {
+            await apiFetch("/v1/customer/password", {
                 method: "PUT",
-                credentials: "include",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify(secForm)
             });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || "Failed");
             toast.success("Password changed successfully!");
             setSecForm({ current_password: "", password: "", password_confirmation: "" });
         } catch (error: any) { toast.error(error.message); }
@@ -323,6 +451,12 @@ export default function CustomerPortal() {
                                     {orders.map(order => {
                                         const isExpanded = expandedOrder === order.id;
                                         const statusIdx = getStatusIndex(order.status);
+                                        const latestOrderRequest = getLatestOrderRequest(order);
+                                        const orderRequestSubmitted = hasOrderRequest(order);
+                                        const orderRequestStatusLabel = getCustomerOrderRequestStatusLabel(
+                                            latestOrderRequest?.request_type,
+                                            latestOrderRequest?.request_status,
+                                        );
                                         return (
                                             <div key={order.id} className="border border-[#cad4e4]">
                                                 {/* Order header row */}
@@ -341,6 +475,11 @@ export default function CustomerPortal() {
                                                         <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${order.status === 'delivered' ? 'bg-green-100 text-green-700' : order.status === 'shipped' ? 'bg-blue-100 text-blue-700' : order.status === 'cancelled' ? 'bg-red-100 text-red-600' : 'bg-[#eaf0f3] text-primary'}`}>
                                                             {STATUS_LABELS[order.status?.toLowerCase()] || order.status}
                                                         </span>
+                                                        {orderRequestSubmitted && (
+                                                            <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${latestOrderRequest?.request_status === "approved" ? "bg-green-100 text-green-700" : latestOrderRequest?.request_status === "rejected" ? "bg-slate-200 text-slate-700" : "bg-orange-100 text-[#cf4d08]"}`}>
+                                                                {orderRequestStatusLabel}
+                                                            </span>
+                                                        )}
                                                         <span className="font-bold text-primary">£{order.total}</span>
                                                     </div>
                                                 </div>
@@ -400,7 +539,7 @@ export default function CustomerPortal() {
                                                                     {order.shipping_address && <p><span className="text-[#6e7a92]">Ship to:</span> {order.shipping_address}</p>}
                                                                     {order.billing_address && <p><span className="text-[#6e7a92]">Bill to:</span> {order.billing_address}</p>}
                                                                     {order.customer_phone && <p><span className="text-[#6e7a92]">Phone:</span> {order.customer_phone}</p>}
-                                                                    {order.payment_status && <p><span className="text-[#6e7a92]">Payment:</span> {order.payment_status}</p>}
+                                                                    {order.payment_status && <p><span className="text-[#6e7a92]">Payment:</span> {PAYMENT_STATUS_LABELS[order.payment_status] || order.payment_status}</p>}
                                                                     {order.coupon_code && <p><span className="text-[#6e7a92]">Coupon:</span> {order.coupon_code}</p>}
                                                                     {order.discount_amount > 0 && <p><span className="text-[#6e7a92]">Discount:</span> -£{order.discount_amount}</p>}
                                                                     {order.tax_amount > 0 && <p><span className="text-[#6e7a92]">VAT:</span> £{order.tax_amount}</p>}
@@ -417,6 +556,22 @@ export default function CustomerPortal() {
                                                             </div>
                                                         )}
 
+                                                        {orderRequestSubmitted && (
+                                                            <div className={`mb-4 p-4 text-sm text-primary ${latestOrderRequest?.request_status === "approved" ? "border border-green-200 bg-green-50" : latestOrderRequest?.request_status === "rejected" ? "border border-slate-300 bg-slate-50" : "border border-orange-200 bg-orange-50"}`}>
+                                                                <p className={`font-semibold ${latestOrderRequest?.request_status === "approved" ? "text-green-700" : latestOrderRequest?.request_status === "rejected" ? "text-slate-700" : "text-[#cf4d08]"}`}>
+                                                                    {orderRequestStatusLabel}
+                                                                </p>
+                                                                <p className="mt-1 text-[#6e7a92]">
+                                                                    Submitted on {new Date(latestOrderRequest.created_at).toLocaleDateString("en-GB")}.
+                                                                </p>
+                                                                {latestOrderRequest.reason && (
+                                                                    <p className="mt-2">
+                                                                        <span className="text-[#6e7a92]">Reason:</span> {latestOrderRequest.reason}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        )}
+
                                                         <div className="flex gap-3 flex-wrap">
                                                             <button
                                                                 onClick={() => handleBuyAgain(order)}
@@ -430,6 +585,23 @@ export default function CustomerPortal() {
                                                             >
                                                                 <FileText className="w-4 h-4" /> Download Invoice
                                                             </button>
+                                                            {order.status !== "cancelled" && !orderRequestSubmitted && (
+                                                                <button
+                                                                    onClick={() => handleOpenOrderRequestDialog(order)}
+                                                                    className="flex items-center gap-2 px-4 h-10 border border-[#cad4e4] text-primary text-sm font-semibold hover:border-orange hover:text-orange transition-colors"
+                                                                >
+                                                                    <RotateCcw className="w-4 h-4" /> {getOrderRequestLabel(order.payment_method)}
+                                                                </button>
+                                                            )}
+                                                            {order.status !== "cancelled" && orderRequestSubmitted && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled
+                                                                    className={`flex items-center gap-2 px-4 h-10 text-sm font-semibold cursor-not-allowed ${latestOrderRequest?.request_status === "approved" ? "border border-green-200 bg-green-50 text-green-700" : latestOrderRequest?.request_status === "rejected" ? "border border-slate-300 bg-slate-50 text-slate-700" : "border border-orange-200 bg-orange-50 text-[#cf4d08]"}`}
+                                                                >
+                                                                    <RotateCcw className="w-4 h-4" /> {orderRequestStatusLabel}
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 )}
@@ -764,6 +936,75 @@ export default function CustomerPortal() {
 
             <Footer />
             <FloatingSidebar />
+            <Dialog
+                open={Boolean(requestDialogOrder)}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        handleCloseOrderRequestDialog();
+                    }
+                }}
+            >
+                <DialogContent className="border border-[#cad4e4] bg-white p-0 sm:max-w-[560px]">
+                    <DialogHeader className="border-b border-[#cad4e4] px-6 py-5">
+                        <DialogTitle className="font-sans text-[28px] font-semibold text-primary">
+                            {getOrderRequestTitle(requestDialogOrder?.payment_method)}
+                        </DialogTitle>
+                        <DialogDescription className="text-sm text-[#6e7a92]">
+                            {requestDialogOrder
+                                ? `${requestDialogOrder.order_number} • ${getOrderRequestDescription(requestDialogOrder.payment_method)}`
+                                : ""}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleSubmitOrderRequest} className="space-y-5 px-6 py-6">
+                        <div>
+                            <label className="block text-[13px] font-semibold text-primary mb-2">Reason *</label>
+                            <select
+                                value={requestForm.reason}
+                                onChange={(e) => setRequestForm({ ...requestForm, reason: e.target.value })}
+                                required
+                                className="w-full h-12 border border-[#cad4e4] bg-[#f4f7f9] px-4 text-[14px] outline-none focus:border-orange"
+                            >
+                                {REFUND_REASONS.map((reason) => (
+                                    <option key={reason} value={reason}>
+                                        {reason}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-[13px] font-semibold text-primary mb-2">Details *</label>
+                            <textarea
+                                value={requestForm.details}
+                                onChange={(e) => setRequestForm({ ...requestForm, details: e.target.value })}
+                                required
+                                rows={6}
+                                placeholder={getOrderRequestDetailsPlaceholder(requestDialogOrder?.payment_method)}
+                                className="w-full border border-[#cad4e4] bg-[#f4f7f9] px-4 py-3 text-[14px] outline-none focus:border-orange resize-y"
+                            />
+                        </div>
+
+                        <DialogFooter className="gap-3 border-t border-[#cad4e4] pt-5">
+                            <button
+                                type="button"
+                                onClick={handleCloseOrderRequestDialog}
+                                disabled={submittingRequest}
+                                className="h-11 border border-[#cad4e4] px-5 text-sm font-semibold text-primary transition-colors hover:border-orange hover:text-orange disabled:opacity-50"
+                            >
+                                Close
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={submittingRequest}
+                                className="h-11 bg-orange px-5 text-sm font-semibold text-white transition-colors hover:bg-orange-hover disabled:opacity-50"
+                            >
+                                {submittingRequest ? "Sending..." : getOrderRequestLabel(requestDialogOrder?.payment_method)}
+                            </button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

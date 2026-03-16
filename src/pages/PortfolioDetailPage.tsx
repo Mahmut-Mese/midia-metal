@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { ChevronDown, MapPin, Calendar, User } from "lucide-react";
+import { ChevronDown, MapPin, Calendar, User, Hash } from "lucide-react";
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -118,6 +118,12 @@ const PortfolioDetailPage = () => {
                 <User className="w-4 h-4 text-[#2f9cea] mt-1" />
                 <p>
                   <span className="text-primary font-semibold">Client:</span> {project.client || "N/A"}
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <Hash className="w-4 h-4 text-[#2f9cea] mt-1" />
+                <p>
+                  <span className="text-primary font-semibold">Customer Number:</span> {project.customer_number || "N/A"}
                 </p>
               </div>
               <div className="flex items-start gap-3">

@@ -61,6 +61,7 @@ export default function AdminPortfolio() {
                 description: "",
                 location: "",
                 client: "",
+                customer_number: "",
                 year: "",
                 portfolio_category_id: "",
                 services_list: [],
@@ -124,7 +125,8 @@ export default function AdminPortfolio() {
         .filter((p) => {
             const matchesSearch =
                 p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (p.client || "").toLowerCase().includes(searchTerm.toLowerCase());
+                (p.client || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (p.customer_number || "").toLowerCase().includes(searchTerm.toLowerCase());
             const matchesCategory = categoryFilter === "all" || p.portfolio_category_id?.toString() === categoryFilter;
             return matchesSearch && matchesCategory;
         })
@@ -183,6 +185,7 @@ export default function AdminPortfolio() {
                             <option value="title">Title</option>
                             <option value="year">Year</option>
                             <option value="client">Client</option>
+                            <option value="customer_number">Customer Number</option>
                         </select>
                         <button
                             onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
@@ -199,6 +202,7 @@ export default function AdminPortfolio() {
                     <thead className="bg-gray-50">
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer No.</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -207,7 +211,7 @@ export default function AdminPortfolio() {
                     <tbody className="bg-white divide-y divide-gray-200">
                         {filteredProjects.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="px-6 py-10 text-center text-sm text-gray-500">No projects found.</td>
+                                <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-500">No projects found.</td>
                             </tr>
                         ) : (
                             filteredProjects.map((project) => (
@@ -222,6 +226,9 @@ export default function AdminPortfolio() {
                                                 <div className="text-xs text-gray-500">{project.client}</div>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {project.customer_number || "N/A"}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {project.portfolio_category?.name || "N/A"}
@@ -286,6 +293,15 @@ export default function AdminPortfolio() {
                                         type="text"
                                         value={currentProject.client || ""}
                                         onChange={(e) => setCurrentProject({ ...currentProject, client: e.target.value })}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                    />
+                                </div>
+                                <div className="col-span-1">
+                                    <label className="block text-sm font-medium text-gray-700">Customer Number</label>
+                                    <input
+                                        type="text"
+                                        value={currentProject.customer_number || ""}
+                                        onChange={(e) => setCurrentProject({ ...currentProject, customer_number: e.target.value })}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
                                     />
                                 </div>

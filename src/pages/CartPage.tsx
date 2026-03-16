@@ -43,6 +43,11 @@ const CartPage = () => {
                 <img src={item.image} alt={item.name} className="w-16 h-16 object-cover" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-primary leading-snug">{item.name}</p>
+                  {item.available_stock !== null && item.available_stock !== undefined && (
+                    <p className="text-[10px] text-[#6e7a92] mt-1 font-semibold uppercase tracking-wide">
+                      Stock: {item.available_stock}
+                    </p>
+                  )}
                   {item.selected_variants && Object.entries(item.selected_variants).map(([opt, v]: [string, any]) => (
                     <p key={opt} className="text-[10px] text-orange mt-0.5 font-bold uppercase tracking-tight">
                       {opt}: {v.value}
@@ -58,7 +63,13 @@ const CartPage = () => {
                 <div className="flex items-center border border-[#cad4e4] h-10">
                   <button onClick={() => updateQuantity(item.id, item.qty - 1)} className="px-2.5 py-1.5 text-primary"><Minus className="w-3 h-3" /></button>
                   <span className="px-4 text-sm font-medium text-primary">{item.qty}</span>
-                  <button onClick={() => updateQuantity(item.id, item.qty + 1)} className="px-2.5 py-1.5 text-primary"><Plus className="w-3 h-3" /></button>
+                  <button
+                    onClick={() => updateQuantity(item.id, item.qty + 1)}
+                    disabled={item.available_stock !== null && item.available_stock !== undefined && item.qty >= item.available_stock}
+                    className="px-2.5 py-1.5 text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
                 </div>
                 <div className="text-right">
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Subtotal</p>
@@ -83,6 +94,11 @@ const CartPage = () => {
                   <img src={item.image} alt={item.name} className="w-20 h-20 object-cover flex-shrink-0" />
                   <div className="flex flex-col min-w-0">
                     <span className="text-base md:text-xl leading-tight font-semibold text-primary truncate">{item.name}</span>
+                    {item.available_stock !== null && item.available_stock !== undefined && (
+                      <span className="text-[10px] text-[#6e7a92] mt-1 font-semibold uppercase tracking-wide">
+                        Stock: {item.available_stock}
+                      </span>
+                    )}
                     {item.selected_variants && Object.entries(item.selected_variants).map(([opt, v]: [string, any]) => (
                       <span key={opt} className="text-xs text-orange font-bold uppercase tracking-widest mt-1 block">
                         {opt}: {v.value}
@@ -94,7 +110,14 @@ const CartPage = () => {
                 <div className="w-[124px] h-[56px] border border-[#cad4e4] flex items-center px-5 bg-[#eaf0f3]">
                   <span className="text-base md:text-lg leading-none text-primary">{item.qty}</span>
                   <div className="ml-auto flex flex-col">
-                    <button onClick={() => updateQuantity(item.id, item.qty + 1)} className="text-[#8c99b2] hover:text-primary" aria-label={`Increase quantity of ${item.name}`}><ChevronUp className="w-3 h-3" /></button>
+                    <button
+                      onClick={() => updateQuantity(item.id, item.qty + 1)}
+                      disabled={item.available_stock !== null && item.available_stock !== undefined && item.qty >= item.available_stock}
+                      className="text-[#8c99b2] hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label={`Increase quantity of ${item.name}`}
+                    >
+                      <ChevronUp className="w-3 h-3" />
+                    </button>
                     <button onClick={() => updateQuantity(item.id, item.qty - 1)} className="text-[#8c99b2] hover:text-primary" aria-label={`Decrease quantity of ${item.name}`}><ChevronDown className="w-3 h-3" /></button>
                   </div>
                 </div>

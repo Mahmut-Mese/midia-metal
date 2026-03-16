@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
-import { API_URL } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import Seo from "@/components/Seo";
 import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
@@ -65,17 +65,10 @@ const QuoteRequestPage = () => {
             fd.append("description", form.description);
             files.forEach((file) => fd.append("files[]", file));
 
-            const response = await fetch(`${API_URL}/v1/quote`, {
+            await apiFetch("/v1/quote", {
                 method: "POST",
-                credentials: "include",
-                headers: { Accept: "application/json" },
                 body: fd,
             });
-
-            const data = await response.json().catch(() => ({ message: "Submission failed. Please try again." }));
-            if (!response.ok) {
-                throw new Error(data.message || "Submission failed. Please try again.");
-            }
 
             setDone(true);
             setFiles([]);

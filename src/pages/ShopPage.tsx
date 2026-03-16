@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronDown, ArrowRight, Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingSidebar from "@/components/FloatingSidebar";
@@ -10,18 +10,92 @@ import { apiFetch } from "@/lib/api";
 import Seo from "@/components/Seo";
 import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
 
+type VariantFilters = Record<string, string[]>;
+type VariantFacet = {
+  key: string;
+  option: string;
+  values: Array<{ value: string; count: number }>;
+};
+
+const DEFAULT_PRICE_RANGE: [number, number] = [0, 5000];
+
+const parsePriceValue = (price: unknown): number => {
+  if (typeof price === "number") return price;
+  return parseFloat(String(price ?? "").replace(/[^\d.]/g, "")) || 0;
+};
+
+const normalizeVariantKey = (value: string): string => value.trim().toLowerCase().replace(/\s+/g, " ");
+
+const parseVariantFiltersFromParams = (params: URLSearchParams): VariantFilters => {
+  const next: VariantFilters = {};
+  for (const raw of params.getAll("variant")) {
+    const [option, value] = raw.split("::");
+    const optionKey = normalizeVariantKey(option || "");
+    if (!optionKey || !value) continue;
+    if (!next[optionKey]) next[optionKey] = [];
+    if (!next[optionKey].includes(value)) next[optionKey].push(value);
+  }
+  return next;
+};
+
+const writeVariantFiltersToParams = (params: URLSearchParams, filters: VariantFilters) => {
+  params.delete("variant");
+  Object.entries(filters).forEach(([optionKey, values]) => {
+    values.forEach((value) => params.append("variant", `${optionKey}::${value}`));
+  });
+};
+
+const buildVariantFacets = (items: any[]): VariantFacet[] => {
+  const optionMap = new Map<string, { label: string; values: Map<string, number> }>();
+  items.forEach((product) => {
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    variants.forEach((variant: any) => {
+      const option = String(variant?.option ?? "").trim();
+      const value = String(variant?.value ?? "").trim();
+      const optionKey = normalizeVariantKey(option);
+      if (!optionKey || !value) return;
+      if (!optionMap.has(optionKey)) optionMap.set(optionKey, { label: option.toUpperCase(), values: new Map() });
+      const entry = optionMap.get(optionKey)!;
+      entry.values.set(value, (entry.values.get(value) || 0) + 1);
+    });
+  });
+
+  return Array.from(optionMap.entries())
+    .map(([key, entry]) => ({
+      key,
+      option: entry.label,
+      values: Array.from(entry.values.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => a.value.localeCompare(b.value)),
+    }))
+    .sort((a, b) => a.option.localeCompare(b.option));
+};
+
+const matchesVariantFilters = (product: any, filters: VariantFilters): boolean => {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  return Object.entries(filters).every(([optionKey, selectedValues]) => {
+    if (selectedValues.length === 0) return true;
+    const productValues = variants
+      .filter((variant: any) => normalizeVariantKey(String(variant?.option ?? "")) === optionKey)
+      .map((variant: any) => String(variant?.value ?? "").trim());
+    return selectedValues.some((value) => productValues.includes(value));
+  });
+};
+
 const ShopPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [sortBy, setSortBy] = useState("latest");
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(searchParams.get("category"));
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>(DEFAULT_PRICE_RANGE);
   const [inStockOnly, setInStockOnly] = useState(searchParams.get("stock") === "1");
+  const [selectedVariantFilters, setSelectedVariantFilters] = useState<VariantFilters>(parseVariantFiltersFromParams(searchParams));
 
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [tags, setTags] = useState<string[]>([]);
+  const [variantFacets, setVariantFacets] = useState<VariantFacet[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,30 +117,41 @@ const ShopPage = () => {
 
   useEffect(() => {
     loadProducts();
-  }, [searchQuery, selectedCategory, selectedTags, sortBy, priceRange, inStockOnly]);
+  }, [searchQuery, selectedCategory, selectedTags, sortBy, priceRange, inStockOnly, selectedVariantFilters]);
 
   const loadProducts = async () => {
     try {
       setLoading(true);
-      // Construct tag query parameter if multiple tags are selected
-      const tagQuery = selectedTags.length > 0 ? `&tag=${selectedTags[0]}` : "";
-      const stockQuery = inStockOnly ? "&in_stock=1" : "";
-      const res = await apiFetch(`/v1/products?search=${searchQuery}&category=${selectedCategory || ""}${tagQuery}${stockQuery}`);
+      const query = new URLSearchParams();
+      if (searchQuery) query.set("search", searchQuery);
+      if (selectedCategory) query.set("category", selectedCategory);
+      if (inStockOnly) query.set("in_stock", "1");
+      const queryString = query.toString();
+      const res = await apiFetch(`/v1/products${queryString ? `?${queryString}` : ""}`);
 
       let fetchedProducts = res.data || [];
 
-      // Manual filtering for price since we don't have it on backend index yet
+      if (selectedTags.length > 0) {
+        fetchedProducts = fetchedProducts.filter((product: any) => {
+          const productTags = Array.isArray(product?.tags) ? product.tags : [];
+          return selectedTags.some((tag) => productTags.includes(tag));
+        });
+      }
+
       fetchedProducts = fetchedProducts.filter((p: any) => {
-        const price = parseFloat(p.price.toString().replace(/[^\d.]/g, ""));
+        const price = parsePriceValue(p.price);
         const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
         const matchesStock = !inStockOnly || !p.track_stock || Number(p.stock_quantity ?? 0) > 0;
         return matchesPrice && matchesStock;
       });
 
-      // Sorting
+      setVariantFacets(buildVariantFacets(fetchedProducts));
+
+      fetchedProducts = fetchedProducts.filter((product: any) => matchesVariantFilters(product, selectedVariantFilters));
+
       fetchedProducts.sort((a: any, b: any) => {
-        const priceA = parseFloat(a.price.toString().replace(/[^\d.]/g, ""));
-        const priceB = parseFloat(b.price.toString().replace(/[^\d.]/g, ""));
+        const priceA = parsePriceValue(a.price);
+        const priceB = parsePriceValue(b.price);
         if (sortBy === "price-low") return priceA - priceB;
         if (sortBy === "price-high") return priceB - priceA;
         return 0;
@@ -81,15 +166,11 @@ const ShopPage = () => {
   };
 
   useEffect(() => {
-    const query = searchParams.get("search") || "";
-    if (query !== searchQuery) setSearchQuery(query);
-
-    const category = searchParams.get("category");
-    if (category !== selectedCategory) setSelectedCategory(category);
-
-    const stock = searchParams.get("stock") === "1";
-    if (stock !== inStockOnly) setInStockOnly(stock);
-  }, [searchParams, searchQuery, selectedCategory, inStockOnly]);
+    setSearchQuery(searchParams.get("search") || "");
+    setSelectedCategory(searchParams.get("category"));
+    setInStockOnly(searchParams.get("stock") === "1");
+    setSelectedVariantFilters(parseVariantFiltersFromParams(searchParams));
+  }, [searchParams]);
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
@@ -119,8 +200,52 @@ const ShopPage = () => {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
+  const toggleVariantFilter = (optionKey: string, value: string) => {
+    setSelectedVariantFilters((prev) => {
+      const existing = prev[optionKey] || [];
+      const nextValues = existing.includes(value)
+        ? existing.filter((v) => v !== value)
+        : [...existing, value];
+
+      const next = { ...prev };
+      if (nextValues.length > 0) next[optionKey] = nextValues;
+      else delete next[optionKey];
+
+      const newParams = new URLSearchParams(searchParams);
+      writeVariantFiltersToParams(newParams, next);
+      setSearchParams(newParams, { replace: true });
+
+      return next;
+    });
+  };
+
+  const clearFilters = () => {
+    setSelectedCategory(null);
+    setSelectedTags([]);
+    setPriceRange(DEFAULT_PRICE_RANGE);
+    setInStockOnly(false);
+    setSelectedVariantFilters({});
+
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete("category");
+    newParams.delete("stock");
+    writeVariantFiltersToParams(newParams, {});
+    setSearchParams(newParams, { replace: true });
+  };
+
   const canonicalPath = "/shop";
-  const hasActiveFilters = Boolean(searchQuery || selectedCategory || selectedTags.length > 0 || inStockOnly || priceRange[0] !== 0 || priceRange[1] !== 5000);
+  const hasActiveSidebarFilters = Boolean(
+    selectedCategory ||
+    selectedTags.length > 0 ||
+    inStockOnly ||
+    priceRange[0] !== DEFAULT_PRICE_RANGE[0] ||
+    priceRange[1] !== DEFAULT_PRICE_RANGE[1] ||
+    Object.keys(selectedVariantFilters).length > 0
+  );
+  const hasActiveFilters = Boolean(
+    searchQuery ||
+    hasActiveSidebarFilters
+  );
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Home", url: absoluteUrl("/") },
     { name: "Shop", url: absoluteUrl("/shop") },
@@ -225,7 +350,17 @@ const ShopPage = () => {
               </div>
 
               <div>
-                <h3 className="text-[16px] leading-none font-semibold text-primary mb-5 font-sans">Filter</h3>
+                <div className="flex items-center justify-between gap-4 mb-5">
+                  <h3 className="text-[16px] leading-none font-semibold text-primary font-sans">Filter</h3>
+                  {hasActiveSidebarFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-[12px] font-semibold text-orange hover:text-[#d4500b] transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
                 <div className="h-1 bg-orange mb-4" />
                 <Slider
                   defaultValue={[50, 2000]}
@@ -246,15 +381,45 @@ const ShopPage = () => {
                     />
                     In stock only
                   </label>
-                  <button
-                    onClick={loadProducts}
-                    className="h-10 px-8 bg-orange text-white text-[13px] font-semibold inline-flex items-center gap-2 hover:bg-[#d4500b] transition-colors"
-                  >
-                    Filter
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
                 </div>
               </div>
+
+              {variantFacets.length > 0 && (
+                <div>
+                  <h3 className="text-[16px] leading-none font-semibold text-primary mb-5 font-sans">Variants</h3>
+                  <div className="space-y-5">
+                    {variantFacets.map((facet) => (
+                      <div key={facet.key}>
+                        <p className="text-[12px] uppercase tracking-wide font-semibold text-[#6e7a92] mb-2">
+                          {facet.option}
+                        </p>
+                        <div className="space-y-2">
+                          {facet.values.map(({ value, count }) => {
+                            const checked = (selectedVariantFilters[facet.key] || []).includes(value);
+                            return (
+                              <label
+                                key={`${facet.key}-${value}`}
+                                className="flex items-center justify-between gap-3 text-[14px] text-primary cursor-pointer"
+                              >
+                                <span className="inline-flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleVariantFilter(facet.key, value)}
+                                    className="h-4 w-4 accent-orange"
+                                  />
+                                  {value}
+                                </span>
+                                <span className="text-[12px] text-[#8f9bb2]">{count}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <h3 className="text-[16px] leading-none font-semibold text-primary mb-5 font-sans">Tags</h3>
