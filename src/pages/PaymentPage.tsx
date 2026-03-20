@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ChevronDown, CreditCard, Building2, Wallet, Lock, Plus } from "lucide-react";
+import { CreditCard, Building2, Wallet, Lock, Plus } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -106,7 +106,7 @@ const PaymentPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const checkoutForm = location.state?.form;
-  const { cart, subtotal: subtotalRaw, shippingRate, vatEnabled, vatRate, vatAmount, coupon, total: totalRaw, clearCart, isBusiness } = useCart();
+  const { cart, subtotal: subtotalRaw, vatEnabled, vatRate, coupon, clearCart, isBusiness } = useCart();
   const { customer } = useCustomerAuth();
 
   const [method, setMethod] = useState<"card" | "bank" | "cod">("card");
@@ -117,7 +117,22 @@ const PaymentPage = () => {
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string>("new");
 
-  const totalFormatted = `£${totalRaw.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fulfilmentMethod = checkoutForm?.fulfillmentMethod === "click_collect" ? "click_collect" : "delivery";
+  const selectedShippingOption = checkoutForm?.selectedShippingOption ?? null;
+  const shippingOptionToken = checkoutForm?.shippingOptionToken ?? "";
+  const shippingForOrder = fulfilmentMethod === "click_collect" ? 0 : Number(selectedShippingOption?.rate ?? 0);
+  const discountAmount = coupon?.discount ?? 0;
+  const taxableAmount = Math.max(0, subtotalRaw + shippingForOrder - discountAmount);
+  const vatAmountForOrder = vatEnabled ? Math.round(taxableAmount * (vatRate / 100) * 100) / 100 : 0;
+  const totalForOrder = cart.length > 0 ? Math.max(0, taxableAmount + vatAmountForOrder) : 0;
+  const totalFormatted = `£${totalForOrder.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const formatEtaDate = (value?: string | null) => {
+    if (!value) return null;
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  };
 
   useEffect(() => {
     if (customer) {
@@ -140,7 +155,7 @@ const PaymentPage = () => {
 
   // Create PaymentIntent whenever card method is selected and amount > 0
   useEffect(() => {
-    if (method !== "card" || totalRaw <= 0) { setClientSecret(null); return; }
+    if (method !== "card" || totalForOrder <= 0 || (fulfilmentMethod === "delivery" && !shippingOptionToken)) { setClientSecret(null); return; }
     let cancelled = false;
     const fetchIntent = async () => {
       setLoadingIntent(true);
@@ -154,6 +169,8 @@ const PaymentPage = () => {
               selected_variants: item.selected_variants ?? null,
             })),
             coupon_code: coupon?.code ?? null,
+            fulfilment_method: fulfilmentMethod,
+            shipping_option_token: shippingOptionToken || null,
             currency: "gbp",
           }),
         });
@@ -169,7 +186,7 @@ const PaymentPage = () => {
     };
     fetchIntent();
     return () => { cancelled = true; };
-  }, [method, totalRaw, cart, coupon?.code]);
+  }, [method, totalForOrder, cart, coupon?.code, fulfilmentMethod, shippingOptionToken]);
 
   /** Called after:
    *  - Stripe payment succeeds (paymentIntentId provided)
@@ -204,6 +221,8 @@ const PaymentPage = () => {
           billing_country: checkoutForm.billingSameAsShipping ? checkoutForm.shipping_country : checkoutForm.country,
           notes: checkoutForm.notes,
           coupon_code: coupon?.code ?? null,
+          fulfilment_method: fulfilmentMethod,
+          shipping_option_token: shippingOptionToken || null,
           is_business: isBusiness,
           company_name: checkoutForm.company,
           company_vat_number: checkoutForm.companyVat,
@@ -245,6 +264,10 @@ const PaymentPage = () => {
   const handleNonCardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) { toast.error("Your cart is empty"); return; }
+    if (fulfilmentMethod === "delivery" && !shippingOptionToken) {
+      toast.error("Missing delivery option. Please return to checkout and reselect.");
+      return;
+    }
     await createOrder(null);
   };
 
@@ -352,6 +375,8 @@ const PaymentPage = () => {
                         onSuccess={(id) => createOrder(id)}
                       />
                     </Elements>
+                  ) : fulfilmentMethod === "delivery" && !shippingOptionToken ? (
+                    <p className="text-[#6e7a92] text-sm">Please return to checkout and select a delivery option.</p>
                   ) : (
                     <p className="text-[#6e7a92] text-sm">Unable to load payment form. Please refresh the page.</p>
                   )
@@ -441,7 +466,23 @@ const PaymentPage = () => {
               </div>
               <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                 <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Shipping</span>
-                <span className="text-sm md:text-base text-primary p-4 md:p-6">£{shippingRate.toFixed(2)}</span>
+                <div className="text-sm md:text-base text-primary p-4 md:p-6">
+                  {fulfilmentMethod === "click_collect" ? (
+                    <span>Click & Collect: £0.00</span>
+                  ) : (
+                    <>
+                      <p>{selectedShippingOption?.service || "Delivery"}: £{shippingForOrder.toFixed(2)}</p>
+                      {selectedShippingOption?.estimated_delivery_date && (
+                        <p className="mt-1 text-[#6e7a92]">
+                          ETA: {formatEtaDate(selectedShippingOption.estimated_delivery_date)}
+                          {selectedShippingOption?.parcel_summary?.parcel_count > 1
+                            ? ` · ${selectedShippingOption.parcel_summary.parcel_count} parcels`
+                            : ""}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
               {coupon && (
                 <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
@@ -449,10 +490,10 @@ const PaymentPage = () => {
                   <span className="text-sm md:text-base text-green-700 p-4 md:p-6">−£{coupon.discount.toFixed(2)}</span>
                 </div>
               )}
-              {vatEnabled && vatAmount > 0 && (
+              {vatEnabled && vatAmountForOrder > 0 && (
                 <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                   <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">VAT ({vatRate}%)</span>
-                  <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmount.toFixed(2)}</span>
+                  <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmountForOrder.toFixed(2)}</span>
                 </div>
               )}
               <div className="grid grid-cols-[42%_58%]">

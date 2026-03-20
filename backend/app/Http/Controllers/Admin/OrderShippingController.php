@@ -16,6 +16,12 @@ class OrderShippingController extends Controller
 
     public function createLabel(Request $request, Order $order)
     {
+        if ($this->isClickCollectOrder($order)) {
+            return response()->json([
+                'message' => 'Shipping labels are not available for click & collect orders.',
+            ], 422);
+        }
+
         $trackingNumber = trim((string) $request->input('tracking_number', ''));
         if ($trackingNumber !== '') {
             $order->update(['tracking_number' => $trackingNumber]);
@@ -29,6 +35,12 @@ class OrderShippingController extends Controller
 
     public function refreshTracking(Request $request, Order $order)
     {
+        if ($this->isClickCollectOrder($order)) {
+            return response()->json([
+                'message' => 'Tracking refresh is not available for click & collect orders.',
+            ], 422);
+        }
+
         $trackingNumber = trim((string) $request->input('tracking_number', ''));
         if ($trackingNumber !== '') {
             $order->update(['tracking_number' => $trackingNumber]);
@@ -43,13 +55,18 @@ class OrderShippingController extends Controller
     public function downloadLabel(Order $order)
     {
         $path = $this->resolveLabelPath($order);
-        if (!$path || !Storage::disk('public')->exists($path)) {
-            return response()->json(['message' => 'Shipping label not found'], 404);
+        if ($path && Storage::disk('public')->exists($path)) {
+            $filename = basename($path);
+
+            return Storage::disk('public')->download($path, $filename);
         }
 
-        $filename = basename($path);
+        $externalUrl = (string) ($order->shipping_label_url ?? '');
+        if ($externalUrl !== '' && preg_match('/^https?:\/\//i', $externalUrl)) {
+            return redirect()->away($externalUrl);
+        }
 
-        return Storage::disk('public')->download($path, $filename);
+        return response()->json(['message' => 'Shipping label not found'], 404);
     }
 
     private function resolveLabelPath(Order $order): ?string
@@ -78,5 +95,10 @@ class OrderShippingController extends Controller
         $relative = substr($path, $pos + strlen($storagePrefix));
 
         return $relative !== '' ? $relative : null;
+    }
+
+    private function isClickCollectOrder(Order $order): bool
+    {
+        return data_get($order->shipping_metadata, 'fulfilment_method') === 'click_collect';
     }
 }

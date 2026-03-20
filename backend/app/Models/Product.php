@@ -22,6 +22,12 @@ class Product extends Model
         'order',
         'stock_quantity',
         'track_stock',
+        'shipping_weight_kg',
+        'shipping_length_cm',
+        'shipping_width_cm',
+        'shipping_height_cm',
+        'shipping_class',
+        'ships_separately',
         'specifications',
         'variants'
     ];
@@ -31,6 +37,11 @@ class Product extends Model
         'featured' => 'boolean',
         'active' => 'boolean',
         'track_stock' => 'boolean',
+        'shipping_weight_kg' => 'float',
+        'shipping_length_cm' => 'float',
+        'shipping_width_cm' => 'float',
+        'shipping_height_cm' => 'float',
+        'ships_separately' => 'boolean',
         'specifications' => 'array',
         'variants' => 'array'
     ];

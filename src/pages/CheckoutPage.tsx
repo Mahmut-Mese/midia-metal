@@ -1,20 +1,39 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown } from "lucide-react";
+import { MapPin, Truck } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CheckoutSteps from "@/components/CheckoutSteps";
 import FloatingSidebar from "@/components/FloatingSidebar";
-import { apiFetch } from "@/lib/api";
 import Seo from "@/components/Seo";
+import { apiFetch } from "@/lib/api";
 
 import { useCart } from "@/context/CartContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 
+type ShippingOption = {
+  quote_token: string;
+  provider: string;
+  carrier: string;
+  service: string;
+  service_code?: string;
+  rate: number;
+  currency?: string;
+  delivery_days?: number | null;
+  estimated_delivery_date?: string | null;
+  estimated_delivery_window_start?: string | null;
+  estimated_delivery_window_end?: string | null;
+  is_premium?: boolean;
+  parcel_summary?: {
+    parcel_count?: number;
+    total_weight_kg?: number;
+  } | null;
+};
+
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { cart, subtotal: subtotalRaw, shippingRate, vatEnabled, vatRate, vatAmount, coupon, total: totalRaw, isBusiness, setIsBusiness } = useCart();
+  const { cart, subtotal: subtotalRaw, vatEnabled, vatRate, coupon, isBusiness, setIsBusiness } = useCart();
   const { customer } = useCustomerAuth();
   const [form, setForm] = useState({
     firstName: "",
@@ -24,6 +43,8 @@ const CheckoutPage = () => {
     email: "",
     notes: "",
     companyVat: "",
+    fulfillmentMethod: "delivery",
+    shippingOptionToken: "",
     // Shipping (primary)
     shipping_address: "",
     shipping_city: "",
@@ -37,6 +58,9 @@ const CheckoutPage = () => {
     country: "United Kingdom",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [shippingOptionsLoading, setShippingOptionsLoading] = useState(false);
+  const [shippingOptionsError, setShippingOptionsError] = useState("");
 
   useEffect(() => {
     if (customer) {
@@ -75,12 +99,116 @@ const CheckoutPage = () => {
   }, [customer, setIsBusiness]);
 
   const update = (field: string, value: string | boolean) => setForm(prev => ({ ...prev, [field]: value }));
+  const formatEtaDate = (value?: string | null) => {
+    if (!value) return "Estimated date unavailable";
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  };
+
+  const formatEtaWindow = (start?: string | null, end?: string | null) => {
+    if (!start || !end) return "Time window provided by courier";
+
+    const to12Hour = (time: string) => {
+      const [hRaw, mRaw] = time.split(":");
+      const h = Number(hRaw);
+      const m = Number(mRaw || "0");
+      if (Number.isNaN(h)) return time;
+      const hour12 = h % 12 || 12;
+      const suffix = h >= 12 ? "pm" : "am";
+      return m === 0 ? `${hour12}${suffix}` : `${hour12}:${String(m).padStart(2, "0")}${suffix}`;
+    };
+
+    return `${to12Hour(start)} - ${to12Hour(end)}`;
+  };
+
+  useEffect(() => {
+    if (form.fulfillmentMethod !== "delivery") {
+      setShippingOptions([]);
+      setShippingOptionsError("");
+      setShippingOptionsLoading(false);
+      setForm((prev) => ({ ...prev, shippingOptionToken: "" }));
+      return;
+    }
+
+    const hasAddress = form.shipping_address.trim() && form.shipping_city.trim() && form.shipping_postcode.trim() && form.shipping_country.trim();
+    if (!hasAddress || cart.length === 0) {
+      setShippingOptions([]);
+      setShippingOptionsError("");
+      setShippingOptionsLoading(false);
+      setForm((prev) => ({ ...prev, shippingOptionToken: "" }));
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      setShippingOptionsLoading(true);
+      setShippingOptionsError("");
+
+      try {
+        const data = await apiFetch("/v1/shipping/options", {
+          method: "POST",
+          body: JSON.stringify({
+            fulfilment_method: "delivery",
+            shipping_address_line1: form.shipping_address,
+            shipping_city: form.shipping_city,
+            shipping_postcode: form.shipping_postcode,
+            shipping_country: form.shipping_country,
+            items: cart.map((item) => ({
+              product_id: Number(item.product_id),
+              quantity: item.qty,
+              selected_variants: item.selected_variants ?? null,
+            })),
+          }),
+        });
+
+        if (cancelled) return;
+
+        const options: ShippingOption[] = Array.isArray(data?.options) ? data.options : [];
+        setShippingOptions(options);
+        setForm((prev) => {
+          const keepToken = options.some((option) => option.quote_token === prev.shippingOptionToken);
+          return { ...prev, shippingOptionToken: keepToken ? prev.shippingOptionToken : (options[0]?.quote_token || "") };
+        });
+      } catch (error: any) {
+        if (cancelled) return;
+        setShippingOptions([]);
+        setForm((prev) => ({ ...prev, shippingOptionToken: "" }));
+        setShippingOptionsError(error?.message || "Could not load live courier delivery options.");
+      } finally {
+        if (!cancelled) setShippingOptionsLoading(false);
+      }
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [form.fulfillmentMethod, form.shipping_address, form.shipping_city, form.shipping_postcode, form.shipping_country, cart]);
+
+  const selectedShippingOption = shippingOptions.find((option) => option.quote_token === form.shippingOptionToken) || null;
+  const shippingForOrder = form.fulfillmentMethod === "click_collect" ? 0 : (selectedShippingOption?.rate ?? 0);
+  const discountAmount = coupon?.discount ?? 0;
+  const taxableAmount = Math.max(0, subtotalRaw + shippingForOrder - discountAmount);
+  const vatAmountForOrder = vatEnabled ? Math.round(taxableAmount * (vatRate / 100) * 100) / 100 : 0;
+  const totalForOrder = cart.length > 0 ? Math.max(0, taxableAmount + vatAmountForOrder) : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) { toast.error("Your cart is empty"); return; }
+    if (form.fulfillmentMethod === "delivery" && !form.shippingOptionToken) {
+      toast.error("Please choose a delivery option.");
+      return;
+    }
     setIsSubmitting(true);
-    navigate("/payment", { state: { form } });
+    navigate("/payment", {
+      state: {
+        form: {
+          ...form,
+          selectedShippingOption,
+        },
+      },
+    });
   };
 
 
@@ -139,9 +267,57 @@ const CheckoutPage = () => {
                 )}
               </div>
 
+              {/* ── Fulfilment Method ── */}
+              <div className="border-t border-[#cad4e4] pt-8">
+                <h2 className="font-sans text-[32px] md:text-[42px] leading-none font-semibold text-primary mb-7">
+                  Choose how to get your items
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {[
+                    {
+                      id: "delivery",
+                      title: "Delivery",
+                      description: "We'll deliver your entire order to your address.",
+                      Icon: Truck,
+                    },
+                    {
+                      id: "click_collect",
+                      title: "Click & Collect",
+                      description: "Collect your order from our workshop.",
+                      Icon: MapPin,
+                    },
+                  ].map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => update("fulfillmentMethod", option.id)}
+                      className={`border p-6 md:p-7 text-left transition-colors ${
+                        form.fulfillmentMethod === option.id
+                          ? "border-primary bg-[#f4f7fb]"
+                          : "border-[#cad4e4] bg-[#f0f3f7] hover:border-primary/60"
+                      }`}
+                    >
+                      <option.Icon className={`w-10 h-10 mb-5 ${form.fulfillmentMethod === option.id ? "text-orange" : "text-primary"}`} />
+                      <h3 className="font-sans text-[34px] leading-none font-semibold text-primary mb-3">{option.title}</h3>
+                      <p className="text-[16px] text-[#6e7a92] leading-relaxed">{option.description}</p>
+                      <span className="inline-block mt-6 text-[16px] font-semibold text-primary underline underline-offset-4">
+                        {form.fulfillmentMethod === option.id ? "Selected" : "Choose"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* ── Shipping Address ── */}
               <div className="border-t border-[#cad4e4] pt-8">
-                <h2 className="font-sans text-[32px] md:text-[42px] leading-none font-semibold text-primary mb-7">Shipping Address</h2>
+                <h2 className="font-sans text-[32px] md:text-[42px] leading-none font-semibold text-primary mb-7">
+                  {form.fulfillmentMethod === "click_collect" ? "Address Details" : "Shipping Address"}
+                </h2>
+                {form.fulfillmentMethod === "click_collect" && (
+                  <p className="text-[14px] text-[#6e7a92] mb-5">
+                    For click & collect, we still use this address for billing records and order verification.
+                  </p>
+                )}
                 <div className="space-y-5">
                   <div>
                     <label className="block text-[13px] font-semibold text-primary mb-2">Country / Region *</label>
@@ -167,6 +343,77 @@ const CheckoutPage = () => {
                   </div>
                 </div>
               </div>
+
+              {form.fulfillmentMethod === "delivery" && (
+                <div className="border-t border-[#cad4e4] pt-8">
+                  <h2 className="font-sans text-[32px] md:text-[42px] leading-none font-semibold text-primary mb-7">Delivery Options</h2>
+                  <div className="border border-[#cad4e4] bg-[#f0f3f7] p-5 md:p-6 space-y-4">
+                    <p className="text-[24px] font-semibold text-primary">Please choose a delivery option</p>
+
+                    {shippingOptionsLoading && (
+                      <div className="text-sm text-[#6e7a92]">Getting live courier rates and estimated delivery windows…</div>
+                    )}
+
+                    {!shippingOptionsLoading && shippingOptionsError && (
+                      <div className="text-sm text-red-700">{shippingOptionsError}</div>
+                    )}
+
+                    {!shippingOptionsLoading && !shippingOptionsError && shippingOptions.length === 0 && (
+                      <div className="text-sm text-[#6e7a92]">Enter your full shipping address to load live courier options.</div>
+                    )}
+
+                    <div className="space-y-3">
+                      {shippingOptions.map((option) => (
+                        <button
+                          key={option.quote_token}
+                          type="button"
+                          onClick={() => update("shippingOptionToken", option.quote_token)}
+                          className={`w-full border p-4 md:p-5 text-left transition-colors ${
+                            form.shippingOptionToken === option.quote_token
+                              ? "border-[#0f6fb6] bg-[#eaf4fb]"
+                              : "border-[#cad4e4] bg-white hover:border-[#0f6fb6]/60"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                checked={form.shippingOptionToken === option.quote_token}
+                                onChange={() => update("shippingOptionToken", option.quote_token)}
+                                className="mt-1 h-5 w-5 accent-[#0f6fb6]"
+                              />
+                              <div>
+                                <p className="text-[18px] md:text-[22px] font-semibold text-primary">{option.service}</p>
+                                <p className="text-sm text-[#6e7a92] mt-1">{option.carrier}</p>
+                                {option.parcel_summary?.parcel_count && option.parcel_summary.parcel_count > 1 && (
+                                  <p className="text-sm text-[#6e7a92] mt-1">
+                                    {option.parcel_summary.parcel_count} parcels
+                                    {typeof option.parcel_summary.total_weight_kg === "number"
+                                      ? ` · ${option.parcel_summary.total_weight_kg.toFixed(2)}kg total`
+                                      : ""}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[24px] leading-none font-semibold text-primary">£{Number(option.rate || 0).toFixed(2)}</p>
+                              {option.is_premium && (
+                                <p className="text-xs text-[#6e7a92] mt-1 uppercase tracking-wider">Premium</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-4 pl-8 md:pl-9 text-primary">
+                            <p className="text-[17px] font-medium">Estimated delivery</p>
+                            <p className="text-[18px] mt-1">{formatEtaDate(option.estimated_delivery_date)}</p>
+                            <p className="text-[18px] mt-1">{formatEtaWindow(option.estimated_delivery_window_start, option.estimated_delivery_window_end)}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ── Billing Same as Shipping checkbox ── */}
               <div className="flex items-center gap-2">
@@ -217,7 +464,7 @@ const CheckoutPage = () => {
               <div className="border border-[#cad4e4] bg-[#f0f3f7] p-6 md:p-8">
                 <h3 className="font-sans text-[24px] md:text-[30px] leading-none font-semibold text-primary mb-5">Additional Information</h3>
                 <label className="block text-[13px] font-semibold text-primary mb-2">Order Notes (optional)</label>
-                <textarea rows={4} placeholder="Notes about your order, e.g. special notes for delivery." value={form.notes} onChange={(e) => update("notes", e.target.value)} className="w-full border border-[#cad4e4] bg-[#eaf0f3] px-4 py-3 text-[14px] outline-none focus:border-orange resize-none" />
+                <textarea rows={4} placeholder="Notes about your order, e.g. preferred delivery time or pickup details." value={form.notes} onChange={(e) => update("notes", e.target.value)} className="w-full border border-[#cad4e4] bg-[#eaf0f3] px-4 py-3 text-[14px] outline-none focus:border-orange resize-none" />
               </div>
 
             </div>
@@ -256,25 +503,38 @@ const CheckoutPage = () => {
                     </div>
                   )}
 
-                  {vatEnabled && vatAmount > 0 && (
+                  {vatEnabled && vatAmountForOrder > 0 && (
                     <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                       <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">VAT ({vatRate}%)</span>
-                      <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmount.toFixed(2)}</span>
+                      <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmountForOrder.toFixed(2)}</span>
                     </div>
                   )}
 
                   <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                     <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Shipping</span>
                     <div className="text-sm md:text-base text-primary p-4 md:p-6">
-                      <p>Flat rate: £{shippingRate.toFixed(2)}</p>
-                      <p className="mt-1 text-[#6e7a92]">
-                        Shipping to <strong className="text-primary">{form.city || "your city"}</strong>.
-                      </p>
+                      {form.fulfillmentMethod === "click_collect" ? (
+                        <p>Click & Collect: £0.00</p>
+                      ) : (
+                        <>
+                          <p>{selectedShippingOption?.service || "Select a delivery option"}: £{shippingForOrder.toFixed(2)}</p>
+                          {selectedShippingOption && (
+                            <p className="mt-1 text-[#6e7a92]">
+                              ETA: <strong className="text-primary">{formatEtaDate(selectedShippingOption.estimated_delivery_date)}</strong>
+                              {" · "}
+                              {formatEtaWindow(selectedShippingOption.estimated_delivery_window_start, selectedShippingOption.estimated_delivery_window_end)}
+                              {selectedShippingOption.parcel_summary?.parcel_count && selectedShippingOption.parcel_summary.parcel_count > 1
+                                ? ` · ${selectedShippingOption.parcel_summary.parcel_count} parcels`
+                                : ""}
+                            </p>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-[42%_58%]">
                     <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Total</span>
-                    <span className="font-semibold text-base md:text-2xl text-primary p-4 md:p-6">£{totalRaw.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="font-semibold text-base md:text-2xl text-primary p-4 md:p-6">£{totalForOrder.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               ) : (
@@ -283,11 +543,11 @@ const CheckoutPage = () => {
 
               <button
                 type="submit"
-                disabled={isSubmitting || cart.length === 0}
+                disabled={isSubmitting || cart.length === 0 || (form.fulfillmentMethod === "delivery" && !form.shippingOptionToken)}
                 className="w-full mt-8 h-16 bg-orange text-white inline-flex items-center justify-center text-sm font-semibold hover:bg-[#d4500b] disabled:opacity-50 transition-colors"
                 aria-label="Proceed to payment"
               >
-                {isSubmitting ? "Processing..." : "Place Order"}
+                {isSubmitting ? "Processing..." : "Proceed to Payment"}
               </button>
             </div>
           </div>

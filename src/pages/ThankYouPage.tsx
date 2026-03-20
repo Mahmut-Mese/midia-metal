@@ -21,7 +21,7 @@ const ThankYouPage = () => {
       <Header />
 
       <section className="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-4 md:pb-6">
-        <CheckoutSteps currentStep={3} />
+        <CheckoutSteps currentStep={4} />
       </section>
 
       <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-28 max-w-[920px]">

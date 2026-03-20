@@ -3,6 +3,7 @@
 namespace App\Shipping;
 
 use App\Models\Order;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -49,15 +50,104 @@ class MockEasyPostGateway implements ShippingGateway
         return 'easypost';
     }
 
-    public function createLabel(Order $order): array
+    public function quote(array $toAddress, array $items = [], array $context = []): array
     {
-        $trackingNumber = trim((string) ($order->tracking_number ?: 'EZ1000000001'));
+        $baseRate = round((float) config('services.shipping.default_rate', 6.50), 2);
+        $currency = 'GBP';
+        $profile = $this->resolveDeliveryProfile($toAddress);
+        $estimatedDate = CarbonImmutable::now('Europe/London')->addWeekdays($profile['delivery_days'])->format('Y-m-d');
+        $parcelSummary = is_array($context['parcel_summary'] ?? null) ? $context['parcel_summary'] : [];
+        $parcelCount = max(1, (int) ($parcelSummary['parcel_count'] ?? 1));
+        $totalWeight = max(0, (float) ($parcelSummary['total_weight_kg'] ?? config('services.shipping.default_parcel.weight', 2)));
+        $classes = collect($parcelSummary['shipping_classes'] ?? [])->map(fn ($value) => (string) $value)->all();
+        $classSurcharge = in_array('oversized', $classes, true) ? 12.00 : (in_array('bulky', $classes, true) ? 5.00 : 0.00);
+        $parcelSurcharge = max(0, $parcelCount - 1) * 3.50;
+        $weightSurcharge = max(0, ceil(max(0, $totalWeight - 2))) * 1.25;
+        $standardRate = round($baseRate + $profile['rate_surcharge'] + $classSurcharge + $parcelSurcharge + $weightSurcharge, 2);
+
+        return [
+            [
+                'provider' => $this->provider(),
+                'carrier' => config('services.easypost.default_carrier', 'Royal Mail'),
+                'service' => 'Postage & Packing - Standard Delivery',
+                'service_code' => 'standard',
+                'rate' => $standardRate,
+                'currency' => $currency,
+                'delivery_days' => $profile['delivery_days'],
+                'estimated_delivery_date' => $estimatedDate,
+                'estimated_delivery_window_start' => $profile['standard_window_start'],
+                'estimated_delivery_window_end' => $profile['standard_window_end'],
+                'is_premium' => false,
+                'rate_id' => 'mock_standard',
+                'rate_ids' => [['rate_id' => 'mock_standard', 'parcel_reference' => 'aggregate']],
+                'parcels' => $context['parcels'] ?? [],
+                'parcel_summary' => $parcelSummary,
+            ],
+            [
+                'provider' => $this->provider(),
+                'carrier' => config('services.easypost.default_carrier', 'Royal Mail'),
+                'service' => 'Before 10:30AM Delivery',
+                'service_code' => 'before_1030',
+                'rate' => round($standardRate + 10 + $profile['premium_surcharge'], 2),
+                'currency' => $currency,
+                'delivery_days' => $profile['delivery_days'],
+                'estimated_delivery_date' => $estimatedDate,
+                'estimated_delivery_window_start' => '07:30',
+                'estimated_delivery_window_end' => '10:00',
+                'is_premium' => true,
+                'rate_id' => 'mock_before_1030',
+                'rate_ids' => [['rate_id' => 'mock_before_1030', 'parcel_reference' => 'aggregate']],
+                'parcels' => $context['parcels'] ?? [],
+                'parcel_summary' => $parcelSummary,
+            ],
+            [
+                'provider' => $this->provider(),
+                'carrier' => config('services.easypost.default_carrier', 'Royal Mail'),
+                'service' => 'Before Midday Delivery',
+                'service_code' => 'before_midday',
+                'rate' => round($standardRate + 8 + $profile['premium_surcharge'], 2),
+                'currency' => $currency,
+                'delivery_days' => $profile['delivery_days'],
+                'estimated_delivery_date' => $estimatedDate,
+                'estimated_delivery_window_start' => '07:30',
+                'estimated_delivery_window_end' => '12:00',
+                'is_premium' => true,
+                'rate_id' => 'mock_before_midday',
+                'rate_ids' => [['rate_id' => 'mock_before_midday', 'parcel_reference' => 'aggregate']],
+                'parcels' => $context['parcels'] ?? [],
+                'parcel_summary' => $parcelSummary,
+            ],
+        ];
+    }
+
+    public function createLabel(Order $order, array $context = []): array
+    {
+        $parcels = is_array($context['parcels'] ?? null) ? $context['parcels'] : [];
+        $packageCount = max(1, count($parcels));
+        $shipments = [];
+
+        for ($index = 0; $index < $packageCount; $index++) {
+            $trackingNumber = $index === 0
+                ? trim((string) ($order->tracking_number ?: 'EZ1000000001'))
+                : 'EZ' . str_pad((string) random_int(1000000000, 9999999999), 10, '0', STR_PAD_LEFT);
+            $tracking = $this->resolveTracking($trackingNumber);
+            $shipments[] = [
+                'tracking_number' => $trackingNumber,
+                'shipment_id' => ($order->shipping_shipment_id ?: 'mock_easypost_' . Str::lower(Str::random(18))) . '_' . ($index + 1),
+                'status' => $tracking['status'],
+                'detail' => $tracking['detail'],
+                'parcel' => $parcels[$index] ?? null,
+            ];
+        }
+
+        $primaryShipment = $shipments[0];
+        $trackingNumber = (string) $primaryShipment['tracking_number'];
         $tracking = $this->resolveTracking($trackingNumber);
         $shipmentId = $order->shipping_shipment_id ?: 'mock_easypost_' . Str::lower(Str::random(18));
         $labelPath = $this->writeLabel($order, $shipmentId, $trackingNumber);
 
         return [
-            'tracking_number' => $trackingNumber,
+            'tracking_number' => $primaryShipment['tracking_number'],
             'shipping_provider' => $this->provider(),
             'shipping_carrier' => config('services.easypost.default_carrier', 'Royal Mail'),
             'shipping_service' => config('services.easypost.default_service', 'Tracked 48'),
@@ -68,17 +158,53 @@ class MockEasyPostGateway implements ShippingGateway
             'shipping_metadata' => [
                 'mode' => 'mock',
                 'gateway' => 'easypost',
-                'mock_tracking_code' => $trackingNumber,
+                'mock_tracking_code' => $primaryShipment['tracking_number'],
                 'tracking_detail' => $tracking['detail'],
                 'label_path' => $labelPath,
                 'supported_magic_codes' => array_keys(self::MAGIC_TRACKING_CODES),
-                'parcel' => config('services.shipping.default_parcel', []),
+                'parcels' => $parcels,
+                'parcel_summary' => $context['parcel_summary'] ?? null,
+                'shipments' => $shipments,
             ],
         ];
     }
 
     public function track(Order $order): array
     {
+        $shipmentRecords = data_get($order->shipping_metadata, 'shipments', []);
+        if (is_array($shipmentRecords) && count($shipmentRecords) > 0) {
+            $resolved = collect($shipmentRecords)
+                ->map(function (array $shipment) {
+                    $trackingNumber = (string) ($shipment['tracking_number'] ?? 'EZ7000000007');
+                    $tracking = $this->resolveTracking($trackingNumber);
+
+                    return array_merge($shipment, [
+                        'status' => $tracking['status'],
+                        'detail' => $tracking['detail'],
+                    ]);
+                })
+                ->values()
+                ->all();
+
+            $primary = $resolved[0];
+
+            return [
+                'tracking_number' => $primary['tracking_number'] ?? $order->tracking_number,
+                'shipping_provider' => $order->shipping_provider ?: $this->provider(),
+                'shipping_carrier' => $order->shipping_carrier ?: config('services.easypost.default_carrier', 'Royal Mail'),
+                'shipping_service' => $order->shipping_service ?: config('services.easypost.default_service', 'Tracked 48'),
+                'shipping_status' => $this->aggregateStatus(array_column($resolved, 'status')),
+                'shipping_metadata' => array_merge($order->shipping_metadata ?? [], [
+                    'mode' => 'mock',
+                    'gateway' => 'easypost',
+                    'tracking_detail' => $primary['detail'] ?? null,
+                    'last_checked_at' => now()->toIso8601String(),
+                    'supported_magic_codes' => array_keys(self::MAGIC_TRACKING_CODES),
+                    'shipments' => $resolved,
+                ]),
+            ];
+        }
+
         $trackingNumber = trim((string) ($order->tracking_number ?: 'EZ7000000007'));
         $tracking = $this->resolveTracking($trackingNumber);
 
@@ -141,5 +267,128 @@ class MockEasyPostGateway implements ShippingGateway
         Storage::disk('public')->put($filename, $html);
 
         return $filename;
+    }
+
+    /**
+     * @param  array<string, mixed>  $toAddress
+     * @return array{delivery_days:int,rate_surcharge:float,premium_surcharge:float,standard_window_start:string,standard_window_end:string}
+     */
+    private function resolveDeliveryProfile(array $toAddress): array
+    {
+        $postcode = strtoupper(trim((string) ($toAddress['postcode'] ?? '')));
+        $city = strtoupper(trim((string) ($toAddress['city'] ?? '')));
+
+        $isRemote = $this->matchesPrefix($postcode, ['AB', 'HS', 'IV', 'KW', 'PA', 'PH', 'ZE', 'IM']);
+        $isNorthernIreland = $this->matchesPrefix($postcode, ['BT']);
+        $isScotland = $this->matchesPrefix($postcode, ['DD', 'DG', 'EH', 'FK', 'G', 'KA', 'KY', 'ML', 'TD']) || str_contains($city, 'GLASGOW') || str_contains($city, 'EDINBURGH');
+        $isLondon = $this->matchesPrefix($postcode, ['E', 'EC', 'N', 'NW', 'SE', 'SW', 'W', 'WC']) || str_contains($city, 'LONDON');
+
+        if ($isNorthernIreland) {
+            return [
+                'delivery_days' => 3,
+                'rate_surcharge' => 4.50,
+                'premium_surcharge' => 2.00,
+                'standard_window_start' => '08:30',
+                'standard_window_end' => '19:00',
+            ];
+        }
+
+        if ($isRemote) {
+            return [
+                'delivery_days' => 4,
+                'rate_surcharge' => 7.00,
+                'premium_surcharge' => 3.50,
+                'standard_window_start' => '09:00',
+                'standard_window_end' => '19:30',
+            ];
+        }
+
+        if ($isScotland) {
+            return [
+                'delivery_days' => 3,
+                'rate_surcharge' => 2.00,
+                'premium_surcharge' => 1.50,
+                'standard_window_start' => '08:00',
+                'standard_window_end' => '18:30',
+            ];
+        }
+
+        if ($isLondon) {
+            return [
+                'delivery_days' => 1,
+                'rate_surcharge' => 0.00,
+                'premium_surcharge' => 0.00,
+                'standard_window_start' => '07:30',
+                'standard_window_end' => '18:00',
+            ];
+        }
+
+        $seed = abs(crc32(($postcode ?: 'UK') . '|' . ($city ?: 'CITY'))) % 3;
+        $deliveryDays = match ($seed) {
+            0 => 1,
+            1 => 2,
+            default => 3,
+        };
+
+        return [
+            'delivery_days' => $deliveryDays,
+            'rate_surcharge' => $deliveryDays === 1 ? 1.50 : ($deliveryDays === 3 ? 1.00 : 0.00),
+            'premium_surcharge' => $deliveryDays === 1 ? 0.50 : 0.00,
+            'standard_window_start' => $deliveryDays === 1 ? '07:30' : '08:00',
+            'standard_window_end' => $deliveryDays === 3 ? '19:00' : '18:00',
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $prefixes
+     */
+    private function matchesPrefix(string $postcode, array $prefixes): bool
+    {
+        $clean = preg_replace('/\s+/', '', strtoupper($postcode));
+        if (!$clean) {
+            return false;
+        }
+
+        preg_match('/^([A-Z]{1,2})/', $clean, $matches);
+        $area = $matches[1] ?? '';
+        if ($area === '') {
+            return false;
+        }
+
+        foreach ($prefixes as $prefix) {
+            if ($area === strtoupper($prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int, string>  $statuses
+     */
+    private function aggregateStatus(array $statuses): string
+    {
+        if (count($statuses) === 0) {
+            return 'unknown';
+        }
+
+        if (count(array_unique($statuses)) === 1) {
+            return (string) $statuses[0];
+        }
+
+        if (in_array('out_for_delivery', $statuses, true)) {
+            return 'out_for_delivery';
+        }
+
+        if (in_array('in_transit', $statuses, true)) {
+            return 'in_transit';
+        }
+
+        if (in_array('pre_transit', $statuses, true)) {
+            return 'pre_transit';
+        }
+
+        return (string) $statuses[0];
     }
 }

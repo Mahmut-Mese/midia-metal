@@ -29,12 +29,16 @@ class PaymentController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.selected_variants' => 'nullable|array',
             'coupon_code' => 'nullable|string',
+            'fulfilment_method' => 'nullable|in:delivery,click_collect',
+            'shipping_option_token' => 'nullable|string',
             'currency' => 'nullable|string',
         ]);
 
         $totals = $this->checkoutCalculator->calculate(
             $validated['items'],
             $validated['coupon_code'] ?? null,
+            $validated['fulfilment_method'] ?? 'delivery',
+            $validated['shipping_option_token'] ?? null,
         );
 
         Stripe::setApiKey(config('services.stripe.secret'));

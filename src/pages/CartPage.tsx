@@ -11,7 +11,7 @@ import Seo from "@/components/Seo";
 const CartPage = () => {
   const {
     cart, removeFromCart, updateQuantity,
-    subtotal, shippingRate, vatEnabled, vatAmount, vatRate,
+    subtotal, vatEnabled, vatAmount, vatRate,
     coupon, applyCoupon, removeCoupon, total, isBusiness
   } = useCart();
 
@@ -185,7 +185,8 @@ const CartPage = () => {
             <div className="grid grid-cols-[38%_62%] border-b border-[#cad4e4]">
               <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Shipping</span>
               <div className="text-sm md:text-lg text-primary p-4 md:p-6">
-                <p>Flat rate: £{shippingRate.toFixed(2)}</p>
+                <p>Calculated at checkout</p>
+                <p className="mt-1 text-xs md:text-sm text-[#6e7a92]">Live EasyPost delivery options appear after you enter your address.</p>
               </div>
             </div>
             <div className="grid grid-cols-[38%_62%]">

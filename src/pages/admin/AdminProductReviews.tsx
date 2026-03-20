@@ -98,7 +98,7 @@ export default function AdminProductReviews() {
                             filteredReviews.map((review) => (
                                 <tr key={review.id}>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-[#10275c] font-medium">
-                                        <Link to={`/shop/${review.product?.id}`} target="_blank" className="hover:text-orange hover:underline">
+                                        <Link to={`/shop/${review.product?.slug || review.product?.id}`} target="_blank" className="hover:text-orange hover:underline">
                                             {review.product?.name || "Unknown Product"}
                                         </Link>
                                     </td>

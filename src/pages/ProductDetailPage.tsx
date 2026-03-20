@@ -24,7 +24,31 @@ import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { toast } from "sonner";
 import Seo from "@/components/Seo";
 import { absoluteUrl, buildBreadcrumbJsonLd, priceToNumber, stripHtml, truncateText } from "@/lib/seo";
+import { formatMoneyValue, resolveSelectedVariantUnitPrice } from "@/lib/pricing";
 import { getAvailableStock } from "@/lib/stock";
+
+const formatNumber = (value: number): string => {
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+};
+
+const cmToInches = (value: number): string => formatNumber(value / 2.54);
+
+const formatSpecValue = (value: unknown): string => String(value ?? "").trim();
+
+const dedupeSpecEntries = (entries: Array<[string, string]>): Array<[string, string]> => {
+  const seen = new Set<string>();
+
+  return entries.filter(([key, value]) => {
+    const normalizedKey = key.trim().toLowerCase();
+    if (!normalizedKey || !String(value).trim() || seen.has(normalizedKey)) {
+      return false;
+    }
+
+    seen.add(normalizedKey);
+    return true;
+  });
+};
 
 const ProductDetailPage = () => {
   const { id } = useParams();
@@ -51,18 +75,58 @@ const ProductDetailPage = () => {
   const [canReviewStatus, setCanReviewStatus] = useState<"loading" | "allowed" | "not_purchased" | "not_delivered" | "already_reviewed" | "unauthenticated">("loading");
 
   const allImages = product ? [product.image, ...(product.gallery || [])].filter(Boolean) : [];
+  const variantOptions = Array.from(
+    new Set(
+      ((product?.variants || []) as Array<Record<string, any>>)
+        .map((variant) => String(variant?.option ?? "").trim())
+        .filter(Boolean),
+    ),
+  );
   const availableStock = product ? getAvailableStock({ ...product, selected_variants: selectedVariants }) : null;
+  const selectedUnitPrice = product ? resolveSelectedVariantUnitPrice(product.price, selectedVariants) : null;
   const isOutOfStock = availableStock !== null && availableStock <= 0;
   const stockLabel = availableStock === null
     ? "Stock: Available"
     : isOutOfStock
       ? "Stock: Out of stock"
       : `Stock: ${availableStock}`;
+
+  const getProductStockLabel = (item: any): string => {
+    if (!item?.track_stock) return "Stock: Available";
+
+    const quantity = Number(item.stock_quantity ?? 0);
+    return quantity > 0 ? `Stock: ${quantity}` : "Stock: Out of stock";
+  };
   const fallbackShareUrl = typeof window !== "undefined" ? window.location.href : "";
   const shareUrl = product?.share_url || fallbackShareUrl;
   const shareText = encodeURIComponent(`${product?.name || "Product"} | Midia M Metal`);
   const description = (product?.description || "").trim();
   const descriptionHasHtml = /<\/?[a-z][\s\S]*>/i.test(description);
+  const selectedVariantProfile = variantOptions.length > 0
+    ? Object.values(selectedVariants)[0] ?? null
+    : null;
+  const activeShippingWeight = Number(selectedVariantProfile?.shipping_weight_kg ?? product?.shipping_weight_kg ?? 0);
+  const activeLengthCm = Number(selectedVariantProfile?.shipping_length_cm ?? product?.shipping_length_cm ?? 0);
+  const activeWidthCm = Number(selectedVariantProfile?.shipping_width_cm ?? product?.shipping_width_cm ?? 0);
+  const activeHeightCm = Number(selectedVariantProfile?.shipping_height_cm ?? product?.shipping_height_cm ?? 0);
+  const activeShippingClass = String(selectedVariantProfile?.shipping_class ?? product?.shipping_class ?? "").trim();
+  const activeShipsSeparately = Boolean(selectedVariantProfile?.ships_separately ?? product?.ships_separately);
+  const selectedVariantSpecEntries: Array<[string, string]> = variantOptions.map((option) => {
+    const selectedValue = selectedVariants[option]?.value;
+    const label = variantOptions.length === 1 ? "Size" : option;
+
+    return [label, formatSpecValue(selectedValue || "Not selected")];
+  });
+  const generatedSpecificationEntries: Array<[string, string]> = [
+    ...selectedVariantSpecEntries,
+    ...(activeShippingWeight > 0 ? [["Shipping Weight", `${formatNumber(activeShippingWeight)} kg`]] as Array<[string, string]> : []),
+    ...(activeLengthCm > 0 ? [["Length", `${formatNumber(activeLengthCm)} cm (${cmToInches(activeLengthCm)} in)`]] as Array<[string, string]> : []),
+    ...(activeWidthCm > 0 ? [["Width", `${formatNumber(activeWidthCm)} cm (${cmToInches(activeWidthCm)} in)`]] as Array<[string, string]> : []),
+    ...(activeHeightCm > 0 ? [["Height", `${formatNumber(activeHeightCm)} cm (${cmToInches(activeHeightCm)} in)`]] as Array<[string, string]> : []),
+    ...(activeShippingClass ? [["Shipping Class", activeShippingClass.charAt(0).toUpperCase() + activeShippingClass.slice(1)]] as Array<[string, string]> : []),
+    ["Ships Separately", activeShipsSeparately ? "Yes" : "No"],
+  ];
+  const specificationEntries: Array<[string, string]> = dedupeSpecEntries(generatedSpecificationEntries);
   const shareLinks = {
     facebook: product?.share_links?.facebook || `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
     twitter: product?.share_links?.twitter || `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${shareText}`,
@@ -142,6 +206,12 @@ const ProductDetailPage = () => {
   };
 
   const handlePurchaseAction = (mode: "add_to_basket" | "buy_now") => {
+    const missingOptions = variantOptions.filter((option) => !selectedVariants[option]?.value);
+    if (missingOptions.length > 0) {
+      toast.error(`Please select ${missingOptions.join(", ")}.`);
+      return;
+    }
+
     if (isOutOfStock) {
       toast.error("This product is out of stock.");
       return;
@@ -155,7 +225,7 @@ const ProductDetailPage = () => {
 
     const cartProduct = {
       ...product,
-      price: product.price,
+      price: formatMoneyValue(selectedUnitPrice ?? product.price),
       selected_variants: selectedVariants,
       available_stock: availableStock,
     };
@@ -282,10 +352,7 @@ const ProductDetailPage = () => {
             <h1 className="font-sans text-[30px] md:text-[40px] leading-[1] font-semibold text-[#10275c]">{product.name}</h1>
             <div className="flex items-baseline gap-3 mt-3 mb-7">
               <p className="text-orange text-[28px] md:text-[34px] leading-none font-medium">
-                {(() => {
-                  const base = parseFloat(String(product.price).replace(/[£,]/g, ""));
-                  return Number.isFinite(base) ? `£${base.toFixed(2)}` : product.price;
-                })()}
+                {formatMoneyValue(selectedUnitPrice ?? product.price)}
               </p>
               {product.old_price && (
                 <p className="text-[#9aa6bc] text-[20px] md:text-[24px] line-through font-normal">
@@ -372,45 +439,42 @@ const ProductDetailPage = () => {
                 return options.map((opt: any) => (
                   <div key={opt} className="mt-4">
                     <span className="font-semibold text-primary block mb-2 uppercase text-[11px] tracking-wider">{opt}:</span>
-                    <div className="flex flex-wrap gap-2">
+                    <select
+                      value={selectedVariants[opt]?.value || ""}
+                      onChange={(e) => {
+                        const nextValue = e.target.value;
+                        setSelectedVariants((prev) => {
+                          const updated = { ...prev };
+                          if (!nextValue) {
+                            delete updated[opt];
+                            return updated;
+                          }
+
+                          const selectedVariant = product.variants.find(
+                            (variant: any) => variant.option === opt && variant.value === nextValue,
+                          );
+
+                          if (selectedVariant) {
+                            updated[opt] = selectedVariant;
+                          }
+
+                          return updated;
+                        });
+                      }}
+                      className="w-full h-12 border border-[#cad4e4] bg-white px-4 text-sm font-medium text-primary outline-none transition-colors focus:border-primary"
+                    >
+                      <option value="">Select {opt}</option>
                       {product.variants
                         .filter((v: any) => v.option === opt)
-                        .map((v: any, idx: number) => {
-                          const isSelected = selectedVariants[opt]?.value === v.value;
-                          return (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                setSelectedVariants(prev => {
-                                  const updated = { ...prev };
-                                  if (isSelected) {
-                                    delete updated[opt];
-                                  } else {
-                                    updated[opt] = v;
-                                  }
-                                  return updated;
-                                });
-                              }}
-                              className={`px-4 py-2 text-xs font-bold border transition-all ${isSelected
-                                ? "bg-primary text-white border-primary shadow-md"
-                                : "bg-white text-[#6e7a92] border-[#cad4e4] hover:border-primary hover:text-primary"
-                                }`}
-                            >
-                              {v.value}
-                            </button>
-                          );
-                        })}
-                    </div>
+                        .map((v: any, idx: number) => (
+                          <option key={idx} value={v.value}>
+                            {v.value}
+                          </option>
+                        ))}
+                    </select>
                   </div>
                 ));
               })()}
-
-              {product.specifications && Object.entries(product.specifications).map(([key, value]: [string, any]) => (
-                <p key={key}>
-                  <span className="font-semibold text-primary">{key}:</span>{" "}
-                  <span className="text-[#6e7a92]">{value}</span>
-                </p>
-              ))}
 
               <div className="pt-2">
                 <span className="font-semibold text-primary">Share:</span>
@@ -434,163 +498,199 @@ const ProductDetailPage = () => {
                   ))}
                 </div>
               </div>
+
             </div>
           </div>
         </div>
       </section >
 
       <section className="container mx-auto px-4 lg:px-8 pb-14">
-        <div className="flex flex-wrap gap-0 mb-10">
-          <button
-            onClick={() => setTab("description")}
-            className={`w-[170px] md:w-[220px] h-[48px] md:h-[52px] text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${tab === "description"
-              ? "bg-[#f4f5f7] text-primary border-t-2 border-primary"
-              : "bg-[#f4f5f7] text-primary/70 hover:text-primary"
-              }`}
-          >
-            Description
-          </button>
-          <button
-            onClick={() => setTab("reviews")}
-            className={`w-[170px] md:w-[220px] h-[48px] md:h-[52px] text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${tab === "reviews"
-              ? "bg-[#f4f5f7] text-primary border-t-2 border-primary"
-              : "bg-[#f4f5f7] text-primary/70 hover:text-primary"
-              }`}
-          >
-            Reviews ({product.reviews?.length || 0})
-          </button>
-        </div>
+        <div className={`grid grid-cols-1 ${specificationEntries.length > 0 ? "xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]" : ""} gap-10 xl:gap-12 items-start`}>
+          <div className="min-w-0">
+            <div className="flex flex-wrap gap-0 mb-10">
+              <button
+                onClick={() => setTab("description")}
+                className={`w-[170px] md:w-[220px] h-[48px] md:h-[52px] text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${tab === "description"
+                  ? "bg-[#f4f5f7] text-primary border-t-2 border-primary"
+                  : "bg-[#f4f5f7] text-primary/70 hover:text-primary"
+                  }`}
+              >
+                Description
+              </button>
+              <button
+                onClick={() => setTab("reviews")}
+                className={`w-[170px] md:w-[220px] h-[48px] md:h-[52px] text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${tab === "reviews"
+                  ? "bg-[#f4f5f7] text-primary border-t-2 border-primary"
+                  : "bg-[#f4f5f7] text-primary/70 hover:text-primary"
+                  }`}
+              >
+                Reviews ({product.reviews?.length || 0})
+              </button>
+            </div>
 
-        {tab === "description" ? (
-          <div className="max-w-[1450px]">
-            {description ? (
-              descriptionHasHtml ? (
-                <div
-                  className="prose prose-sm max-w-none text-[#6e7a92] leading-7 prose-p:my-3 prose-headings:text-primary prose-strong:text-primary prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-blockquote:border-orange prose-blockquote:text-[#5f6f8d] prose-ul:list-disc prose-ol:list-decimal"
-                  dangerouslySetInnerHTML={{ __html: description }}
-                />
-              ) : (
-                <p className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7 whitespace-pre-wrap">
-                  {description}
-                </p>
-              )
+            {tab === "description" ? (
+              <div className="w-full">
+                {description ? (
+                  descriptionHasHtml ? (
+                    <div
+                      className="prose prose-sm max-w-none text-[#6e7a92] leading-7 prose-p:my-3 prose-headings:text-primary prose-strong:text-primary prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-blockquote:border-orange prose-blockquote:text-[#5f6f8d] prose-ul:list-disc prose-ol:list-decimal"
+                      dangerouslySetInnerHTML={{ __html: description }}
+                    />
+                  ) : (
+                    <p className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7 whitespace-pre-wrap">
+                      {description}
+                    </p>
+                  )
+                ) : (
+                  <p className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7">No description provided.</p>
+                )}
+              </div>
             ) : (
-              <p className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7">No description provided.</p>
+              <div className="w-full">
+                <div className="mb-12">
+                  <h3 className="text-xl font-semibold text-primary mb-6">Write a review</h3>
+                  {canReviewStatus === "loading" ? (
+                    <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm animate-pulse">Checking eligibility...</p>
+                  ) : canReviewStatus === "unauthenticated" ? (
+                    <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm">
+                      You must be <Link to="/login" className="text-orange underline">logged in</Link> and have purchased this product to write a review.
+                    </p>
+                  ) : canReviewStatus === "not_purchased" ? (
+                    <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm">
+                      You can only write a review for this product if you have purchased it.
+                    </p>
+                  ) : canReviewStatus === "not_delivered" ? (
+                    <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm">
+                      You can write a review once your order has been delivered.
+                    </p>
+                  ) : canReviewStatus === "already_reviewed" ? (
+                    <p className="text-[#6e7a92] bg-[#eaf0f3] p-4 text-sm font-medium">
+                      You have already reviewed this product. Thank you for your feedback!
+                    </p>
+                  ) : (
+                    <form onSubmit={handleReviewSubmit} className="space-y-4">
+                      <div>
+                        <label className="block text-sm text-[#6e7a92] mb-2 font-medium">Your Rating</label>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setReviewRating(star)}
+                              className={`hover:scale-110 transition-transform ${star <= reviewRating ? 'text-orange' : 'text-gray-300'}`}
+                            >
+                              <Star className={`w-6 h-6 ${star <= reviewRating ? 'fill-orange' : ''}`} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm text-[#6e7a92] mb-2 font-medium">Your Review (Optional)</label>
+                        <textarea
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                          className="w-full h-32 border border-[#d1dbe8] bg-[#f8fafc] p-4 text-sm focus:outline-none focus:border-orange resize-none"
+                          placeholder="Share your thoughts about this product..."
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isSubmittingReview}
+                        className="h-12 px-8 bg-primary text-white font-semibold flex items-center justify-center hover:bg-orange transition-colors disabled:opacity-50"
+                      >
+                        {isSubmittingReview ? "Submitting..." : "Submit Review"}
+                      </button>
+                    </form>
+                  )}
+                </div>
+
+                <div className="space-y-6">
+                  <h3 className="text-xl font-semibold text-primary mb-6">Customer Reviews</h3>
+                  {(!product.reviews || product.reviews.length === 0) ? (
+                    <p className="text-[15px] text-[#6e7a92]">No reviews yet. Be the first to review this product!</p>
+                  ) : (
+                    product.reviews.map((review: any) => (
+                      <div key={review.id} className="border-b border-[#efefef] pb-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-primary text-[15px]">
+                            {review.customer?.name}
+                          </span>
+                          <span className="text-xs text-[#9aa6bc]">
+                            {new Date(review.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex gap-1 mb-3">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-3.5 h-3.5 ${star <= review.rating ? 'fill-orange text-orange' : 'text-gray-300'}`}
+                            />
+                          ))}
+                        </div>
+                        {review.comment && (
+                          <p className="text-[14px] text-[#6e7a92] leading-relaxed">
+                            {review.comment}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             )}
           </div>
-        ) : (
-          <div className="max-w-[800px]">
-            <div className="mb-12">
-              <h3 className="text-xl font-semibold text-primary mb-6">Write a review</h3>
-              {canReviewStatus === "loading" ? (
-                <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm animate-pulse">Checking eligibility...</p>
-              ) : canReviewStatus === "unauthenticated" ? (
-                <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm">
-                  You must be <Link to="/login" className="text-orange underline">logged in</Link> and have purchased this product to write a review.
-                </p>
-              ) : canReviewStatus === "not_purchased" ? (
-                <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm">
-                  You can only write a review for this product if you have purchased it.
-                </p>
-              ) : canReviewStatus === "not_delivered" ? (
-                <p className="text-[#6e7a92] bg-[#f4f5f7] p-4 text-sm">
-                  You can write a review once your order has been delivered.
-                </p>
-              ) : canReviewStatus === "already_reviewed" ? (
-                <p className="text-[#6e7a92] bg-[#eaf0f3] p-4 text-sm font-medium">
-                  You have already reviewed this product. Thank you for your feedback!
-                </p>
-              ) : (
-                <form onSubmit={handleReviewSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-[#6e7a92] mb-2 font-medium">Your Rating</label>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setReviewRating(star)}
-                          className={`hover:scale-110 transition-transform ${star <= reviewRating ? 'text-orange' : 'text-gray-300'}`}
-                        >
-                          <Star className={`w-6 h-6 ${star <= reviewRating ? 'fill-orange' : ''}`} />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm text-[#6e7a92] mb-2 font-medium">Your Review (Optional)</label>
-                    <textarea
-                      value={reviewComment}
-                      onChange={(e) => setReviewComment(e.target.value)}
-                      className="w-full h-32 border border-[#d1dbe8] bg-[#f8fafc] p-4 text-sm focus:outline-none focus:border-orange resize-none"
-                      placeholder="Share your thoughts about this product..."
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingReview}
-                    className="h-12 px-8 bg-primary text-white font-semibold flex items-center justify-center hover:bg-orange transition-colors disabled:opacity-50"
-                  >
-                    {isSubmittingReview ? "Submitting..." : "Submit Review"}
-                  </button>
-                </form>
-              )}
-            </div>
 
-            <div className="space-y-6">
-              <h3 className="text-xl font-semibold text-primary mb-6">Customer Reviews</h3>
-              {(!product.reviews || product.reviews.length === 0) ? (
-                <p className="text-[15px] text-[#6e7a92]">No reviews yet. Be the first to review this product!</p>
-              ) : (
-                product.reviews.map((review: any) => (
-                  <div key={review.id} className="border-b border-[#efefef] pb-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold text-primary text-[15px]">
-                        {review.customer?.name}
-                      </span>
-                      <span className="text-xs text-[#9aa6bc]">
-                        {new Date(review.created_at).toLocaleDateString()}
-                      </span>
+          {specificationEntries.length > 0 && (
+            <aside className="min-w-0">
+              <div className="overflow-hidden rounded border border-[#d5deea] bg-white">
+                <div className="border-b border-[#d5deea] px-8 py-6">
+                  <h3 className="font-sans text-[24px] md:text-[28px] font-semibold text-primary">Specs</h3>
+                </div>
+                <div>
+                  {specificationEntries.map(([key, value]) => (
+                    <div key={key} className="grid grid-cols-[42%_58%] border-b border-[#d5deea] last:border-b-0">
+                      <div className="bg-[#f7f8fa] px-8 py-5 text-[16px] md:text-[18px] font-semibold text-primary">
+                        {key}
+                      </div>
+                      <div className="px-8 py-5 text-[16px] md:text-[18px] text-[#4b5565]">
+                        {String(value)}
+                      </div>
                     </div>
-                    <div className="flex gap-1 mb-3">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          className={`w-3.5 h-3.5 ${star <= review.rating ? 'fill-orange text-orange' : 'text-gray-300'}`}
-                        />
-                      ))}
-                    </div>
-                    {review.comment && (
-                      <p className="text-[14px] text-[#6e7a92] leading-relaxed">
-                        {review.comment}
-                      </p>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
+                  ))}
+                </div>
+              </div>
+            </aside>
+          )}
+        </div>
       </section>
 
       <section className="container mx-auto px-4 lg:px-8 pb-24">
         <h2 className="font-sans text-[34px] md:text-[46px] leading-none font-semibold text-[#10275c] mb-10">Related products</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {related.map((p) => (
-            <Link to={`/shop/${p.id}`} key={p.id} className="group">
-              <div className="mb-5 bg-[#f7f8fa]">
+            <Link
+              to={`/shop/${p.slug || p.id}`}
+              key={p.id}
+              className="group"
+            >
+              <div className="mb-5 bg-[#f7f8fa] border border-[#d5deea]">
                 <img src={p.image} alt={p.name} className="w-full aspect-[1.02] object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
               </div>
               <h3 className="font-sans text-[18px] md:text-[20px] leading-tight font-semibold text-orange">
                 {p.name}
               </h3>
-              <div className="flex items-baseline gap-2 mt-3">
-                <p className="text-[18px] md:text-[20px] leading-none font-semibold text-[#1f2f52]">{p.price}</p>
-                {p.old_price && (
-                  <p className="text-[14px] md:text-[16px] text-[#9aa6bc] line-through font-normal">
-                    {p.old_price}
-                  </p>
-                )}
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-[18px] md:text-[20px] leading-none font-semibold text-[#1f2f52]">{p.price}</p>
+                  {p.old_price && (
+                    <p className="text-[14px] md:text-[16px] text-[#9aa6bc] line-through font-normal">
+                      {p.old_price}
+                    </p>
+                  )}
+                </div>
+                <p className="text-[13px] md:text-[15px] font-medium text-[#5e6e8c]">
+                  {getProductStockLabel(p)}
+                </p>
               </div>
             </Link>
           ))}

@@ -45,6 +45,12 @@ class ProductController extends Controller
             'order' => 'integer',
             'track_stock' => 'boolean',
             'stock_quantity' => 'nullable|integer',
+            'shipping_weight_kg' => 'required|numeric|min:0.01|max:999.999',
+            'shipping_length_cm' => 'required|numeric|min:1|max:999.99',
+            'shipping_width_cm' => 'required|numeric|min:1|max:999.99',
+            'shipping_height_cm' => 'required|numeric|min:1|max:999.99',
+            'shipping_class' => 'required|string|in:standard,bulky,oversized',
+            'ships_separately' => 'boolean',
             'specifications' => 'nullable|array',
             'variants' => 'nullable|array',
         ]);
@@ -79,6 +85,12 @@ class ProductController extends Controller
             'order' => 'integer',
             'track_stock' => 'boolean',
             'stock_quantity' => 'nullable|integer',
+            'shipping_weight_kg' => 'required|numeric|min:0.01|max:999.999',
+            'shipping_length_cm' => 'required|numeric|min:1|max:999.99',
+            'shipping_width_cm' => 'required|numeric|min:1|max:999.99',
+            'shipping_height_cm' => 'required|numeric|min:1|max:999.99',
+            'shipping_class' => 'required|string|in:standard,bulky,oversized',
+            'ships_separately' => 'boolean',
             'specifications' => 'nullable|array',
             'variants' => 'nullable|array',
         ]);
@@ -125,15 +137,52 @@ class ProductController extends Controller
 
             $stock = $variant['stock'] ?? null;
             $stock = is_numeric($stock) ? max(0, (int) $stock) : null;
+            $price = trim((string) ($variant['price'] ?? ''));
+            if ($price === '') {
+                $price = $productPrice;
+            }
+
+            $shippingWeight = $this->normalizeVariantNumeric($variant['shipping_weight_kg'] ?? null, 0.01, 999.999, 3);
+            $shippingLength = $this->normalizeVariantNumeric($variant['shipping_length_cm'] ?? null, 1, 999.99, 2);
+            $shippingWidth = $this->normalizeVariantNumeric($variant['shipping_width_cm'] ?? null, 1, 999.99, 2);
+            $shippingHeight = $this->normalizeVariantNumeric($variant['shipping_height_cm'] ?? null, 1, 999.99, 2);
+            $shippingClass = trim((string) ($variant['shipping_class'] ?? ''));
+            if (!in_array($shippingClass, ['standard', 'bulky', 'oversized'], true)) {
+                $shippingClass = null;
+            }
 
             $normalized[] = [
                 'option' => $option,
                 'value' => $value,
-                'price' => $productPrice,
+                'price' => $price,
                 'stock' => $stock,
+                'shipping_weight_kg' => $shippingWeight,
+                'shipping_length_cm' => $shippingLength,
+                'shipping_width_cm' => $shippingWidth,
+                'shipping_height_cm' => $shippingHeight,
+                'shipping_class' => $shippingClass,
+                'ships_separately' => filter_var($variant['ships_separately'] ?? false, FILTER_VALIDATE_BOOL),
             ];
         }
 
         return count($normalized) > 0 ? $normalized : null;
+    }
+
+    private function normalizeVariantNumeric(mixed $value, float $min, float $max, int $precision): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        $numeric = (float) $value;
+        if ($numeric < $min || $numeric > $max) {
+            return null;
+        }
+
+        return round($numeric, $precision);
     }
 }

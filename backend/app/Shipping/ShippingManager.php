@@ -7,6 +7,10 @@ use RuntimeException;
 
 class ShippingManager
 {
+    public function __construct(private ParcelBuilder $parcelBuilder)
+    {
+    }
+
     public function gateway(): ShippingGateway
     {
         $provider = (string) config('services.shipping.provider', 'easypost');
@@ -27,9 +31,23 @@ class ShippingManager
 
     public function createLabel(Order $order): Order
     {
-        $payload = $this->gateway()->createLabel($order);
+        $parcelPlan = $this->resolveParcelPlanForOrder($order);
+        $payload = $this->gateway()->createLabel($order, $parcelPlan);
 
         return $this->persist($order, $payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $toAddress
+     * @param  array<int, array<string, mixed>>  $items
+     * @param  array<string, mixed>  $context
+     * @return array<int, array<string, mixed>>
+     */
+    public function quoteOptions(array $toAddress, array $items = [], array $context = []): array
+    {
+        $parcelPlan = $this->parcelBuilder->buildForCheckoutItems($items);
+
+        return $this->gateway()->quote($toAddress, $items, array_merge($context, $parcelPlan));
     }
 
     public function refreshTracking(Order $order): Order
@@ -43,6 +61,9 @@ class ShippingManager
     {
         $trackingStatus = $payload['shipping_status'] ?? $order->shipping_status;
         $nextOrderStatus = $this->mapTrackingStatusToOrderStatus((string) $trackingStatus, (string) $order->status);
+        $existingMetadata = is_array($order->shipping_metadata) ? $order->shipping_metadata : [];
+        $payloadMetadata = is_array($payload['shipping_metadata'] ?? null) ? $payload['shipping_metadata'] : [];
+        $mergedMetadata = array_merge($existingMetadata, $payloadMetadata);
 
         $order->update(array_filter([
             'tracking_number' => $payload['tracking_number'] ?? $order->tracking_number,
@@ -53,7 +74,7 @@ class ShippingManager
             'shipping_shipment_id' => $payload['shipping_shipment_id'] ?? $order->shipping_shipment_id,
             'shipping_label_url' => $payload['shipping_label_url'] ?? $order->shipping_label_url,
             'shipping_tracking_url' => $payload['shipping_tracking_url'] ?? $order->shipping_tracking_url,
-            'shipping_metadata' => $payload['shipping_metadata'] ?? $order->shipping_metadata,
+            'shipping_metadata' => $mergedMetadata,
             'status' => $nextOrderStatus,
         ], static fn ($value) => $value !== null));
 
@@ -72,5 +93,25 @@ class ShippingManager
             'delivered' => 'delivered',
             default => $currentOrderStatus,
         };
+    }
+
+    /**
+     * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>}
+     */
+    private function resolveParcelPlanForOrder(Order $order): array
+    {
+        $storedParcels = data_get($order->shipping_metadata, 'selected_delivery_option.parcels');
+        $storedSummary = data_get($order->shipping_metadata, 'selected_delivery_option.parcel_summary');
+
+        if (is_array($storedParcels) && count($storedParcels) > 0) {
+            return [
+                'parcels' => $storedParcels,
+                'parcel_summary' => is_array($storedSummary) ? $storedSummary : [
+                    'parcel_count' => count($storedParcels),
+                ],
+            ];
+        }
+
+        return $this->parcelBuilder->buildForOrder($order);
     }
 }

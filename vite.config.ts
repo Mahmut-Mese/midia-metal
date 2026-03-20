@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => ({
         target: "http://127.0.0.1:8001",
         changeOrigin: true,
       },
+      "/sanctum": {
+        target: "http://127.0.0.1:8001",
+        changeOrigin: true,
+      },
       "/storage": {
         target: "http://127.0.0.1:8001",
         changeOrigin: true,

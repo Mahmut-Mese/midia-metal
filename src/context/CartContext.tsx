@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { clampQuantityToStock, getAvailableStock } from "@/lib/stock";
+import { formatMoneyValue, resolveSelectedVariantUnitPrice } from "@/lib/pricing";
 
 export interface CartItem {
     id: number | string;
@@ -31,7 +32,6 @@ interface CartContextType {
     updateQuantity: (id: number | string, qty: number) => void;
     clearCart: () => void;
     subtotal: number;
-    shippingRate: number;
     vatEnabled: boolean;
     vatRate: number;
     vatAmount: number;
@@ -50,7 +50,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedCart = localStorage.getItem("midia_cart");
         return savedCart ? JSON.parse(savedCart) : [];
     });
-    const [shippingRate, setShippingRate] = useState(0);
     const [vatEnabled, setVatEnabled] = useState(true);
     const [vatRate, setVatRate] = useState(20);
     const [isBusiness, setIsBusiness] = useState(false);
@@ -121,10 +120,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const loadSettings = async () => {
             try {
                 const res = await apiFetch("/v1/settings");
-                const rate = res.find((s: any) => s.key === "shipping_rate");
                 const vatEnabledSetting = res.find((s: any) => s.key === "vat_enabled");
                 const vatRateSetting = res.find((s: any) => s.key === "vat_rate");
-                if (rate) setShippingRate(parseFloat(rate.value) || 0);
                 setVatEnabled(vatEnabledSetting ? ["1", "true", "yes", "on"].includes(String(vatEnabledSetting.value).toLowerCase()) : false);
                 if (vatRateSetting) setVatRate(parseFloat(vatRateSetting.value) || 20);
             } catch (err) {
@@ -155,6 +152,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (existing) {
                 const requestedQty = itemQty(existing) + quantity;
                 const nextQty = clampQuantityToStock(requestedQty, availableStock);
+                const resolvedPrice = formatMoneyValue(resolveSelectedVariantUnitPrice(product.price, product.selected_variants) ?? product.price);
 
                 if (availableStock !== null && nextQty < requestedQty) {
                     toastMessage = `Only ${availableStock} unit(s) of ${product.name} are in stock.`;
@@ -164,6 +162,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     item.id === uniqueId
                         ? {
                             ...item,
+                            price: resolvedPrice,
                             qty: nextQty,
                             track_stock: product.track_stock,
                             stock_quantity: product.stock_quantity ?? null,
@@ -184,7 +183,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     id: uniqueId,
                     product_id: product.id,
                     name: product.name,
-                    price: product.price,
+                    price: formatMoneyValue(resolveSelectedVariantUnitPrice(product.price, product.selected_variants) ?? product.price),
                     image: product.image,
                     qty: nextQty,
                     selected_variants: product.selected_variants,
@@ -260,8 +259,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 0);
 
     const discount = coupon?.discount ?? 0;
-    // VAT is calculated on (subtotal + shippingRate - discount)
-    const taxableAmount = subtotal + shippingRate - discount;
+    // Shipping is chosen later at checkout, so cart totals stay ex-delivery.
+    const taxableAmount = Math.max(0, subtotal - discount);
     const vatAmount = vatEnabled ? Math.round(taxableAmount * (vatRate / 100) * 100) / 100 : 0;
     const total = cart.length > 0 ? taxableAmount + vatAmount : 0;
 
@@ -269,7 +268,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         <CartContext.Provider
             value={{
                 cart, addToCart, removeFromCart, updateQuantity, clearCart,
-                subtotal, shippingRate, vatEnabled, vatRate, vatAmount,
+                subtotal, vatEnabled, vatRate, vatAmount,
                 coupon, applyCoupon, removeCoupon,
                 total,
                 isBusiness, setIsBusiness,

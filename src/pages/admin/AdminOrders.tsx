@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { Download, Eye, RefreshCcw, RotateCcw, Truck, X } from "lucide-react";
+import { Download, Eye, MapPin, RefreshCcw, RotateCcw, Truck, X } from "lucide-react";
 import { API_URL } from "@/lib/api";
 
 const MOCK_TRACKING_CODES = [
@@ -30,6 +30,12 @@ const getPaymentStatusBadgeClass = (paymentStatus?: string) => {
   if (paymentStatus === "failed" || paymentStatus === "refund_failed") return "bg-red-100 text-red-800";
   return "bg-yellow-100 text-yellow-800";
 };
+
+const getFulfilmentMethod = (order?: any): "delivery" | "click_collect" =>
+  (order?.shipping_metadata?.fulfilment_method === "click_collect"
+    || order?.shipping_metadata?.fulfillment_method === "click_collect")
+    ? "click_collect"
+    : "delivery";
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -169,6 +175,9 @@ export default function AdminOrders() {
       return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
     });
 
+  const currentFulfilmentMethod = getFulfilmentMethod(viewingOrder);
+  const isClickCollectOrder = currentFulfilmentMethod === "click_collect";
+
   if (loading) return <div>Loading...</div>;
 
   return (
@@ -232,6 +241,17 @@ export default function AdminOrders() {
                 <tr key={order.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{order.order_number}</div>
+                    <div className="mt-1">
+                      {getFulfilmentMethod(order) === "click_collect" ? (
+                        <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-indigo-700">
+                          Click & Collect
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-800">
+                          Delivery
+                        </span>
+                      )}
+                    </div>
                     {order.customer_requests_count > 0 && (
                       <div className="mt-1 flex items-center gap-2">
                         <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#cf4d08]">
@@ -299,8 +319,48 @@ export default function AdminOrders() {
                       <dd className="mt-1 text-sm text-gray-900">{viewingOrder.customer_email}</dd>
                     </div>
                     <div className="sm:col-span-2">
-                      <dt className="text-sm font-medium text-gray-500">Shipping Address</dt>
+                      <dt className="text-sm font-medium text-gray-500">
+                        {isClickCollectOrder ? "Customer Address (Billing/Contact)" : "Shipping Address"}
+                      </dt>
                       <dd className="mt-1 text-sm text-gray-900">{viewingOrder.shipping_address}</dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-sm font-medium text-gray-500">Delivery Option</dt>
+                      <dd className="mt-1">
+                        {isClickCollectOrder ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-indigo-700">
+                            <MapPin className="w-3.5 h-3.5" />
+                            Click & Collect
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-sky-800">
+                            <Truck className="w-3.5 h-3.5" />
+                            Delivery
+                          </span>
+                        )}
+                      </dd>
+                      {viewingOrder.shipping_metadata?.selected_delivery_option && (
+                        <div className="mt-2 text-sm text-[#10275c] space-y-1">
+                          <p>
+                            Service: <strong>{viewingOrder.shipping_metadata.selected_delivery_option.service || "-"}</strong>
+                          </p>
+                          {viewingOrder.shipping_metadata.selected_delivery_option.parcel_summary?.parcel_count > 1 && (
+                            <p>
+                              Parcels: <strong>{viewingOrder.shipping_metadata.selected_delivery_option.parcel_summary.parcel_count}</strong>
+                              {typeof viewingOrder.shipping_metadata.selected_delivery_option.parcel_summary.total_weight_kg === "number"
+                                ? ` (${Number(viewingOrder.shipping_metadata.selected_delivery_option.parcel_summary.total_weight_kg).toFixed(2)}kg total)`
+                                : ""}
+                            </p>
+                          )}
+                          <p>
+                            ETA: <strong>{viewingOrder.shipping_metadata.selected_delivery_option.estimated_delivery_date || "-"}</strong>
+                            {viewingOrder.shipping_metadata.selected_delivery_option.estimated_delivery_window_start
+                              && viewingOrder.shipping_metadata.selected_delivery_option.estimated_delivery_window_end
+                              ? ` (${viewingOrder.shipping_metadata.selected_delivery_option.estimated_delivery_window_start} - ${viewingOrder.shipping_metadata.selected_delivery_option.estimated_delivery_window_end})`
+                              : ""}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     {viewingOrder.billing_address && (
                       <div className="sm:col-span-2">
@@ -422,101 +482,116 @@ export default function AdminOrders() {
                 </section>
               )}
 
-              <section className="rounded-xl border border-[#cad4e4] bg-[#f8fafc] p-6 space-y-5">
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#10275c] flex items-center gap-2">
-                      <Truck className="w-5 h-5 text-[#eb5c10]" />
-                      Shipping Integration
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-600">
-                      Provider: <strong>{viewingOrder.shipping_provider || "easypost"}</strong>
-                      {viewingOrder.shipping_metadata?.mode ? ` (${viewingOrder.shipping_metadata.mode})` : ""}
-                    </p>
+              {isClickCollectOrder ? (
+                <section className="rounded-xl border border-[#cad4e4] bg-[#f8fafc] p-6 space-y-4">
+                  <h3 className="text-lg font-semibold text-[#10275c] flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-[#eb5c10]" />
+                    Collection Order
+                  </h3>
+                  <p className="text-sm text-gray-700">
+                    This order is marked as <strong>Click &amp; Collect</strong>. Shipping labels and tracking are not applicable.
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    Shipping charge: <strong>£0.00</strong>
+                  </p>
+                </section>
+              ) : (
+                <section className="rounded-xl border border-[#cad4e4] bg-[#f8fafc] p-6 space-y-5">
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#10275c] flex items-center gap-2">
+                        <Truck className="w-5 h-5 text-[#eb5c10]" />
+                        Shipping Integration
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Provider: <strong>{viewingOrder.shipping_provider || "easypost"}</strong>
+                        {viewingOrder.shipping_metadata?.mode ? ` (${viewingOrder.shipping_metadata.mode})` : ""}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={handleCreateShippingLabel}
+                        disabled={shippingBusy !== null}
+                        className="inline-flex items-center gap-2 rounded-md bg-[#eb5c10] px-4 py-2 text-sm font-semibold text-white hover:bg-[#cf4d08] disabled:opacity-60"
+                      >
+                        <Truck className="w-4 h-4" />
+                        {viewingOrder.shipping_label_url ? "Regenerate Label" : "Create Label"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleRefreshTracking}
+                        disabled={shippingBusy !== null}
+                        className="inline-flex items-center gap-2 rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9] disabled:opacity-60"
+                      >
+                        <RefreshCcw className={`w-4 h-4 ${shippingBusy === "track" ? "animate-spin" : ""}`} />
+                        Refresh Tracking
+                      </button>
+
+                      {viewingOrder.shipping_label_url && (
+                        <a
+                          href={`${API_URL}/admin/orders/${viewingOrder.id}/shipping/label/download`}
+                          download
+                          className="inline-flex items-center gap-2 rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9]"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download Label
+                        </a>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCreateShippingLabel}
-                      disabled={shippingBusy !== null}
-                      className="inline-flex items-center gap-2 rounded-md bg-[#eb5c10] px-4 py-2 text-sm font-semibold text-white hover:bg-[#cf4d08] disabled:opacity-60"
-                    >
-                      <Truck className="w-4 h-4" />
-                      {viewingOrder.shipping_label_url ? "Regenerate Label" : "Create Label"}
-                    </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div className="rounded-lg border border-white bg-white p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Carrier</p>
+                      <p className="mt-2 text-sm font-semibold text-[#10275c]">{viewingOrder.shipping_carrier || "-"}</p>
+                    </div>
+                    <div className="rounded-lg border border-white bg-white p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Service</p>
+                      <p className="mt-2 text-sm font-semibold text-[#10275c]">{viewingOrder.shipping_service || "-"}</p>
+                    </div>
+                    <div className="rounded-lg border border-white bg-white p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Shipping Status</p>
+                      <p className="mt-2 text-sm font-semibold text-[#10275c]">{viewingOrder.shipping_status || "-"}</p>
+                    </div>
+                    <div className="rounded-lg border border-white bg-white p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Shipment ID</p>
+                      <p className="mt-2 text-sm font-semibold text-[#10275c] break-all">{viewingOrder.shipping_shipment_id || "-"}</p>
+                    </div>
+                  </div>
 
-                    <button
-                      type="button"
-                      onClick={handleRefreshTracking}
-                      disabled={shippingBusy !== null}
-                      className="inline-flex items-center gap-2 rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9] disabled:opacity-60"
-                    >
-                      <RefreshCcw className={`w-4 h-4 ${shippingBusy === "track" ? "animate-spin" : ""}`} />
-                      Refresh Tracking
-                    </button>
-
-                    {viewingOrder.shipping_label_url && (
-                      <a
-                        href={`${API_URL}/admin/orders/${viewingOrder.id}/shipping/label/download`}
-                        download
-                        className="inline-flex items-center gap-2 rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9]"
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <input
+                        type="text"
+                        value={viewingOrder.tracking_number ?? ""}
+                        placeholder="e.g. EZ2000000002 or real carrier tracking"
+                        onChange={(e) => setViewingOrder({ ...viewingOrder, tracking_number: e.target.value })}
+                        className="block w-full rounded-md border-gray-300 py-2 px-3 text-sm border focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveTracking}
+                        disabled={savingTracking}
+                        className="inline-flex items-center justify-center rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9] disabled:opacity-60"
                       >
-                        <Download className="w-4 h-4" />
-                        Download Label
-                      </a>
+                        Save Tracking
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs text-[#6e7a92]">
+                      EasyPost test tracking codes: {MOCK_TRACKING_CODES.join(", ")}.
+                    </p>
+                    {viewingOrder.shipping_metadata?.tracking_detail && (
+                      <p className="mt-2 text-sm text-[#10275c]">
+                        Latest carrier detail: {viewingOrder.shipping_metadata.tracking_detail}
+                      </p>
                     )}
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                  <div className="rounded-lg border border-white bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Carrier</p>
-                    <p className="mt-2 text-sm font-semibold text-[#10275c]">{viewingOrder.shipping_carrier || "-"}</p>
-                  </div>
-                  <div className="rounded-lg border border-white bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Service</p>
-                    <p className="mt-2 text-sm font-semibold text-[#10275c]">{viewingOrder.shipping_service || "-"}</p>
-                  </div>
-                  <div className="rounded-lg border border-white bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Shipping Status</p>
-                    <p className="mt-2 text-sm font-semibold text-[#10275c]">{viewingOrder.shipping_status || "-"}</p>
-                  </div>
-                  <div className="rounded-lg border border-white bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-[#6e7a92]">Shipment ID</p>
-                    <p className="mt-2 text-sm font-semibold text-[#10275c] break-all">{viewingOrder.shipping_shipment_id || "-"}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <input
-                      type="text"
-                      value={viewingOrder.tracking_number ?? ""}
-                      placeholder="e.g. EZ2000000002 or real carrier tracking"
-                      onChange={(e) => setViewingOrder({ ...viewingOrder, tracking_number: e.target.value })}
-                      className="block w-full rounded-md border-gray-300 py-2 px-3 text-sm border focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSaveTracking}
-                      disabled={savingTracking}
-                      className="inline-flex items-center justify-center rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9] disabled:opacity-60"
-                    >
-                      Save Tracking
-                    </button>
-                  </div>
-                  <p className="mt-2 text-xs text-[#6e7a92]">
-                    EasyPost test tracking codes: {MOCK_TRACKING_CODES.join(", ")}.
-                  </p>
-                  {viewingOrder.shipping_metadata?.tracking_detail && (
-                    <p className="mt-2 text-sm text-[#10275c]">
-                      Latest carrier detail: {viewingOrder.shipping_metadata.tracking_detail}
-                    </p>
-                  )}
-                </div>
-              </section>
+                </section>
+              )}
 
               <div>
                 <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">Order Items</h3>

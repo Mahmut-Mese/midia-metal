@@ -10,16 +10,403 @@ const normalizeVariantStock = (value: unknown): number | null => {
     return Number.isFinite(parsed) ? parsed : null;
 };
 
+const normalizeShippingNumber = (value: unknown): number | null => {
+    const parsed = Number.parseFloat(String(value ?? ""));
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const shouldAutoGenerateVariantValue = (option: unknown): boolean => {
+    const normalized = String(option ?? "").trim().toLowerCase();
+    return normalized.includes("measurement") || normalized.includes("panel size") || normalized.includes("filter size");
+};
+
+const buildVariantValueFromDimensions = (
+    option: unknown,
+    lengthCm: unknown,
+    widthCm: unknown,
+    heightCm: unknown,
+): string => {
+    if (!shouldAutoGenerateVariantValue(option)) return "";
+
+    const length = normalizeShippingNumber(lengthCm);
+    const width = normalizeShippingNumber(widthCm);
+    const height = normalizeShippingNumber(heightCm);
+
+    if (length === null || width === null || height === null) {
+        return "";
+    }
+
+    const widthMm = Math.round(length * 10);
+    const heightMm = Math.round(width * 10);
+    const depthMm = Math.round(height * 10);
+
+    const widthInches = Math.round(widthMm / 25);
+    const heightInches = Math.round(heightMm / 25);
+    const depthInches = Math.round(depthMm / 25);
+
+    return `H ${heightMm} x W ${widthMm} x D ${depthMm}mm (${heightInches}" x ${widthInches}" x ${depthInches}")`;
+};
+
+const stripCurrencyForAdmin = (value: unknown): string =>
+    String(value ?? "").replace(/£/g, "").trim();
+
+const formatPriceForStorage = (value: unknown, fallback = ""): string => {
+    const raw = stripCurrencyForAdmin(value);
+    if (!raw) return fallback;
+
+    const normalized = raw.replace(/,/g, "");
+    const parsed = Number.parseFloat(normalized);
+
+    if (!Number.isFinite(parsed)) {
+        return fallback || raw;
+    }
+
+    return `£${parsed.toFixed(2)}`;
+};
+
+const normalizeVariantPrice = (value: unknown, fallbackPrice: string): string => {
+    const normalized = stripCurrencyForAdmin(value);
+    return normalized || fallbackPrice;
+};
+
 const mapVariantsToProductPrice = (variants: any[] = [], productPrice: string) =>
     variants
         .filter((variant) => variant?.option && variant?.value)
         .map((variant) => ({
             ...variant,
             option: String(variant.option).trim(),
-            value: String(variant.value).trim(),
-            price: productPrice,
+            value: buildVariantValueFromDimensions(
+                variant.option,
+                variant.shipping_length_cm,
+                variant.shipping_width_cm,
+                variant.shipping_height_cm,
+            ) || String(variant.value).trim(),
+            price: normalizeVariantPrice(variant.price, productPrice),
             stock: normalizeVariantStock(variant.stock),
+            shipping_weight_kg: normalizeShippingNumber(variant.shipping_weight_kg),
+            shipping_length_cm: normalizeShippingNumber(variant.shipping_length_cm),
+            shipping_width_cm: normalizeShippingNumber(variant.shipping_width_cm),
+            shipping_height_cm: normalizeShippingNumber(variant.shipping_height_cm),
+            shipping_class: typeof variant.shipping_class === "string" ? variant.shipping_class : "",
+            ships_separately: Boolean(variant.ships_separately),
         }));
+
+const mapVariantsForStorage = (variants: any[] = [], productPrice: string) =>
+    variants
+        .filter((variant) => variant?.option && variant?.value)
+        .map((variant) => ({
+            ...variant,
+            option: String(variant.option).trim(),
+            value: buildVariantValueFromDimensions(
+                variant.option,
+                variant.shipping_length_cm,
+                variant.shipping_width_cm,
+                variant.shipping_height_cm,
+            ) || String(variant.value).trim(),
+            price: formatPriceForStorage(variant.price, productPrice),
+            stock: normalizeVariantStock(variant.stock),
+            shipping_weight_kg: normalizeShippingNumber(variant.shipping_weight_kg),
+            shipping_length_cm: normalizeShippingNumber(variant.shipping_length_cm),
+            shipping_width_cm: normalizeShippingNumber(variant.shipping_width_cm),
+            shipping_height_cm: normalizeShippingNumber(variant.shipping_height_cm),
+            shipping_class: typeof variant.shipping_class === "string" ? variant.shipping_class : "",
+            ships_separately: Boolean(variant.ships_separately),
+        }));
+
+const SHIPPING_CLASS_OPTIONS = [
+    { value: "standard", label: "Standard" },
+    { value: "bulky", label: "Bulky" },
+    { value: "oversized", label: "Oversized" },
+];
+
+type VariantSuggestion = {
+    option: string;
+    description: string;
+    variants: Array<Record<string, any>>;
+};
+
+const createSuggestedVariant = (
+    option: string,
+    value: string,
+    overrides: Record<string, any> = {},
+) => ({
+    option,
+    value,
+    stock: null,
+    shipping_weight_kg: null,
+    shipping_length_cm: null,
+    shipping_width_cm: null,
+    shipping_height_cm: null,
+    shipping_class: "",
+    ships_separately: false,
+    ...overrides,
+});
+
+const scaleWeight = (baseWeight: number, multiplier: number) =>
+    Math.max(0.5, Math.round(baseWeight * multiplier * 1000) / 1000);
+
+const getVariantSuggestion = (product: any): VariantSuggestion => {
+    const name = String(product?.name || "").toLowerCase();
+    const baseWeight = normalizeShippingNumber(product?.shipping_weight_kg) ?? 2;
+    const baseLength = normalizeShippingNumber(product?.shipping_length_cm) ?? 30;
+    const baseWidth = normalizeShippingNumber(product?.shipping_width_cm) ?? 20;
+    const baseHeight = normalizeShippingNumber(product?.shipping_height_cm) ?? 10;
+
+    if (name.includes("filter")) {
+        const option = "Canopy Measurement";
+        return {
+            option,
+            description: "Suggested filter sizes with shipping dimensions matching the selected panel size.",
+            variants: [
+                createSuggestedVariant(option, 'H 245 x W 495 x D 48mm (10" x 20" x 2")', {
+                    shipping_weight_kg: 2.8,
+                    shipping_length_cm: 49.5,
+                    shipping_width_cm: 24.5,
+                    shipping_height_cm: 4.8,
+                    shipping_class: "standard",
+                }),
+                createSuggestedVariant(option, 'H 445 x W 445 x D 48mm (18" x 18" x 2")', {
+                    shipping_weight_kg: 4.6,
+                    shipping_length_cm: 44.5,
+                    shipping_width_cm: 44.5,
+                    shipping_height_cm: 4.8,
+                    shipping_class: "standard",
+                }),
+                createSuggestedVariant(option, 'H 395 x W 495 x D 48mm (16" x 20" x 2")', {
+                    shipping_weight_kg: 4.5,
+                    shipping_length_cm: 49.5,
+                    shipping_width_cm: 39.5,
+                    shipping_height_cm: 4.8,
+                    shipping_class: "standard",
+                }),
+                createSuggestedVariant(option, 'H 395 x W 395 x D 48mm (16" x 16" x 2")', {
+                    shipping_weight_kg: 3.7,
+                    shipping_length_cm: 39.5,
+                    shipping_width_cm: 39.5,
+                    shipping_height_cm: 4.8,
+                    shipping_class: "standard",
+                }),
+                createSuggestedVariant(option, 'H 495 x W 495 x D 48mm (20" x 20" x 2")', {
+                    shipping_weight_kg: 5.3,
+                    shipping_length_cm: 49.5,
+                    shipping_width_cm: 49.5,
+                    shipping_height_cm: 4.8,
+                    shipping_class: "standard",
+                }),
+                createSuggestedVariant(option, 'H 495 x W 395 x D 48mm (20" x 16" x 2")', {
+                    shipping_weight_kg: 4.6,
+                    shipping_length_cm: 49.5,
+                    shipping_width_cm: 39.5,
+                    shipping_height_cm: 4.8,
+                    shipping_class: "standard",
+                }),
+            ],
+        };
+    }
+
+    if (name.includes("canopy") || name.includes("hood")) {
+        const option = "Canopy Length";
+        return {
+            option,
+            description: "Starter canopy sizes. Adjust lengths and shipping dimensions to your actual fabricated sizes.",
+            variants: [
+                createSuggestedVariant(option, "1800mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 0.8),
+                    shipping_length_cm: 180,
+                    shipping_width_cm: baseWidth,
+                    shipping_height_cm: baseHeight,
+                    shipping_class: "oversized",
+                    ships_separately: true,
+                }),
+                createSuggestedVariant(option, "2400mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1),
+                    shipping_length_cm: 240,
+                    shipping_width_cm: baseWidth,
+                    shipping_height_cm: baseHeight,
+                    shipping_class: "oversized",
+                    ships_separately: true,
+                }),
+                createSuggestedVariant(option, "3000mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1.2),
+                    shipping_length_cm: 300,
+                    shipping_width_cm: baseWidth,
+                    shipping_height_cm: baseHeight,
+                    shipping_class: "oversized",
+                    ships_separately: true,
+                }),
+            ],
+        };
+    }
+
+    if (name.includes("fan")) {
+        const option = "Fan Size";
+        return {
+            option,
+            description: "Suggested diameter-based variants for fan products.",
+            variants: [
+                createSuggestedVariant(option, "250mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 0.7),
+                    shipping_length_cm: 45,
+                    shipping_width_cm: 45,
+                    shipping_height_cm: 35,
+                    shipping_class: "bulky",
+                    ships_separately: true,
+                }),
+                createSuggestedVariant(option, "315mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 0.9),
+                    shipping_length_cm: 55,
+                    shipping_width_cm: 55,
+                    shipping_height_cm: 40,
+                    shipping_class: "bulky",
+                    ships_separately: true,
+                }),
+                createSuggestedVariant(option, "400mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1.1),
+                    shipping_length_cm: 70,
+                    shipping_width_cm: 70,
+                    shipping_height_cm: 50,
+                    shipping_class: "bulky",
+                    ships_separately: true,
+                }),
+            ],
+        };
+    }
+
+    if (name.includes("light")) {
+        const option = "Length";
+        return {
+            option,
+            description: "Suggested length variants for light bars and lighting units.",
+            variants: [
+                createSuggestedVariant(option, "600mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 0.8),
+                    shipping_length_cm: 60,
+                    shipping_width_cm: Math.max(10, baseWidth),
+                    shipping_height_cm: Math.max(8, baseHeight),
+                    shipping_class: "standard",
+                }),
+                createSuggestedVariant(option, "900mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1),
+                    shipping_length_cm: 90,
+                    shipping_width_cm: Math.max(10, baseWidth),
+                    shipping_height_cm: Math.max(8, baseHeight),
+                    shipping_class: "standard",
+                }),
+                createSuggestedVariant(option, "1200mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1.2),
+                    shipping_length_cm: 120,
+                    shipping_width_cm: Math.max(10, baseWidth),
+                    shipping_height_cm: Math.max(8, baseHeight),
+                    shipping_class: "oversized",
+                    ships_separately: true,
+                }),
+            ],
+        };
+    }
+
+    if (name.includes("feet")) {
+        const option = "Height";
+        return {
+            option,
+            description: "Suggested height variants for adjustable feet.",
+            variants: [
+                createSuggestedVariant(option, "100mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 0.8),
+                    shipping_class: "standard",
+                }),
+                createSuggestedVariant(option, "150mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1),
+                    shipping_class: "standard",
+                }),
+                createSuggestedVariant(option, "200mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1.2),
+                    shipping_class: "standard",
+                }),
+            ],
+        };
+    }
+
+    if (name.includes("sheet") || name.includes("panel") || name.includes("cladding")) {
+        const option = "Panel Size";
+        return {
+            option,
+            description: "Starter panel sizes. Keep these oversized and separate for courier handling.",
+            variants: [
+                createSuggestedVariant(option, "1000 x 2000mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 0.8),
+                    shipping_length_cm: 200,
+                    shipping_width_cm: 100,
+                    shipping_height_cm: Math.max(1, baseHeight),
+                    shipping_class: "oversized",
+                    ships_separately: true,
+                }),
+                createSuggestedVariant(option, "1250 x 2500mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1),
+                    shipping_length_cm: 250,
+                    shipping_width_cm: 125,
+                    shipping_height_cm: Math.max(1, baseHeight),
+                    shipping_class: "oversized",
+                    ships_separately: true,
+                }),
+                createSuggestedVariant(option, "1500 x 3000mm", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1.25),
+                    shipping_length_cm: 300,
+                    shipping_width_cm: 150,
+                    shipping_height_cm: Math.max(1, baseHeight),
+                    shipping_class: "oversized",
+                    ships_separately: true,
+                }),
+            ],
+        };
+    }
+
+    if (name.includes("disk")) {
+        const option = "Diameter";
+        return {
+            option,
+            description: "Suggested diameter variants for disk products.",
+            variants: [
+                createSuggestedVariant(option, "200mm", { shipping_class: "standard" }),
+                createSuggestedVariant(option, "250mm", { shipping_class: "standard" }),
+                createSuggestedVariant(option, "300mm", { shipping_class: "standard" }),
+            ],
+        };
+    }
+
+    if (name.includes("air conditioner")) {
+        const option = "BTU Rating";
+        return {
+            option,
+            description: "Suggested capacity variants for air conditioning units.",
+            variants: [
+                createSuggestedVariant(option, "12000 BTU", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 0.8),
+                    shipping_class: "bulky",
+                    ships_separately: true,
+                }),
+                createSuggestedVariant(option, "18000 BTU", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1),
+                    shipping_class: "bulky",
+                    ships_separately: true,
+                }),
+                createSuggestedVariant(option, "24000 BTU", {
+                    shipping_weight_kg: scaleWeight(baseWeight, 1.2),
+                    shipping_class: "oversized",
+                    ships_separately: true,
+                }),
+            ],
+        };
+    }
+
+    return {
+        option: "Model",
+        description: "Generic starter variant. Rename and replace values to match the real product range.",
+        variants: [
+            createSuggestedVariant("Model", "Standard", { shipping_class: product?.shipping_class || "standard" }),
+            createSuggestedVariant("Model", "Large", { shipping_class: product?.shipping_class || "standard" }),
+        ],
+    };
+};
 
 export default function AdminProducts() {
     const [products, setProducts] = useState<any[]>([]);
@@ -71,11 +458,20 @@ export default function AdminProducts() {
     };
 
     const openEdit = (product: any = null) => {
-        const prod = product ? {
-            ...product,
-            specifications: product.specifications || {},
-            variants: mapVariantsToProductPrice(product.variants || [], product.price || "")
-        } : null;
+        const prod = product ? (() => {
+            const variantOptions = Array.from(
+                new Set((product.variants || []).map((variant: any) => String(variant?.option ?? "").trim()).filter(Boolean))
+            );
+
+            return {
+                ...product,
+                price: stripCurrencyForAdmin(product.price),
+                old_price: stripCurrencyForAdmin(product.old_price),
+                specifications: product.specifications || {},
+                variants: mapVariantsToProductPrice(product.variants || [], stripCurrencyForAdmin(product.price || "")),
+                variant_option: variantOptions.length === 1 ? variantOptions[0] : "",
+            };
+        })() : null;
         setCurrentProduct(
             prod || {
                 name: "",
@@ -91,9 +487,16 @@ export default function AdminProducts() {
                 featured: false,
                 track_stock: false,
                 stock_quantity: "",
+                shipping_weight_kg: 2,
+                shipping_length_cm: 30,
+                shipping_width_cm: 20,
+                shipping_height_cm: 10,
+                shipping_class: "standard",
+                ships_separately: false,
                 order: 0,
                 specifications: {},
                 variants: [],
+                variant_option: "",
             }
         );
         setIsEditing(true);
@@ -123,21 +526,46 @@ export default function AdminProducts() {
             // Auto-add variant if inputs have data
             const varOptEl = document.getElementById('var_opt') as HTMLInputElement;
             const varValEl = document.getElementById('var_val') as HTMLInputElement;
+            const varPriceEl = document.getElementById('var_price') as HTMLInputElement;
             const varStockEl = document.getElementById('var_stock') as HTMLInputElement;
+            const varWeightEl = document.getElementById('var_shipping_weight') as HTMLInputElement;
+            const varLengthEl = document.getElementById('var_shipping_length') as HTMLInputElement;
+            const varWidthEl = document.getElementById('var_shipping_width') as HTMLInputElement;
+            const varHeightEl = document.getElementById('var_shipping_height') as HTMLInputElement;
+            const varClassEl = document.getElementById('var_shipping_class') as HTMLSelectElement;
+            const varSeparateEl = document.getElementById('var_ships_separately') as HTMLInputElement;
             if (varOptEl && varValEl && varOptEl.value && varValEl.value) {
                 finalProduct.variants = [
                     ...(finalProduct.variants || []),
                     {
                         option: varOptEl.value,
                         value: varValEl.value,
-                        price: finalProduct.price,
-                        stock: normalizeVariantStock(varStockEl.value)
+                        price: normalizeVariantPrice(varPriceEl?.value, finalProduct.price),
+                        stock: normalizeVariantStock(varStockEl.value),
+                        shipping_weight_kg: normalizeShippingNumber(varWeightEl?.value),
+                        shipping_length_cm: normalizeShippingNumber(varLengthEl?.value),
+                        shipping_width_cm: normalizeShippingNumber(varWidthEl?.value),
+                        shipping_height_cm: normalizeShippingNumber(varHeightEl?.value),
+                        shipping_class: varClassEl?.value || "",
+                        ships_separately: Boolean(varSeparateEl?.checked),
                     }
                 ];
-                varOptEl.value = ""; varValEl.value = ""; varStockEl.value = "";
+                varOptEl.value = ""; varValEl.value = ""; if (varPriceEl) varPriceEl.value = ""; varStockEl.value = "";
+                if (varWeightEl) varWeightEl.value = "";
+                if (varLengthEl) varLengthEl.value = "";
+                if (varWidthEl) varWidthEl.value = "";
+                if (varHeightEl) varHeightEl.value = "";
+                if (varClassEl) varClassEl.value = "";
+                if (varSeparateEl) varSeparateEl.checked = false;
             }
 
-            finalProduct.variants = mapVariantsToProductPrice(finalProduct.variants || [], finalProduct.price || "");
+            finalProduct.price = formatPriceForStorage(finalProduct.price);
+            finalProduct.old_price = finalProduct.old_price ? formatPriceForStorage(finalProduct.old_price) : "";
+            finalProduct.variants = mapVariantsForStorage(finalProduct.variants || [], finalProduct.price || "");
+            finalProduct.shipping_weight_kg = normalizeShippingNumber(finalProduct.shipping_weight_kg);
+            finalProduct.shipping_length_cm = normalizeShippingNumber(finalProduct.shipping_length_cm);
+            finalProduct.shipping_width_cm = normalizeShippingNumber(finalProduct.shipping_width_cm);
+            finalProduct.shipping_height_cm = normalizeShippingNumber(finalProduct.shipping_height_cm);
 
             if (finalProduct.id) {
                 await apiFetch(`/admin/products/${finalProduct.id}`, {
@@ -181,6 +609,32 @@ export default function AdminProducts() {
             if (valA > valB) return sortOrder === "asc" ? 1 : -1;
             return 0;
         });
+
+    const variantSuggestion = currentProduct ? getVariantSuggestion(currentProduct) : null;
+    const currentVariantOptions = Array.from(
+        new Set(((currentProduct?.variants || []) as any[]).map((variant: any) => String(variant?.option ?? "").trim()).filter(Boolean))
+    );
+    const sharedVariantOption = String(
+        currentProduct?.variant_option
+        || (currentVariantOptions.length === 1 ? currentVariantOptions[0] : "")
+        || variantSuggestion?.option
+        || ""
+    ).trim();
+    const useSharedVariantOption = Boolean(
+        sharedVariantOption
+        && (currentVariantOptions.length <= 1 || currentVariantOptions.every((option) => option === sharedVariantOption))
+    );
+    const hideVariantValueColumn = Boolean(
+        currentProduct
+        && Array.isArray(currentProduct.variants)
+        && currentProduct.variants.length > 0
+        && currentProduct.variants.every((variant: any) => shouldAutoGenerateVariantValue(variant.option))
+    );
+    const hideVariantOptionColumn = Boolean(
+        useSharedVariantOption
+        && currentVariantOptions.length > 0
+        && currentVariantOptions.every((option) => option === sharedVariantOption)
+    );
 
     if (loading) return <div>Loading...</div>;
 
@@ -514,62 +968,193 @@ export default function AdminProducts() {
                                             />
                                         </div>
                                     )}
+                                    <div className="col-span-2 border rounded-lg bg-gray-50/70 p-4">
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-bold text-[#10275c] uppercase tracking-wider">Shipping Profile</label>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Used for live courier rates and label creation. Configure the packed item size, weight, and whether it ships on its own.
+                                            </p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="col-span-2 sm:col-span-1">
+                                                <label className="block text-sm font-medium text-gray-700">Shipping Class</label>
+                                                <select
+                                                    value={currentProduct.shipping_class || "standard"}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_class: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border bg-white"
+                                                >
+                                                    {SHIPPING_CLASS_OPTIONS.map((option) => (
+                                                        <option key={option.value} value={option.value}>{option.label} parcel</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="col-span-2 sm:col-span-1 flex items-end">
+                                                <label className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={Boolean(currentProduct.ships_separately)}
+                                                        onChange={(e) => setCurrentProduct({ ...currentProduct, ships_separately: e.target.checked })}
+                                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span className="ml-2 text-sm text-gray-600">Ships in its own parcel</span>
+                                                </label>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Weight (kg)</label>
+                                                <input
+                                                    type="number"
+                                                    min="0.01"
+                                                    step="0.001"
+                                                    value={currentProduct.shipping_weight_kg ?? ""}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_weight_kg: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Length (cm)</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    step="0.01"
+                                                    value={currentProduct.shipping_length_cm ?? ""}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_length_cm: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Width (cm)</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    step="0.01"
+                                                    value={currentProduct.shipping_width_cm ?? ""}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_width_cm: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Height (cm)</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    step="0.01"
+                                                    value={currentProduct.shipping_height_cm ?? ""}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_height_cm: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     <div className="col-span-2 border-t pt-6 bg-gray-50/50 p-6 rounded-lg">
                                         <label className="block text-sm font-bold text-[#10275c] mb-1 uppercase tracking-wider">Product Variants</label>
                                         <p className="text-xs text-gray-500 mb-4">Manage different versions of this product (e.g., Color Red, Blue or Size S, M, L)</p>
-                                        <p className="text-xs text-gray-500 mb-4">Variant pricing always uses the product price.</p>
-
+                                        <p className="text-xs text-gray-500 mb-4">Each variant can use its own price. Leave a new variant price empty to default to the product price.</p>
+                                        <p className="text-xs text-gray-500 mb-4">Edit variants directly in the inputs below.</p>
+                                        {useSharedVariantOption && (
+                                            <div className="mb-4 max-w-sm">
+                                                <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Variant Option</label>
+                                                <input
+                                                    type="text"
+                                                    value={sharedVariantOption}
+                                                    onChange={(e) => {
+                                                        const nextOption = e.target.value;
+                                                        setCurrentProduct({
+                                                            ...currentProduct,
+                                                            variant_option: nextOption,
+                                                            variants: (currentProduct.variants || []).map((variant: any) => ({
+                                                                ...variant,
+                                                                option: nextOption,
+                                                            })),
+                                                        });
+                                                    }}
+                                                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                />
+                                            </div>
+                                        )}
                                         <div className="space-y-4">
                                             {/* Variant List Table */}
                                             {(currentProduct.variants || []).length > 0 && (
                                                 <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
-                                                    <table className="min-w-full divide-y divide-gray-200">
+                                                    <table className={`${hideVariantValueColumn ? "min-w-[1220px]" : "min-w-[1540px]"} divide-y divide-gray-200`}>
                                                         <thead className="bg-gray-50">
                                                             <tr>
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Option</th>
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Value</th>
+                                                                {!hideVariantOptionColumn && (
+                                                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Option</th>
+                                                                )}
+                                                                {!hideVariantValueColumn && (
+                                                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Value</th>
+                                                                )}
                                                                 <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Price</th>
                                                                 <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Stock</th>
+                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Weight (kg)</th>
+                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Length (cm)</th>
+                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Width (cm)</th>
+                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Height (cm)</th>
+                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Shipping Class</th>
+                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Ships Separately</th>
                                                                 <th className="px-3 py-2 text-right"></th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="bg-white divide-y divide-gray-200">
                                                             {currentProduct.variants.map((v: any, idx: number) => (
                                                                 <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                                                    {!hideVariantOptionColumn && (
+                                                                        <td className="px-3 py-2">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={v.option ?? ""}
+                                                                                onChange={(e) => {
+                                                                                    const newVariants = [...(currentProduct.variants || [])];
+                                                                                    newVariants[idx] = {
+                                                                                        ...newVariants[idx],
+                                                                                        option: e.target.value,
+                                                                                    };
+                                                                                    setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                                }}
+                                                                                className="w-full min-w-[180px] rounded border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-900 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            />
+                                                                        </td>
+                                                                    )}
+                                                                    {!hideVariantValueColumn && (
+                                                                        <td className="px-3 py-2">
+                                                                            {shouldAutoGenerateVariantValue(v.option) ? (
+                                                                                <div className="min-w-[320px] rounded border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-gray-500">
+                                                                                    Auto-generated
+                                                                                </div>
+                                                                            ) : (
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={v.value ?? ""}
+                                                                                    onChange={(e) => {
+                                                                                        const newVariants = [...(currentProduct.variants || [])];
+                                                                                        newVariants[idx] = {
+                                                                                            ...newVariants[idx],
+                                                                                            value: e.target.value,
+                                                                                        };
+                                                                                        setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                                    }}
+                                                                                    className="w-full min-w-[320px] rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                                />
+                                                                            )}
+                                                                        </td>
+                                                                    )}
                                                                     <td className="px-3 py-2">
                                                                         <input
                                                                             type="text"
-                                                                            value={v.option ?? ""}
+                                                                            value={v.price ?? ""}
                                                                             onChange={(e) => {
                                                                                 const newVariants = [...(currentProduct.variants || [])];
                                                                                 newVariants[idx] = {
                                                                                     ...newVariants[idx],
-                                                                                    option: e.target.value,
-                                                                                    price: currentProduct.price || "",
+                                                                                    price: e.target.value,
                                                                                 };
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
-                                                                            className="w-full text-sm font-medium text-gray-900 bg-transparent border border-transparent focus:border-gray-300 rounded px-1 py-1"
+                                                                            className="w-full min-w-[120px] rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            placeholder={currentProduct.price || "£0.00"}
                                                                         />
                                                                     </td>
-                                                                    <td className="px-3 py-2">
-                                                                        <input
-                                                                            type="text"
-                                                                            value={v.value ?? ""}
-                                                                            onChange={(e) => {
-                                                                                const newVariants = [...(currentProduct.variants || [])];
-                                                                                newVariants[idx] = {
-                                                                                    ...newVariants[idx],
-                                                                                    value: e.target.value,
-                                                                                    price: currentProduct.price || "",
-                                                                                };
-                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                            }}
-                                                                            className="w-full text-sm text-gray-600 bg-transparent border border-transparent focus:border-gray-300 rounded px-1 py-1"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-3 py-2 text-sm text-gray-600">{currentProduct.price || "--"}</td>
                                                                     <td className="px-3 py-2">
                                                                         <input
                                                                             type="number"
@@ -580,12 +1165,147 @@ export default function AdminProducts() {
                                                                                 newVariants[idx] = {
                                                                                     ...newVariants[idx],
                                                                                     stock: normalizeVariantStock(e.target.value),
-                                                                                    price: currentProduct.price || "",
                                                                                 };
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
-                                                                            className="w-full text-sm text-gray-600 bg-transparent border border-transparent focus:border-gray-300 rounded px-1 py-1"
+                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
                                                                         />
+                                                                    </td>
+                                                                    <td className="px-3 py-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            min={0.01}
+                                                                            step="0.001"
+                                                                            value={v.shipping_weight_kg ?? ""}
+                                                                            onChange={(e) => {
+                                                                                const newVariants = [...(currentProduct.variants || [])];
+                                                                                newVariants[idx] = {
+                                                                                    ...newVariants[idx],
+                                                                                    shipping_weight_kg: normalizeShippingNumber(e.target.value),
+                                                                                };
+                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                            }}
+                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            placeholder="base"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-3 py-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            min={1}
+                                                                            step="0.01"
+                                                                            value={v.shipping_length_cm ?? ""}
+                                                                            onChange={(e) => {
+                                                                                const newVariants = [...(currentProduct.variants || [])];
+                                                                                newVariants[idx] = {
+                                                                                    ...newVariants[idx],
+                                                                                    shipping_length_cm: normalizeShippingNumber(e.target.value),
+                                                                                };
+                                                                                const generatedValue = buildVariantValueFromDimensions(
+                                                                                    newVariants[idx].option,
+                                                                                    e.target.value,
+                                                                                    newVariants[idx].shipping_width_cm,
+                                                                                    newVariants[idx].shipping_height_cm,
+                                                                                );
+                                                                                if (generatedValue) {
+                                                                                    newVariants[idx].value = generatedValue;
+                                                                                }
+                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                            }}
+                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            placeholder="Length"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-3 py-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            min={1}
+                                                                            step="0.01"
+                                                                            value={v.shipping_width_cm ?? ""}
+                                                                            onChange={(e) => {
+                                                                                const newVariants = [...(currentProduct.variants || [])];
+                                                                                newVariants[idx] = {
+                                                                                    ...newVariants[idx],
+                                                                                    shipping_width_cm: normalizeShippingNumber(e.target.value),
+                                                                                };
+                                                                                const generatedValue = buildVariantValueFromDimensions(
+                                                                                    newVariants[idx].option,
+                                                                                    newVariants[idx].shipping_length_cm,
+                                                                                    e.target.value,
+                                                                                    newVariants[idx].shipping_height_cm,
+                                                                                );
+                                                                                if (generatedValue) {
+                                                                                    newVariants[idx].value = generatedValue;
+                                                                                }
+                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                            }}
+                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            placeholder="Width"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-3 py-2">
+                                                                        <input
+                                                                            type="number"
+                                                                            min={1}
+                                                                            step="0.01"
+                                                                            value={v.shipping_height_cm ?? ""}
+                                                                            onChange={(e) => {
+                                                                                const newVariants = [...(currentProduct.variants || [])];
+                                                                                newVariants[idx] = {
+                                                                                    ...newVariants[idx],
+                                                                                    shipping_height_cm: normalizeShippingNumber(e.target.value),
+                                                                                };
+                                                                                const generatedValue = buildVariantValueFromDimensions(
+                                                                                    newVariants[idx].option,
+                                                                                    newVariants[idx].shipping_length_cm,
+                                                                                    newVariants[idx].shipping_width_cm,
+                                                                                    e.target.value,
+                                                                                );
+                                                                                if (generatedValue) {
+                                                                                    newVariants[idx].value = generatedValue;
+                                                                                }
+                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                            }}
+                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            placeholder="Height"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-3 py-2">
+                                                                        <select
+                                                                            value={v.shipping_class ?? ""}
+                                                                            onChange={(e) => {
+                                                                                const newVariants = [...(currentProduct.variants || [])];
+                                                                                newVariants[idx] = {
+                                                                                    ...newVariants[idx],
+                                                                                    shipping_class: e.target.value,
+                                                                                };
+                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                            }}
+                                                                            className="w-36 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                        >
+                                                                            <option value="">Use base</option>
+                                                                            {SHIPPING_CLASS_OPTIONS.map((option) => (
+                                                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </td>
+                                                                    <td className="px-3 py-2">
+                                                                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={Boolean(v.ships_separately)}
+                                                                                onChange={(e) => {
+                                                                                    const newVariants = [...(currentProduct.variants || [])];
+                                                                                    newVariants[idx] = {
+                                                                                        ...newVariants[idx],
+                                                                                        ships_separately: e.target.checked,
+                                                                                    };
+                                                                                    setCurrentProduct({ ...currentProduct, variants: newVariants });
+                                                                                }}
+                                                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                                            />
+                                                                            <span>Yes</span>
+                                                                        </label>
                                                                     </td>
                                                                     <td className="px-3 py-2 text-right">
                                                                         <button
@@ -608,42 +1328,105 @@ export default function AdminProducts() {
                                             )}
 
                                             {/* New Variant Inputs */}
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end p-4 border rounded-md bg-white shadow-sm">
+                                            <div className={`grid grid-cols-2 ${useSharedVariantOption ? "md:grid-cols-4 xl:grid-cols-8" : "md:grid-cols-5 xl:grid-cols-9"} gap-3 items-end p-4 border rounded-md bg-white shadow-sm`}>
+                                                {!useSharedVariantOption && (
+                                                    <div>
+                                                        <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Option</label>
+                                                        <input id="var_opt" type="text" placeholder={variantSuggestion?.option || "Size"} className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
+                                                    </div>
+                                                )}
                                                 <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Option</label>
-                                                    <input id="var_opt" type="text" placeholder="Size" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Value</label>
-                                                    <input id="var_val" type="text" placeholder="Large" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
+                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Price</label>
+                                                    <input id="var_price" type="text" placeholder={currentProduct.price || "£0.00"} className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
                                                 </div>
                                                 <div>
                                                     <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Stock</label>
                                                     <input id="var_stock" type="number" placeholder="10" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
                                                 </div>
+                                                <div>
+                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Weight (kg)</label>
+                                                    <input id="var_shipping_weight" type="number" min="0.01" step="0.001" placeholder="base" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Length (cm)</label>
+                                                    <input id="var_shipping_length" type="number" min="1" step="0.01" placeholder="base" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Width (cm)</label>
+                                                    <input id="var_shipping_width" type="number" min="1" step="0.01" placeholder="base" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Height (cm)</label>
+                                                    <input id="var_shipping_height" type="number" min="1" step="0.01" placeholder="base" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Shipping Class</label>
+                                                    <select id="var_shipping_class" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300 bg-white">
+                                                        <option value="">Use base</option>
+                                                        {SHIPPING_CLASS_OPTIONS.map((option) => (
+                                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2 pb-2">
+                                                    <input id="var_ships_separately" type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                    <label htmlFor="var_ships_separately" className="text-[10px] text-gray-500 uppercase font-bold">Ships Separately</label>
+                                                </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => {
                                                         const optEl = document.getElementById('var_opt') as HTMLInputElement;
-                                                        const valEl = document.getElementById('var_val') as HTMLInputElement;
+                                                        const priceEl = document.getElementById('var_price') as HTMLInputElement;
                                                         const stockEl = document.getElementById('var_stock') as HTMLInputElement;
+                                                        const weightEl = document.getElementById('var_shipping_weight') as HTMLInputElement;
+                                                        const lengthEl = document.getElementById('var_shipping_length') as HTMLInputElement;
+                                                        const widthEl = document.getElementById('var_shipping_width') as HTMLInputElement;
+                                                        const heightEl = document.getElementById('var_shipping_height') as HTMLInputElement;
+                                                        const classEl = document.getElementById('var_shipping_class') as HTMLSelectElement;
+                                                        const separateEl = document.getElementById('var_ships_separately') as HTMLInputElement;
+                                                        const generatedValue = buildVariantValueFromDimensions(
+                                                            useSharedVariantOption ? sharedVariantOption : optEl?.value,
+                                                            lengthEl?.value,
+                                                            widthEl?.value,
+                                                            heightEl?.value,
+                                                        );
+                                                        const resolvedOption = (useSharedVariantOption ? sharedVariantOption : optEl?.value || "").trim();
+                                                        const isMeasurementVariant = shouldAutoGenerateVariantValue(resolvedOption);
+                                                        const resolvedValue = isMeasurementVariant ? generatedValue : resolvedOption;
 
-                                                        if (optEl.value && valEl.value) {
+                                                        if (isMeasurementVariant && !generatedValue) {
+                                                            toast.error("For measurement variants, enter Len / Wid / Ht in cm.");
+                                                            return;
+                                                        }
+
+                                                        if (resolvedOption && resolvedValue) {
                                                             setCurrentProduct({
                                                                 ...currentProduct,
                                                                 variants: [
                                                                     ...(currentProduct.variants || []),
                                                                     {
-                                                                        option: optEl.value,
-                                                                        value: valEl.value,
-                                                                        price: currentProduct.price || "",
-                                                                        stock: normalizeVariantStock(stockEl.value)
+                                                                        option: resolvedOption,
+                                                                        value: resolvedValue,
+                                                                        price: normalizeVariantPrice(priceEl?.value, currentProduct.price),
+                                                                        stock: normalizeVariantStock(stockEl.value),
+                                                                        shipping_weight_kg: normalizeShippingNumber(weightEl?.value),
+                                                                        shipping_length_cm: normalizeShippingNumber(lengthEl?.value),
+                                                                        shipping_width_cm: normalizeShippingNumber(widthEl?.value),
+                                                                        shipping_height_cm: normalizeShippingNumber(heightEl?.value),
+                                                                        shipping_class: classEl?.value || "",
+                                                                        ships_separately: Boolean(separateEl?.checked),
                                                                     }
                                                                 ]
                                                             });
-                                                            optEl.value = ""; valEl.value = ""; stockEl.value = "";
+                                                            if (optEl) optEl.value = ""; if (priceEl) priceEl.value = ""; stockEl.value = "";
+                                                            if (weightEl) weightEl.value = "";
+                                                            if (lengthEl) lengthEl.value = "";
+                                                            if (widthEl) widthEl.value = "";
+                                                            if (heightEl) heightEl.value = "";
+                                                            if (classEl) classEl.value = "";
+                                                            if (separateEl) separateEl.checked = false;
                                                         } else {
-                                                            toast.error("Option (e.g. Size) and Value (e.g. XL) are required");
+                                                            toast.error("Variant option is required.");
                                                         }
                                                     }}
                                                     className="bg-[#eb5c10] text-white py-2 px-3 rounded text-sm font-bold hover:bg-[#d4500b] transition-colors shadow-sm"

@@ -134,6 +134,12 @@ const LEGACY_DUPLICATE_KEYS: Record<string, string> = {
     tax_rate: "vat_rate",
 };
 
+const HIDDEN_SETTING_KEYS = new Set([
+    "shipping_rate",
+    "shipping_flat_rate",
+    "shipping_type",
+]);
+
 const LABEL_OVERRIDES: Record<string, string> = {
     home_reward_title: "1.title",
     home_reward_desc: "1.description",
@@ -172,6 +178,7 @@ const normalizeSettingsForDisplay = (settings: SettingRecord[]) => {
     const keys = new Set(settings.map((setting) => setting.key));
 
     return settings
+        .filter((setting) => !HIDDEN_SETTING_KEYS.has(setting.key))
         .filter((setting) => {
             const canonicalKey = LEGACY_DUPLICATE_KEYS[setting.key];
             return !(canonicalKey && keys.has(canonicalKey));

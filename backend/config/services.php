@@ -52,6 +52,7 @@ return [
         'from_city' => env('SHIPPING_FROM_CITY', 'Ilford'),
         'from_postcode' => env('SHIPPING_FROM_POSTCODE', 'IG6 3UG'),
         'from_country' => env('SHIPPING_FROM_COUNTRY', 'GB'),
+        'default_rate' => (float) env('SHIPPING_DEFAULT_RATE', 6.50),
         'default_parcel' => [
             'length' => (float) env('SHIPPING_DEFAULT_LENGTH', 30),
             'width' => (float) env('SHIPPING_DEFAULT_WIDTH', 20),
@@ -59,6 +60,13 @@ return [
             'distance_unit' => env('SHIPPING_DEFAULT_DISTANCE_UNIT', 'cm'),
             'weight' => (float) env('SHIPPING_DEFAULT_WEIGHT', 2),
             'mass_unit' => env('SHIPPING_DEFAULT_MASS_UNIT', 'kg'),
+        ],
+        'packaging' => [
+            'padding_cm' => (float) env('SHIPPING_PACKAGE_PADDING_CM', 1),
+            'tare_weight_kg' => (float) env('SHIPPING_PACKAGE_TARE_WEIGHT_KG', 0.15),
+            'max_parcel_weight_kg' => (float) env('SHIPPING_MAX_PARCEL_WEIGHT_KG', 25),
+            'max_parcel_length_cm' => (float) env('SHIPPING_MAX_PARCEL_LENGTH_CM', 100),
+            'max_length_plus_girth_cm' => (float) env('SHIPPING_MAX_LENGTH_PLUS_GIRTH_CM', 300),
         ],
     ],
 

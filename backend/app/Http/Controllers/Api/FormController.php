@@ -221,6 +221,8 @@ class FormController extends Controller
             'billing_postcode' => 'nullable|string|max:255',
             'billing_country' => 'nullable|string|max:255',
             'payment_method' => 'nullable|string',
+            'fulfilment_method' => 'nullable|in:delivery,click_collect',
+            'shipping_option_token' => 'nullable|string',
             'notes' => 'nullable|string',
             'coupon_code' => 'nullable|string',
             'is_business' => 'nullable|boolean',
@@ -237,6 +239,8 @@ class FormController extends Controller
         $totals = $this->checkoutCalculator->calculate(
             $validated['items'],
             $validated['coupon_code'] ?? null,
+            $validated['fulfilment_method'] ?? 'delivery',
+            $validated['shipping_option_token'] ?? null,
         );
 
         $subtotal = $totals['subtotal'];
@@ -294,6 +298,13 @@ class FormController extends Controller
             'billing_country' => $validated['billing_country'] ?? null,
             'payment_method' => $validated['payment_method'] ?? 'bank_transfer',
             'notes' => $validated['notes'] ?? null,
+            'shipping_metadata' => [
+                'fulfilment_method' => $validated['fulfilment_method'] ?? 'delivery',
+                'selected_delivery_option' => $totals['shipping_option'],
+            ],
+            'shipping_provider' => $totals['shipping_option']['provider'] ?? null,
+            'shipping_carrier' => $totals['shipping_option']['carrier'] ?? null,
+            'shipping_service' => $totals['shipping_option']['service'] ?? null,
             'subtotal' => $subtotal,
             'shipping' => $shipping,
             'discount_amount' => $discountAmount,

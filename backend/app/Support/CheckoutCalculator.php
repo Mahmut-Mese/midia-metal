@@ -5,12 +5,21 @@ namespace App\Support;
 use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\SiteSetting;
-use Illuminate\Support\Collection;
+use App\Shipping\ShippingQuoteStore;
 use Illuminate\Validation\ValidationException;
 
 class CheckoutCalculator
 {
-    public function calculate(array $items, ?string $couponCode = null): array
+    public function __construct(private ShippingQuoteStore $shippingQuoteStore)
+    {
+    }
+
+    public function calculate(
+        array $items,
+        ?string $couponCode = null,
+        string $fulfilmentMethod = 'delivery',
+        ?string $shippingOptionToken = null,
+    ): array
     {
         if (count($items) === 0) {
             throw ValidationException::withMessages([
@@ -52,7 +61,7 @@ class CheckoutCalculator
             }
 
             $variantDetails = $this->resolveVariants($product, $item['selected_variants'] ?? [], $quantity, $index);
-            $unitPrice = round($this->parseMoney($product->price), 2);
+            $unitPrice = $this->resolveUnitPrice($product, $variantDetails);
 
             return [
                 'product_id' => $product->id,
@@ -67,9 +76,27 @@ class CheckoutCalculator
 
         $subtotal = round($lineItems->sum('line_total'), 2);
         $settings = SiteSetting::pluck('value', 'key');
-        $shipping = $subtotal > 0 ? round($this->parseMoney(
-            $settings->get('shipping_rate', '0')
-        ), 2) : 0.0;
+        $selectedShippingOption = null;
+
+        if ($subtotal > 0 && $fulfilmentMethod !== 'click_collect') {
+            if (!$shippingOptionToken) {
+                throw ValidationException::withMessages([
+                    'shipping_option_token' => ['Please choose a delivery option.'],
+                ]);
+            }
+
+            $selectedShippingOption = $this->shippingQuoteStore->resolve($shippingOptionToken);
+
+            if (!$selectedShippingOption) {
+                throw ValidationException::withMessages([
+                    'shipping_option_token' => ['The selected delivery option has expired. Please choose a delivery option again.'],
+                ]);
+            }
+
+            $shipping = round($this->parseMoney((string) ($selectedShippingOption['rate'] ?? 0)), 2);
+        } else {
+            $shipping = 0.0;
+        }
 
         $coupon = null;
         $discountAmount = 0.0;
@@ -95,6 +122,7 @@ class CheckoutCalculator
             'items' => $lineItems->values()->all(),
             'subtotal' => $subtotal,
             'shipping' => $shipping,
+            'shipping_option' => $selectedShippingOption,
             'discount_amount' => $discountAmount,
             'tax_amount' => $taxAmount,
             'total' => $total,
@@ -104,14 +132,38 @@ class CheckoutCalculator
 
     private function resolveVariants(Product $product, mixed $selectedVariants, int $quantity, int $index): ?array
     {
-        if (!is_array($selectedVariants) || count($selectedVariants) === 0) {
+        $available = collect($product->variants ?? []);
+        if ($available->isEmpty()) {
             return null;
         }
 
-        $available = collect($product->variants ?? []);
-        $resolved = [];
-        $basePrice = round($this->parseMoney($product->price), 2);
+        if (!is_array($selectedVariants)) {
+            $selectedVariants = [];
+        }
 
+        $requiredOptions = $available
+            ->pluck('option')
+            ->map(fn ($option) => trim((string) $option))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $missingOptions = $requiredOptions->filter(function (string $option) use ($selectedVariants) {
+            $selection = $selectedVariants[$option] ?? null;
+            return !is_array($selection) || trim((string) ($selection['value'] ?? '')) === '';
+        })->values();
+
+        if ($missingOptions->isNotEmpty()) {
+            $label = $missingOptions->count() === 1
+                ? $missingOptions->first()
+                : $missingOptions->implode(', ');
+
+            throw ValidationException::withMessages([
+                "items.$index.selected_variants" => ["Please select {$label} for {$product->name}."],
+            ]);
+        }
+
+        $resolved = [];
         foreach ($selectedVariants as $option => $selection) {
             $value = is_array($selection) ? ($selection['value'] ?? null) : null;
 
@@ -142,12 +194,40 @@ class CheckoutCalculator
             $resolved[$option] = [
                 'option' => $variant['option'] ?? $option,
                 'value' => $variant['value'] ?? $value,
-                'price' => $this->formatMoney($basePrice),
+                'price' => $variant['price'] ?? $product->price,
                 'stock' => $variant['stock'] ?? null,
+                'shipping_weight_kg' => $variant['shipping_weight_kg'] ?? null,
+                'shipping_length_cm' => $variant['shipping_length_cm'] ?? null,
+                'shipping_width_cm' => $variant['shipping_width_cm'] ?? null,
+                'shipping_height_cm' => $variant['shipping_height_cm'] ?? null,
+                'shipping_class' => $variant['shipping_class'] ?? null,
+                'ships_separately' => $variant['ships_separately'] ?? false,
             ];
         }
 
         return count($resolved) > 0 ? $resolved : null;
+    }
+
+    private function resolveUnitPrice(Product $product, ?array $variantDetails): float
+    {
+        $basePrice = round($this->parseMoney($product->price), 2);
+
+        if (!$variantDetails || count($variantDetails) === 0) {
+            return $basePrice;
+        }
+
+        $variantPrices = collect($variantDetails)
+            ->map(fn ($detail) => $this->parseMoney($detail['price'] ?? null))
+            ->filter(fn ($price) => $price > 0)
+            ->map(fn ($price) => number_format((float) $price, 2, '.', ''))
+            ->unique()
+            ->values();
+
+        if ($variantPrices->count() === 1) {
+            return (float) $variantPrices->first();
+        }
+
+        return $basePrice;
     }
 
     private function parseMoney(mixed $value): float
