@@ -57,6 +57,27 @@ class ShippingManager
         return $this->persist($order, $payload);
     }
 
+    /**
+     * Void / refund an unused shipment label.
+     */
+    public function voidShipment(Order $order): Order
+    {
+        $payload = $this->gateway()->voidShipment($order);
+
+        return $this->persist($order, $payload);
+    }
+
+    /**
+     * Validate a shipping address via the courier.
+     *
+     * @param  array<string, mixed>  $address
+     * @return array{valid: bool, messages: array<int, string>, verified_address: array<string, mixed>|null}
+     */
+    public function validateAddress(array $address): array
+    {
+        return $this->gateway()->validateAddress($address);
+    }
+
     private function persist(Order $order, array $payload): Order
     {
         $trackingStatus = $payload['shipping_status'] ?? $order->shipping_status;
@@ -91,6 +112,7 @@ class ShippingManager
             'pre_transit' => in_array($currentOrderStatus, ['pending', 'processing'], true) ? 'processing' : $currentOrderStatus,
             'in_transit', 'out_for_delivery' => 'shipped',
             'delivered' => 'delivered',
+            'voided' => $currentOrderStatus,
             default => $currentOrderStatus,
         };
     }

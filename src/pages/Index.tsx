@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { apiFetch } from "@/lib/api";
 import Seo from "@/components/Seo";
 import { absoluteUrl, buildOrganizationJsonLd, buildBreadcrumbJsonLd, stripHtml, truncateText } from "@/lib/seo";
+import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from "@/lib/pricing";
 
 const getFeatures = (t: (k: string, d: string) => string) => [
   { icon: Gift, title: t("home_reward_title", "Commercial-grade fabrication"), desc: t("home_reward_desc", "Built for demanding kitchen and ventilation environments.") },
@@ -265,12 +266,14 @@ const Index = () => {
                 )}
                 <img src={item.image} alt={item.name} className="w-full aspect-square object-cover" />
               </div>
-              <h3 className="font-sans text-[16px] md:text-[20px] leading-tight md:leading-7 font-semibold text-orange">{item.name}</h3>
+              <h3 className="font-sans text-[16px] md:text-[20px] leading-tight md:leading-7 font-semibold text-orange">{getStandardizedDisplayTitle(item)}</h3>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {item.old_price && (
                   <span className="text-[16px] md:text-[20px] text-muted-foreground line-through">{item.old_price}</span>
                 )}
-                <span className="text-[14px] md:text-[20px] font-medium text-[#15264b]/75">{item.price}</span>
+                <span className="text-[14px] md:text-[20px] font-medium text-[#15264b]/75">
+                  {getStandardizedDisplayPrice(item)}
+                </span>
               </div>
             </Link>
           ))}

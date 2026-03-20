@@ -4,16 +4,6 @@ import { Search, ShoppingCart, Menu, X, LayoutGrid, Facebook, Twitter, Dribbble,
 import { apiFetch } from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 
-const navItems = [
-  { label: "Home", path: "/" },
-  { label: "Services", path: "/services" },
-  { label: "About", path: "/about" },
-  { label: "Portfolio", path: "/portfolio" },
-  { label: "Blog", path: "/blog" },
-  { label: "Shop", path: "/shop" },
-  { label: "Contact", path: "/contact" },
-];
-
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();

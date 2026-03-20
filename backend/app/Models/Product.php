@@ -8,6 +8,7 @@ class Product extends Model
 {
     protected $fillable = [
         'name',
+        'show_variant_in_title',
         'slug',
         'price',
         'old_price',
@@ -32,6 +33,7 @@ class Product extends Model
         'variants'
     ];
     protected $casts = [
+        'show_variant_in_title' => 'boolean',
         'gallery' => 'array',
         'tags' => 'array',
         'featured' => 'boolean',

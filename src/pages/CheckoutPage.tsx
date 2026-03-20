@@ -49,12 +49,14 @@ const CheckoutPage = () => {
     shipping_address: "",
     shipping_city: "",
     shipping_postcode: "",
+    shipping_county: "",
     shipping_country: "United Kingdom",
     // Billing (secondary — only needed when billingSameAsShipping = false)
     billingSameAsShipping: true,
     address: "",
     city: "",
     postcode: "",
+    county: "",
     country: "United Kingdom",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -153,6 +155,7 @@ const CheckoutPage = () => {
             shipping_address_line1: form.shipping_address,
             shipping_city: form.shipping_city,
             shipping_postcode: form.shipping_postcode,
+            shipping_county: form.shipping_county,
             shipping_country: form.shipping_country,
             items: cart.map((item) => ({
               product_id: Number(item.product_id),
@@ -174,7 +177,7 @@ const CheckoutPage = () => {
         if (cancelled) return;
         setShippingOptions([]);
         setForm((prev) => ({ ...prev, shippingOptionToken: "" }));
-        setShippingOptionsError(error?.message || "Could not load live courier delivery options.");
+        setShippingOptionsError(error?.message || "Could not load delivery options.");
       } finally {
         if (!cancelled) setShippingOptionsLoading(false);
       }
@@ -184,7 +187,7 @@ const CheckoutPage = () => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [form.fulfillmentMethod, form.shipping_address, form.shipping_city, form.shipping_postcode, form.shipping_country, cart]);
+  }, [form.fulfillmentMethod, form.shipping_address, form.shipping_city, form.shipping_postcode, form.shipping_county, form.shipping_country, cart]);
 
   const selectedShippingOption = shippingOptions.find((option) => option.quote_token === form.shippingOptionToken) || null;
   const shippingForOrder = form.fulfillmentMethod === "click_collect" ? 0 : (selectedShippingOption?.rate ?? 0);
@@ -320,21 +323,21 @@ const CheckoutPage = () => {
                 )}
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-[13px] font-semibold text-primary mb-2">Country / Region *</label>
-                    <select value={form.shipping_country} onChange={(e) => update("shipping_country", e.target.value)} className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-[14px] outline-none focus:border-orange">
-                      <option>United Kingdom</option>
-                      <option>United States</option>
-                      <option>Ireland</option>
-                    </select>
+                    <label className="block text-[13px] font-semibold text-primary mb-2">Country / Region</label>
+                    <input type="text" disabled value="United Kingdom" className="w-full h-12 border border-[#cad4e4] bg-[#dfe5ea] px-4 text-[14px] outline-none text-[#6e7a92] cursor-not-allowed" />
                   </div>
                   <div>
                     <label className="block text-[13px] font-semibold text-primary mb-2">Street Address *</label>
                     <input type="text" required placeholder="House number and street name" value={form.shipping_address} onChange={(e) => update("shipping_address", e.target.value)} className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-[14px] outline-none focus:border-orange" />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div>
                       <label className="block text-[13px] font-semibold text-primary mb-2">Town / City *</label>
                       <input type="text" required value={form.shipping_city} onChange={(e) => update("shipping_city", e.target.value)} className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-[14px] outline-none focus:border-orange" />
+                    </div>
+                    <div>
+                      <label className="block text-[13px] font-semibold text-primary mb-2">County</label>
+                      <input type="text" value={form.shipping_county} onChange={(e) => update("shipping_county", e.target.value)} placeholder="e.g. Essex" className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-[14px] outline-none focus:border-orange" />
                     </div>
                     <div>
                       <label className="block text-[13px] font-semibold text-primary mb-2">Postcode *</label>
@@ -351,7 +354,7 @@ const CheckoutPage = () => {
                     <p className="text-[24px] font-semibold text-primary">Please choose a delivery option</p>
 
                     {shippingOptionsLoading && (
-                      <div className="text-sm text-[#6e7a92]">Getting live courier rates and estimated delivery windows…</div>
+                      <div className="text-sm text-[#6e7a92]">Getting delivery rates and estimated delivery windows…</div>
                     )}
 
                     {!shippingOptionsLoading && shippingOptionsError && (
@@ -359,7 +362,7 @@ const CheckoutPage = () => {
                     )}
 
                     {!shippingOptionsLoading && !shippingOptionsError && shippingOptions.length === 0 && (
-                      <div className="text-sm text-[#6e7a92]">Enter your full shipping address to load live courier options.</div>
+                      <div className="text-sm text-[#6e7a92]">Enter your full shipping address to load delivery options.</div>
                     )}
 
                     <div className="space-y-3">
@@ -435,21 +438,21 @@ const CheckoutPage = () => {
                   <h2 className="font-sans text-[32px] md:text-[42px] leading-none font-semibold text-primary mb-7">Billing Address</h2>
                   <div className="space-y-5">
                     <div>
-                      <label className="block text-[13px] font-semibold text-primary mb-2">Country / Region *</label>
-                      <select value={form.country} onChange={(e) => update("country", e.target.value)} className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-[14px] outline-none focus:border-orange">
-                        <option>United Kingdom</option>
-                        <option>United States</option>
-                        <option>Ireland</option>
-                      </select>
+                      <label className="block text-[13px] font-semibold text-primary mb-2">Country / Region</label>
+                      <input type="text" disabled value="United Kingdom" className="w-full h-12 border border-[#cad4e4] bg-[#dfe5ea] px-4 text-[14px] outline-none text-[#6e7a92] cursor-not-allowed" />
                     </div>
                     <div>
                       <label className="block text-[13px] font-semibold text-primary mb-2">Street Address *</label>
                       <input type="text" required placeholder="House number and street name" value={form.address} onChange={(e) => update("address", e.target.value)} className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-[14px] outline-none focus:border-orange" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                       <div>
                         <label className="block text-[13px] font-semibold text-primary mb-2">Town / City *</label>
                         <input type="text" required value={form.city} onChange={(e) => update("city", e.target.value)} className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-[14px] outline-none focus:border-orange" />
+                      </div>
+                      <div>
+                        <label className="block text-[13px] font-semibold text-primary mb-2">County</label>
+                        <input type="text" value={form.county} onChange={(e) => update("county", e.target.value)} placeholder="e.g. Essex" className="w-full h-12 border border-[#cad4e4] bg-[#eaf0f3] px-4 text-[14px] outline-none focus:border-orange" />
                       </div>
                       <div>
                         <label className="block text-[13px] font-semibold text-primary mb-2">Postcode *</label>

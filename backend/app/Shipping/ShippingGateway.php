@@ -25,4 +25,19 @@ interface ShippingGateway
      * @return array<string, mixed>
      */
     public function track(Order $order): array;
+
+    /**
+     * Void / refund an unused shipment label.
+     *
+     * @return array<string, mixed>
+     */
+    public function voidShipment(Order $order): array;
+
+    /**
+     * Validate a shipping address before label purchase.
+     *
+     * @param  array<string, mixed>  $address
+     * @return array{valid: bool, messages: array<int, string>, verified_address: array<string, mixed>|null}
+     */
+    public function validateAddress(array $address): array;
 }

@@ -24,7 +24,7 @@ import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { toast } from "sonner";
 import Seo from "@/components/Seo";
 import { absoluteUrl, buildBreadcrumbJsonLd, priceToNumber, stripHtml, truncateText } from "@/lib/seo";
-import { formatMoneyValue, resolveSelectedVariantUnitPrice } from "@/lib/pricing";
+import { formatMoneyValue, resolveSelectedVariantUnitPrice, getStandardizedDisplayPrice, getStandardizedDisplayTitle } from "@/lib/pricing";
 import { getAvailableStock } from "@/lib/stock";
 
 const formatNumber = (value: number): string => {
@@ -117,14 +117,20 @@ const ProductDetailPage = () => {
 
     return [label, formatSpecValue(selectedValue || "Not selected")];
   });
+  const productSpecs = product?.specifications || {};
+  const productSpecEntries: Array<[string, string]> = Object.entries(productSpecs).map(([k, v]) => [k, String(v)] as [string, string]);
+
   const generatedSpecificationEntries: Array<[string, string]> = [
-    ...selectedVariantSpecEntries,
-    ...(activeShippingWeight > 0 ? [["Shipping Weight", `${formatNumber(activeShippingWeight)} kg`]] as Array<[string, string]> : []),
-    ...(activeLengthCm > 0 ? [["Length", `${formatNumber(activeLengthCm)} cm (${cmToInches(activeLengthCm)} in)`]] as Array<[string, string]> : []),
-    ...(activeWidthCm > 0 ? [["Width", `${formatNumber(activeWidthCm)} cm (${cmToInches(activeWidthCm)} in)`]] as Array<[string, string]> : []),
-    ...(activeHeightCm > 0 ? [["Height", `${formatNumber(activeHeightCm)} cm (${cmToInches(activeHeightCm)} in)`]] as Array<[string, string]> : []),
-    ...(activeShippingClass ? [["Shipping Class", activeShippingClass.charAt(0).toUpperCase() + activeShippingClass.slice(1)]] as Array<[string, string]> : []),
-    ["Ships Separately", activeShipsSeparately ? "Yes" : "No"],
+    ...productSpecEntries,
+    ...(variantOptions.length > 0 ? [
+      ...selectedVariantSpecEntries,
+      ...(activeShippingWeight > 0 ? [["Shipping Weight", `${formatNumber(activeShippingWeight)} kg`]] as Array<[string, string]> : []),
+      ...(activeLengthCm > 0 ? [["Length", `${formatNumber(activeLengthCm)} cm (${cmToInches(activeLengthCm)} in)`]] as Array<[string, string]> : []),
+      ...(activeWidthCm > 0 ? [["Width", `${formatNumber(activeWidthCm)} cm (${cmToInches(activeWidthCm)} in)`]] as Array<[string, string]> : []),
+      ...(activeHeightCm > 0 ? [["Height", `${formatNumber(activeHeightCm)} cm (${cmToInches(activeHeightCm)} in)`]] as Array<[string, string]> : []),
+      ...(activeShippingClass ? [["Shipping Class", activeShippingClass.charAt(0).toUpperCase() + activeShippingClass.slice(1)]] as Array<[string, string]> : []),
+      ["Ships Separately", activeShipsSeparately ? "Yes" : "No"],
+    ] : []),
   ];
   const specificationEntries: Array<[string, string]> = dedupeSpecEntries(generatedSpecificationEntries);
   const shareLinks = {
@@ -141,6 +147,36 @@ const ProductDetailPage = () => {
           apiFetch(`/v1/products/${id}`),
           apiFetch(`/v1/products/${id}/related`)
         ]);
+        
+        let initialVariants: Record<string, any> = {};
+        if (prodRes.variants && prodRes.variants.length > 0) {
+          const validVariants = prodRes.variants.filter((v: any) => v.price !== null && v.price !== undefined && String(v.price).trim() !== "");
+          if (validVariants.length > 0) {
+            const cheapest = validVariants.reduce((min: any, curr: any) => {
+              const currPrice = parseFloat(String(curr.price).replace(/[^\d.-]/g, "")) || 0;
+              const minPrice = parseFloat(String(min.price).replace(/[^\d.-]/g, "")) || 0;
+              return currPrice < minPrice ? curr : min;
+            }, validVariants[0]);
+            
+            initialVariants[cheapest.option] = cheapest;
+            
+            const otherOptions = Array.from(new Set(prodRes.variants.map((v: any) => v.option))).filter(o => o !== cheapest.option);
+            otherOptions.forEach(opt => {
+              const firstMatch = prodRes.variants.find((v: any) => v.option === opt);
+              if (firstMatch) initialVariants[opt as string] = firstMatch;
+            });
+          } else {
+            const allOptions = Array.from(new Set(prodRes.variants.map((v: any) => v.option)));
+            allOptions.forEach(opt => {
+              const firstMatch = prodRes.variants.find((v: any) => v.option === opt);
+              if (firstMatch) initialVariants[opt as string] = firstMatch;
+            });
+          }
+          setSelectedVariants(initialVariants);
+        } else {
+          setSelectedVariants({});
+        }
+
         setProduct(prodRes);
         setRelated(relRes.slice(0, 3));
       } catch (err) {
@@ -349,7 +385,7 @@ const ProductDetailPage = () => {
           </div>
 
           <div className="pt-2">
-            <h1 className="font-sans text-[30px] md:text-[40px] leading-[1] font-semibold text-[#10275c]">{product.name}</h1>
+            <h1 className="font-sans text-[30px] md:text-[40px] leading-[1] font-semibold text-[#10275c]">{getStandardizedDisplayTitle(product, selectedVariants)}</h1>
             <div className="flex items-baseline gap-3 mt-3 mb-7">
               <p className="text-orange text-[28px] md:text-[34px] leading-none font-medium">
                 {formatMoneyValue(selectedUnitPrice ?? product.price)}
@@ -437,41 +473,46 @@ const ProductDetailPage = () => {
                 // Group variants by option type (e.g. "Color", "Size")
                 const options = Array.from(new Set(product.variants.map((v: any) => v.option)));
                 return options.map((opt: any) => (
-                  <div key={opt} className="mt-4">
-                    <span className="font-semibold text-primary block mb-2 uppercase text-[11px] tracking-wider">{opt}:</span>
-                    <select
-                      value={selectedVariants[opt]?.value || ""}
-                      onChange={(e) => {
-                        const nextValue = e.target.value;
-                        setSelectedVariants((prev) => {
-                          const updated = { ...prev };
-                          if (!nextValue) {
-                            delete updated[opt];
+                  <div key={opt} className="mt-5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                    <label className="font-semibold text-primary text-[13px] md:text-[14px] capitalize shrink-0">
+                      {String(opt).replace(/([a-z])([A-Z0-9])/g, '$1 $2')}:
+                    </label>
+                    <div className="relative flex-1 md:max-w-[420px]">
+                      <select
+                        value={selectedVariants[opt]?.value || ""}
+                        onChange={(e) => {
+                          const nextValue = e.target.value;
+                          setSelectedVariants((prev) => {
+                            const updated = { ...prev };
+                            if (!nextValue) {
+                              delete updated[opt];
+                              return updated;
+                            }
+
+                            const selectedVariant = product.variants.find(
+                              (variant: any) => variant.option === opt && variant.value === nextValue,
+                            );
+
+                            if (selectedVariant) {
+                              updated[opt] = selectedVariant;
+                            }
+
                             return updated;
-                          }
-
-                          const selectedVariant = product.variants.find(
-                            (variant: any) => variant.option === opt && variant.value === nextValue,
-                          );
-
-                          if (selectedVariant) {
-                            updated[opt] = selectedVariant;
-                          }
-
-                          return updated;
-                        });
-                      }}
-                      className="w-full h-12 border border-[#cad4e4] bg-white px-4 text-sm font-medium text-primary outline-none transition-colors focus:border-primary"
-                    >
-                      <option value="">Select {opt}</option>
-                      {product.variants
-                        .filter((v: any) => v.option === opt)
-                        .map((v: any, idx: number) => (
-                          <option key={idx} value={v.value}>
-                            {v.value}
-                          </option>
-                        ))}
-                    </select>
+                          });
+                        }}
+                        className="w-full h-12 appearance-none border border-[#d1dbe8] bg-[#f8fafc] px-4 pr-10 text-[13px] md:text-[14px] font-medium text-primary outline-none transition-all hover:border-[#b4c4d4] focus:border-orange focus:bg-white focus:ring-1 focus:ring-orange cursor-pointer"
+                      >
+                        <option value="">Select {String(opt).replace(/([a-z])([A-Z0-9])/g, '$1 $2')}</option>
+                        {product.variants
+                          .filter((v: any) => v.option === opt)
+                          .map((v: any, idx: number) => (
+                            <option key={idx} value={v.value}>
+                              {v.value}
+                            </option>
+                          ))}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a95ac] pointer-events-none" />
+                    </div>
                   </div>
                 ));
               })()}
@@ -677,11 +718,11 @@ const ProductDetailPage = () => {
                 <img src={p.image} alt={p.name} className="w-full aspect-[1.02] object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
               </div>
               <h3 className="font-sans text-[18px] md:text-[20px] leading-tight font-semibold text-orange">
-                {p.name}
+                {getStandardizedDisplayTitle(p)}
               </h3>
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
                 <div className="flex items-baseline gap-2">
-                  <p className="text-[18px] md:text-[20px] leading-none font-semibold text-[#1f2f52]">{p.price}</p>
+                  <p className="text-[18px] md:text-[20px] leading-none font-semibold text-[#1f2f52]">{getStandardizedDisplayPrice(p)}</p>
                   {p.old_price && (
                     <p className="text-[14px] md:text-[16px] text-[#9aa6bc] line-through font-normal">
                       {p.old_price}

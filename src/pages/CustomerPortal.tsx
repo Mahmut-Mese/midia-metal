@@ -583,7 +583,7 @@ export default function CustomerPortal() {
                                                                 onClick={() => downloadInvoice(order.id, order.order_number)}
                                                                 className="flex items-center gap-2 px-4 h-10 border border-orange text-orange text-sm font-semibold hover:bg-orange hover:text-white transition-colors"
                                                             >
-                                                                <FileText className="w-4 h-4" /> Download Invoice
+                                                                <FileText className="w-4 h-4" /> {order.status === 'pending' && order.payment_status !== 'paid' ? 'Download Quote/Invoice' : 'Download Receipt'}
                                                             </button>
                                                             {order.status !== "cancelled" && !orderRequestSubmitted && (
                                                                 <button

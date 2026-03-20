@@ -3,9 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Traits\Auditable;
 
 class Order extends Model
 {
+    use Auditable;
+
     protected $fillable = [
         'order_number',
         'customer_name',
@@ -16,12 +20,14 @@ class Order extends Model
         'shipping_address_line2',
         'shipping_city',
         'shipping_postcode',
+        'shipping_county',
         'shipping_country',
         'billing_address',
         'billing_address_line1',
         'billing_address_line2',
         'billing_city',
         'billing_postcode',
+        'billing_county',
         'billing_country',
         'status',
         'subtotal',
@@ -30,6 +36,7 @@ class Order extends Model
         'payment_method',
         'payment_status',
         'stripe_payment_intent_id',
+        'stripe_receipt_url',
         'notes',
         'tracking_number',
         'shipping_provider',

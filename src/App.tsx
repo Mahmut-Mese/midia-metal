@@ -37,6 +37,12 @@ const FaqPage = lazy(() => import("./pages/FaqPage"));
 const CustomerLogin = lazy(() => import("./pages/CustomerLogin"));
 const CustomerRegister = lazy(() => import("./pages/CustomerRegister"));
 const CustomerPortal = lazy(() => import("./pages/CustomerPortal"));
+const ForgotPasswordPage = lazy(() => import("./pages/customer/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/customer/ResetPasswordPage"));
+
+const AdminForgotPasswordPage = lazy(() => import("./pages/admin/AdminForgotPasswordPage"));
+const AdminResetPasswordPage = lazy(() => import("./pages/admin/AdminResetPasswordPage"));
+
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 const AdminLogin = lazy(() => import("./pages/admin/AdminLogin"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -95,7 +101,20 @@ const App = () => (
                   <Route path="/register" element={<CustomerRegister />} />
                   <Route path="/account" element={<CustomerPortal />} />
 
+                  <Route path="/forgot-password" element={
+                    <div className="bg-[#eaf0f3] min-h-screen">
+                      <ForgotPasswordPage />
+                    </div>
+                  } />
+                  <Route path="/reset-password" element={
+                    <div className="bg-[#eaf0f3] min-h-screen">
+                      <ResetPasswordPage />
+                    </div>
+                  } />
+
                   <Route path="/admin/login" element={<AdminLogin />} />
+                  <Route path="/admin/forgot-password" element={<AdminForgotPasswordPage />} />
+                  <Route path="/admin/reset-password" element={<AdminResetPasswordPage />} />
                   <Route path="/admin" element={<AdminLayout />}>
                     <Route index element={<AdminDashboard />} />
                     <Route path="products" element={<AdminProducts />} />

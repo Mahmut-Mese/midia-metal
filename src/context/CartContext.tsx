@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { clampQuantityToStock, getAvailableStock } from "@/lib/stock";
@@ -62,11 +62,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem("midia_cart", JSON.stringify(cart));
     }, [cart]);
 
+    const hydratedProductIds = useRef<Set<string>>(new Set());
+
     useEffect(() => {
-        const itemsMissingStock = cart.filter((item) => item.available_stock === undefined);
+        const itemsMissingStock = cart.filter(
+            (item) => item.available_stock === undefined && !hydratedProductIds.current.has(String(item.product_id))
+        );
         if (itemsMissingStock.length === 0) return;
 
         const uniqueProductIds = Array.from(new Set(itemsMissingStock.map((item) => item.product_id)));
+
+        // Mark as in-flight immediately to prevent duplicate calls
+        uniqueProductIds.forEach((id) => hydratedProductIds.current.add(String(id)));
 
         let cancelled = false;
 
@@ -97,6 +104,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     };
                 }));
             } catch (err) {
+                // Remove from hydrated set so they can be retried
+                uniqueProductIds.forEach((id) => hydratedProductIds.current.delete(String(id)));
                 console.error("Failed to hydrate cart stock", err);
             }
         };
@@ -106,7 +115,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => {
             cancelled = true;
         };
-    }, [cart]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cart.map((i) => `${i.product_id}`).join(",")]);
 
     useEffect(() => {
         if (coupon) {

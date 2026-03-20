@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
-use DateTime;
-use DateTimeInterface;
 use Illuminate\Http\Request;
 
 class EasyPostWebhookController extends Controller
@@ -29,7 +27,7 @@ class EasyPostWebhookController extends Controller
             return response()->json(['received' => true, 'event' => $eventType]);
         }
 
-        $trackingCode = data_get($result, 'tracking_code') ?? data_get($result, 'tracking_code');
+        $trackingCode = data_get($result, 'tracking_code');
         $status = data_get($result, 'status');
         $carrier = data_get($result, 'carrier');
         $shipmentId = data_get($result, 'shipment_id');
@@ -85,52 +83,26 @@ class EasyPostWebhookController extends Controller
         };
     }
 
+    /**
+     * Verify EasyPost webhook signature.
+     *
+     * EasyPost signs webhooks with HMAC-SHA256 of the raw request body.
+     * The signature is sent in the X-Hmac-Signature header prefixed with "hmac-sha256-hex=".
+     */
     private function verifySignature(Request $request, string $secret): bool
     {
-        $timestamp = $request->header('x-timestamp');
-        $signature = $request->header('x-hmac-signature-v2') ?? $request->header('x-hmac-signature');
-        $path = $request->header('x-path');
+        $signature = $request->header('x-hmac-signature');
 
-        if (!$timestamp || !$signature || !$path) {
+        if (!$signature) {
             return false;
         }
 
-        $timestampDate = $this->parseTimestamp($timestamp);
-        if (!$timestampDate) {
-            return false;
-        }
-
-        $toleranceMinutes = (int) (env('EASYPOST_WEBHOOK_TOLERANCE_MINUTES') ?: 5);
-        $now = now();
-        if (abs($now->diffInSeconds($timestampDate)) > ($toleranceMinutes * 60)) {
-            return false;
-        }
-
-        $method = strtoupper($request->getMethod());
         $body = (string) $request->getContent();
-        $stringToSign = $timestamp . $method . $path . $body;
+        $computed = hash_hmac('sha256', $body, $secret);
 
-        $computed = hash_hmac('sha256', $stringToSign, $secret);
+        // EasyPost prefixes the signature with "hmac-sha256-hex="
         $provided = preg_replace('/^hmac-sha256-hex=/i', '', (string) $signature);
 
         return hash_equals($computed, (string) $provided);
-    }
-
-    private function parseTimestamp(string $timestamp): ?DateTimeInterface
-    {
-        $formats = [
-            DateTime::RFC2822,
-            DateTime::RFC7231,
-            'D, d M Y H:i:s T',
-        ];
-
-        foreach ($formats as $format) {
-            $date = DateTime::createFromFormat($format, $timestamp);
-            if ($date instanceof DateTime) {
-                return $date;
-            }
-        }
-
-        return null;
     }
 }

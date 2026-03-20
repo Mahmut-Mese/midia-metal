@@ -132,7 +132,23 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
                 window.location.href = "/admin/login";
             }
         }
+        
+        if (response.status === 429) {
+            import("sonner").then(({ toast }) => {
+                toast.error("Too many requests. Please wait a moment and try again.");
+            });
+            throw new Error("Too many requests. Please wait a moment and try again.");
+        }
+
         const errorData = await response.json().catch(() => ({ message: "An error occurred" }));
+        
+        if (response.status === 422 && errorData.errors) {
+            const firstErrorList = Object.values(errorData.errors)[0] as string[];
+            if (firstErrorList && firstErrorList.length > 0) {
+                throw new Error(firstErrorList[0]);
+            }
+        }
+        
         throw new Error(errorData.message || "An error occurred");
     }
 

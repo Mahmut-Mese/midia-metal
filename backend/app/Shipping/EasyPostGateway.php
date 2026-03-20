@@ -176,6 +176,113 @@ class EasyPostGateway implements ShippingGateway
         ];
     }
 
+    public function voidShipment(Order $order): array
+    {
+        $shipmentRecords = data_get($order->shipping_metadata, 'shipments', []);
+        $refundResults = [];
+
+        if (is_array($shipmentRecords) && count($shipmentRecords) > 0) {
+            foreach ($shipmentRecords as $record) {
+                $shipmentId = (string) ($record['shipment_id'] ?? '');
+                if ($shipmentId === '') {
+                    continue;
+                }
+
+                try {
+                    $result = $this->request('post', "/shipments/{$shipmentId}/refund");
+                    $refundResults[] = [
+                        'shipment_id' => $shipmentId,
+                        'status' => data_get($result, 'status', 'submitted'),
+                        'refund_status' => data_get($result, 'refund_status', 'submitted'),
+                    ];
+                } catch (Throwable $e) {
+                    $refundResults[] = [
+                        'shipment_id' => $shipmentId,
+                        'status' => 'error',
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+        } elseif ($order->shipping_shipment_id) {
+            try {
+                $result = $this->request('post', "/shipments/{$order->shipping_shipment_id}/refund");
+                $refundResults[] = [
+                    'shipment_id' => $order->shipping_shipment_id,
+                    'status' => data_get($result, 'status', 'submitted'),
+                    'refund_status' => data_get($result, 'refund_status', 'submitted'),
+                ];
+            } catch (Throwable $e) {
+                $refundResults[] = [
+                    'shipment_id' => $order->shipping_shipment_id,
+                    'status' => 'error',
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        if (count($refundResults) === 0) {
+            throw new RuntimeException('No shipments found to void for this order.');
+        }
+
+        return [
+            'shipping_status' => 'voided',
+            'shipping_metadata' => array_merge($order->shipping_metadata ?? [], [
+                'voided_at' => now()->toIso8601String(),
+                'void_results' => $refundResults,
+            ]),
+        ];
+    }
+
+    public function validateAddress(array $address): array
+    {
+        try {
+            $payload = [
+                'address' => [
+                    'name' => (string) ($address['name'] ?? 'Customer'),
+                    'street1' => (string) ($address['street1'] ?? ''),
+                    'street2' => (string) ($address['street2'] ?? ''),
+                    'city' => (string) ($address['city'] ?? ''),
+                    'state' => (string) ($address['county'] ?? ''),
+                    'zip' => (string) ($address['postcode'] ?? ''),
+                    'country' => 'GB',
+                    'verify' => ['delivery'],
+                ],
+            ];
+
+            $result = $this->request('post', '/addresses/create', $payload);
+
+            $verifications = data_get($result, 'verifications.delivery', []);
+            $success = (bool) data_get($verifications, 'success', false);
+            $errors = collect(data_get($verifications, 'errors', []))
+                ->map(fn ($error) => (string) ($error['message'] ?? $error['suggestion'] ?? 'Address could not be verified.'))
+                ->all();
+
+            return [
+                'valid' => $success,
+                'messages' => $success ? [] : ($errors ?: ['Address could not be verified by the courier.']),
+                'verified_address' => $success ? [
+                    'street1' => data_get($result, 'street1') ?: ($address['street1'] ?? ''),
+                    'street2' => data_get($result, 'street2') ?: ($address['street2'] ?? ''),
+                    'city' => data_get($result, 'city') ?: ($address['city'] ?? ''),
+                    'county' => data_get($result, 'state') ?: ($address['county'] ?? ''),
+                    'postcode' => data_get($result, 'zip') ?: ($address['postcode'] ?? ''),
+                    'country' => 'GB',
+                ] : null,
+            ];
+        } catch (Throwable $e) {
+            // If address validation fails, don't block the order — just report it
+            return [
+                'valid' => true,
+                'messages' => ['Address validation unavailable: ' . $e->getMessage()],
+                'verified_address' => null,
+            ];
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Private helpers
+    // ──────────────────────────────────────────────────────────────────────
+
     /**
      * @param  array<string, mixed>  $context
      * @return array<int, array<string, mixed>>
@@ -189,9 +296,7 @@ class EasyPostGateway implements ShippingGateway
                 'length' => (float) config('services.shipping.default_parcel.length', 30),
                 'width' => (float) config('services.shipping.default_parcel.width', 20),
                 'height' => (float) config('services.shipping.default_parcel.height', 10),
-                'distance_unit' => (string) config('services.shipping.default_parcel.distance_unit', 'cm'),
                 'weight' => (float) config('services.shipping.default_parcel.weight', 2),
-                'mass_unit' => (string) config('services.shipping.default_parcel.mass_unit', 'kg'),
             ]];
         }
 
@@ -279,16 +384,6 @@ class EasyPostGateway implements ShippingGateway
                     ->filter()
                     ->values();
 
-                $windowStarts = collect($matchedRates)
-                    ->map(fn (array $entry) => data_get($entry[1], 'delivery_date_guaranteed') ? '07:30' : null)
-                    ->filter()
-                    ->values();
-
-                $windowEnds = collect($matchedRates)
-                    ->map(fn (array $entry) => data_get($entry[1], 'delivery_date_guaranteed') ? '18:00' : null)
-                    ->filter()
-                    ->values();
-
                 return [
                     'provider' => $this->provider(),
                     'carrier' => $carrier,
@@ -301,8 +396,8 @@ class EasyPostGateway implements ShippingGateway
                         ->filter(fn ($value) => $value !== null)
                         ->max(),
                     'estimated_delivery_date' => $dates->isNotEmpty() ? $dates->sort()->last() : null,
-                    'estimated_delivery_window_start' => $windowStarts->isNotEmpty() ? $windowStarts->sort()->first() : null,
-                    'estimated_delivery_window_end' => $windowEnds->isNotEmpty() ? $windowEnds->sort()->last() : null,
+                    'estimated_delivery_window_start' => data_get($firstRate, 'delivery_date_guaranteed') ? '07:30' : null,
+                    'estimated_delivery_window_end' => data_get($firstRate, 'delivery_date_guaranteed') ? '18:00' : null,
                     'is_premium' => $this->isPremiumService($service),
                     'rate_id' => (string) ($firstRate['id'] ?? ''),
                     'rate_ids' => collect($matchedRates)->map(function (array $entry) {
@@ -441,16 +536,6 @@ class EasyPostGateway implements ShippingGateway
         }
     }
 
-    private function normalizeCountry(string $country): string
-    {
-        $upper = strtoupper(trim($country));
-        return match ($upper) {
-            'UNITED KINGDOM', 'UK', 'GBR' => 'GB',
-            'UNITED STATES', 'USA' => 'US',
-            default => strlen($upper) === 2 ? $upper : 'GB',
-        };
-    }
-
     private function normalizeDate(string $value): ?string
     {
         if ($value === '') {
@@ -493,8 +578,9 @@ class EasyPostGateway implements ShippingGateway
             'street1' => (string) ($toAddress['street1'] ?? ''),
             'street2' => (string) ($toAddress['street2'] ?? ''),
             'city' => (string) ($toAddress['city'] ?? ''),
+            'state' => (string) ($toAddress['county'] ?? ''),
             'zip' => (string) ($toAddress['postcode'] ?? ''),
-            'country' => $this->normalizeCountry((string) ($toAddress['country'] ?? 'GB')),
+            'country' => 'GB',
             'phone' => (string) ($toAddress['phone'] ?? ''),
             'email' => (string) ($toAddress['email'] ?? ''),
         ];
@@ -510,8 +596,9 @@ class EasyPostGateway implements ShippingGateway
             'street1' => (string) ($order->shipping_address_line1 ?: $order->shipping_address),
             'street2' => (string) ($order->shipping_address_line2 ?: ''),
             'city' => (string) ($order->shipping_city ?: ''),
+            'state' => (string) ($order->shipping_county ?: ''),
             'zip' => (string) ($order->shipping_postcode ?: ''),
-            'country' => $this->normalizeCountry((string) ($order->shipping_country ?: 'GB')),
+            'country' => 'GB',
             'phone' => (string) ($order->customer_phone ?: ''),
             'email' => (string) ($order->customer_email ?: ''),
         ];
@@ -528,8 +615,9 @@ class EasyPostGateway implements ShippingGateway
             'street1' => (string) config('services.shipping.from_address_line1'),
             'street2' => (string) config('services.shipping.from_address_line2'),
             'city' => (string) config('services.shipping.from_city'),
+            'state' => (string) config('services.shipping.from_county', ''),
             'zip' => (string) config('services.shipping.from_postcode'),
-            'country' => $this->normalizeCountry((string) config('services.shipping.from_country', 'GB')),
+            'country' => 'GB',
             'phone' => (string) config('services.shipping.from_phone'),
             'email' => (string) config('services.shipping.from_email'),
         ];
@@ -622,8 +710,17 @@ class EasyPostGateway implements ShippingGateway
     private function isPremiumService(string $service): bool
     {
         $serviceLower = strtolower($service);
+
         return str_contains($serviceLower, 'express')
+            || str_contains($serviceLower, 'special delivery')
+            || str_contains($serviceLower, 'guaranteed')
             || str_contains($serviceLower, 'before')
-            || str_contains($serviceLower, 'next day');
+            || str_contains($serviceLower, 'next day')
+            || str_contains($serviceLower, 'by 9')
+            || str_contains($serviceLower, 'by 10')
+            || str_contains($serviceLower, 'by 12')
+            || str_contains($serviceLower, 'by 1pm')
+            || str_contains($serviceLower, 'saturday')
+            || str_contains($serviceLower, 'next working day');
     }
 }

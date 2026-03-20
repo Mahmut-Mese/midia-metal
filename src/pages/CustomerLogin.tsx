@@ -55,7 +55,10 @@ export default function CustomerLogin() {
                             />
                         </div>
                         <div>
-                            <label className="block text-[13px] font-semibold text-primary mb-2">Password *</label>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-[13px] font-semibold text-primary">Password *</label>
+                                <Link to="/forgot-password" className="text-[13px] text-orange hover:underline font-medium">Forgot password?</Link>
+                            </div>
                             <input
                                 type="password"
                                 required

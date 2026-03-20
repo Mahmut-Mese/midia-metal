@@ -213,12 +213,14 @@ class FormController extends Controller
             'shipping_address_line2' => 'nullable|string|max:255',
             'shipping_city' => 'nullable|string|max:255',
             'shipping_postcode' => 'nullable|string|max:255',
+            'shipping_county' => 'nullable|string|max:255',
             'shipping_country' => 'nullable|string|max:255',
             'billing_address' => 'required|string',
             'billing_address_line1' => 'nullable|string|max:255',
             'billing_address_line2' => 'nullable|string|max:255',
             'billing_city' => 'nullable|string|max:255',
             'billing_postcode' => 'nullable|string|max:255',
+            'billing_county' => 'nullable|string|max:255',
             'billing_country' => 'nullable|string|max:255',
             'payment_method' => 'nullable|string',
             'fulfilment_method' => 'nullable|in:delivery,click_collect',
@@ -249,11 +251,15 @@ class FormController extends Controller
         $taxAmount = $totals['tax_amount'];
         $total = $totals['total'];
         $paymentStatus = 'pending';
+        $receiptUrl = null;
 
         if (!empty($validated['stripe_payment_intent_id'])) {
             try {
-                Stripe::setApiKey(config('services.stripe.secret'));
-                $intent = PaymentIntent::retrieve($validated['stripe_payment_intent_id']);
+                $stripe = new \Stripe\StripeClient(config('services.stripe.secret'));
+                $intent = $stripe->paymentIntents->retrieve(
+                    $validated['stripe_payment_intent_id'],
+                    ['expand' => ['latest_charge']]
+                );
 
                 if ($intent->status !== 'succeeded') {
                     return response()->json([
@@ -268,87 +274,116 @@ class FormController extends Controller
                 }
 
                 $paymentStatus = 'paid';
+                if ($intent->latest_charge) {
+                    $receiptUrl = $intent->latest_charge->receipt_url;
+                }
             } catch (\Exception $e) {
+                \Log::error('Payment Intent Verification Failed: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
                 return response()->json([
                     'message' => 'We could not verify the payment for this order.',
                 ], 422);
             }
         }
 
-        if ($totals['coupon']) {
-            $totals['coupon']->increment('used_count');
+        // Generate a unique order number with retry
+        $orderNumber = null;
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $candidate = 'ORD-' . strtoupper(Str::random(8));
+            if (!Order::where('order_number', $candidate)->exists()) {
+                $orderNumber = $candidate;
+                break;
+            }
+        }
+        if (!$orderNumber) {
+            $orderNumber = 'ORD-' . strtoupper(Str::random(12));
         }
 
-        $order = Order::create([
-            'order_number' => 'ORD-' . strtoupper(Str::random(8)),
-            'customer_name' => $validated['customer_name'],
-            'customer_email' => $validated['customer_email'],
-            'customer_phone' => $validated['customer_phone'] ?? null,
-            'shipping_address' => $validated['shipping_address'],
-            'shipping_address_line1' => $validated['shipping_address_line1'] ?? null,
-            'shipping_address_line2' => $validated['shipping_address_line2'] ?? null,
-            'shipping_city' => $validated['shipping_city'] ?? null,
-            'shipping_postcode' => $validated['shipping_postcode'] ?? null,
-            'shipping_country' => $validated['shipping_country'] ?? null,
-            'billing_address' => $validated['billing_address'],
-            'billing_address_line1' => $validated['billing_address_line1'] ?? null,
-            'billing_address_line2' => $validated['billing_address_line2'] ?? null,
-            'billing_city' => $validated['billing_city'] ?? null,
-            'billing_postcode' => $validated['billing_postcode'] ?? null,
-            'billing_country' => $validated['billing_country'] ?? null,
-            'payment_method' => $validated['payment_method'] ?? 'bank_transfer',
-            'notes' => $validated['notes'] ?? null,
-            'shipping_metadata' => [
-                'fulfilment_method' => $validated['fulfilment_method'] ?? 'delivery',
-                'selected_delivery_option' => $totals['shipping_option'],
-            ],
-            'shipping_provider' => $totals['shipping_option']['provider'] ?? null,
-            'shipping_carrier' => $totals['shipping_option']['carrier'] ?? null,
-            'shipping_service' => $totals['shipping_option']['service'] ?? null,
-            'subtotal' => $subtotal,
-            'shipping' => $shipping,
-            'discount_amount' => $discountAmount,
-            'tax_amount' => $taxAmount,
-            'total' => $total,
-            'coupon_code' => $validated['coupon_code'] ?? null,
-            'is_business' => $validated['is_business'] ?? false,
-            'company_name' => $validated['company_name'] ?? null,
-            'company_vat_number' => $validated['company_vat_number'] ?? null,
-            'customer_id' => $authenticatedCustomer?->id ?? null,
-            'status' => 'pending',
-            'payment_status' => $paymentStatus,
-            'stripe_payment_intent_id' => $validated['stripe_payment_intent_id'] ?? null,
-        ]);
+        $order = \Illuminate\Support\Facades\DB::transaction(function () use (
+            $validated, $totals, $orderNumber, $subtotal, $shipping,
+            $discountAmount, $taxAmount, $total, $paymentStatus, $authenticatedCustomer, $receiptUrl
+        ) {
+            if ($totals['coupon']) {
+                $totals['coupon']->increment('used_count');
+            }
 
+            $order = Order::create([
+                'order_number' => $orderNumber,
+                'customer_name' => $validated['customer_name'],
+                'customer_email' => $validated['customer_email'],
+                'customer_phone' => $validated['customer_phone'] ?? null,
+                'shipping_address' => $validated['shipping_address'],
+                'shipping_address_line1' => $validated['shipping_address_line1'] ?? null,
+                'shipping_address_line2' => $validated['shipping_address_line2'] ?? null,
+                'shipping_city' => $validated['shipping_city'] ?? null,
+                'shipping_postcode' => $validated['shipping_postcode'] ?? null,
+                'shipping_county' => $validated['shipping_county'] ?? null,
+                'shipping_country' => $validated['shipping_country'] ?? 'United Kingdom',
+                'billing_address' => $validated['billing_address'],
+                'billing_address_line1' => $validated['billing_address_line1'] ?? null,
+                'billing_address_line2' => $validated['billing_address_line2'] ?? null,
+                'billing_city' => $validated['billing_city'] ?? null,
+                'billing_postcode' => $validated['billing_postcode'] ?? null,
+                'billing_county' => $validated['billing_county'] ?? null,
+                'billing_country' => $validated['billing_country'] ?? null,
+                'payment_method' => $validated['payment_method'] ?? 'bank_transfer',
+                'notes' => $validated['notes'] ?? null,
+                'shipping_metadata' => [
+                    'fulfilment_method' => $validated['fulfilment_method'] ?? 'delivery',
+                    'selected_delivery_option' => $totals['shipping_option'],
+                ],
+                'shipping_provider' => $totals['shipping_option']['provider'] ?? null,
+                'shipping_carrier' => $totals['shipping_option']['carrier'] ?? null,
+                'shipping_service' => $totals['shipping_option']['service'] ?? null,
+                'subtotal' => $subtotal,
+                'shipping' => $shipping,
+                'discount_amount' => $discountAmount,
+                'tax_amount' => $taxAmount,
+                'total' => $total,
+                'coupon_code' => $validated['coupon_code'] ?? null,
+                'is_business' => $validated['is_business'] ?? false,
+                'company_name' => $validated['company_name'] ?? null,
+                'company_vat_number' => $validated['company_vat_number'] ?? null,
+                'customer_id' => $authenticatedCustomer?->id ?? null,
+                'status' => 'pending',
+                'payment_status' => $paymentStatus,
+                'stripe_payment_intent_id' => $validated['stripe_payment_intent_id'] ?? null,
+                'stripe_receipt_url' => $receiptUrl,
+            ]);
+
+            foreach ($totals['items'] as $item) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $item['product_id'],
+                    'product_name' => $item['product_name'],
+                    'product_price' => $item['product_price'],
+                    'quantity' => $item['quantity'],
+                    'variant_details' => $item['variant_details'],
+                ]);
+
+                // Decrement stock if tracked
+                Product::where('id', $item['product_id'])
+                    ->where('track_stock', true)
+                    ->decrement('stock_quantity', $item['quantity']);
+            }
+
+            return $order;
+        });
+
+        // Send admin notification email
         Mail::to($this->getAdminNotificationEmail())->send(new AdminNotification(
             'New Order Received: ' . $order->order_number,
             "A new order has been placed by {$order->customer_name} ({$order->customer_email}).\n\nOrder Number: {$order->order_number}\nTotal: £" . number_format($order->total, 2) . "\n\nCheck the admin panel for more details."
         ));
 
-        foreach ($totals['items'] as $item) {
-            OrderItem::create([
-                'order_id' => $order->id,
-                'product_id' => $item['product_id'],
-                'product_name' => $item['product_name'],
-                'product_price' => $item['product_price'],
-                'quantity' => $item['quantity'],
-                'variant_details' => $item['variant_details'],
-            ]);
-
-            // Decrement stock if tracked
-            Product::where('id', $item['product_id'])
-                ->where('track_stock', true)
-                ->decrement('stock_quantity', $item['quantity']);
+        // Send customer confirmation email
+        try {
+            Mail::to($order->customer_email)->send(new \App\Mail\CustomerOrderConfirmation($order));
+        } catch (\Exception $e) {
+            \Log::error("Failed to send order confirmation email: " . $e->getMessage());
         }
 
         // Handle saving the card to Stripe if requested
         $customer = $authenticatedCustomer;
-        \Log::info("Order Save Card Check for intent {$validated['stripe_payment_intent_id']}", [
-            'has_customer' => !!$customer,
-            'stripe_customer_id' => $customer ? $customer->stripe_customer_id : null,
-            'has_intent' => !empty($validated['stripe_payment_intent_id']),
-            'wants_save' => !empty($validated['save_card'])
-        ]);
 
         if ($customer && $customer->stripe_customer_id && !empty($validated['stripe_payment_intent_id'])) {
             try {
@@ -366,13 +401,10 @@ class FormController extends Controller
                             if ($pm->customer) {
                                 $pm->detach();
                             }
-                            \Log::info("PaymentMethod {$pm->id} detached successfully because save_card was false");
-                        } else {
-                            \Log::info("PaymentMethod {$intent->payment_method} was already saved. Skipping detachment.");
                         }
                     } else {
                         $pm = StripePaymentMethod::retrieve($intent->payment_method);
-                        // Also save locally so it shows immediately in the dashboard without needing to run the sync endpoint
+                        // Save locally so it shows immediately in the dashboard
                         \App\Models\CustomerPaymentMethod::updateOrCreate(
                             ['stripe_payment_method_id' => $pm->id],
                             [
@@ -383,12 +415,10 @@ class FormController extends Controller
                                 'exp_year' => $pm->card->exp_year ?? '2099',
                             ]
                         );
-                        \Log::info("PaymentMethod {$pm->id} synced locally to customer {$customer->stripe_customer_id}");
                     }
                 }
             } catch (\Exception $e) {
-                // Silently log or ignore since order succeeds anyway
-                \Log::error("Failed to save or detach card: " . $e->getMessage() . " at " . $e->getFile() . ':' . $e->getLine());
+                \Log::error("Failed to save or detach card: " . $e->getMessage());
             }
         }
 

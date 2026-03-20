@@ -102,8 +102,10 @@ class CustomerAuthController extends Controller
     public function customerQuotes(Request $request)
     {
         $customer = $request->user();
-        $quotes = \App\Models\QuoteRequest::where('customer_id', $customer->id)
-            ->orWhere('email', $customer->email)
+        $quotes = \App\Models\QuoteRequest::where(function ($q) use ($customer) {
+            $q->where('customer_id', $customer->id)
+              ->orWhere('email', $customer->email);
+        })
             ->orderBy('created_at', 'desc')
             ->get();
         return response()->json($quotes);

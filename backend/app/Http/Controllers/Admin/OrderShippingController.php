@@ -52,6 +52,25 @@ class OrderShippingController extends Controller
         return response()->json($updatedOrder);
     }
 
+    public function voidShipment(Request $request, Order $order)
+    {
+        if ($this->isClickCollectOrder($order)) {
+            return response()->json([
+                'message' => 'Void is not available for click & collect orders.',
+            ], 422);
+        }
+
+        if (!$order->shipping_shipment_id && empty(data_get($order->shipping_metadata, 'shipments'))) {
+            return response()->json([
+                'message' => 'No shipping label has been created for this order.',
+            ], 422);
+        }
+
+        $updatedOrder = $this->shippingManager->voidShipment($order);
+
+        return response()->json($updatedOrder);
+    }
+
     public function downloadLabel(Order $order)
     {
         $path = $this->resolveLabelPath($order);

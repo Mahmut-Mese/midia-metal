@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     LayoutDashboard,
@@ -15,7 +15,8 @@ import {
     Tag,
     Users,
     Star,
-    HelpCircle
+    HelpCircle,
+    Loader2
 } from "lucide-react";
 import { removeAuthToken, apiFetch } from "@/lib/api";
 
@@ -39,8 +40,24 @@ const navigation = [
 
 export default function AdminLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [authChecked, setAuthChecked] = useState(false);
     const location = useLocation();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        let cancelled = false;
+        apiFetch("/admin/me")
+            .then(() => {
+                if (!cancelled) setAuthChecked(true);
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    removeAuthToken();
+                    navigate("/admin/login", { replace: true });
+                }
+            });
+        return () => { cancelled = true; };
+    }, [navigate]);
 
     const handleLogout = async () => {
         try {
@@ -51,6 +68,14 @@ export default function AdminLayout() {
         removeAuthToken();
         navigate("/admin/login");
     };
+
+    if (!authChecked) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#f4f5f7]">
+                <Loader2 className="h-8 w-8 animate-spin text-[#22a3e6]" />
+            </div>
+        );
+    }
 
     return (
         <div className="flex bg-[#f4f5f7] min-h-screen">

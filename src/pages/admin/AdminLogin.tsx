@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -55,7 +55,10 @@ export default function AdminLogin() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-[#10275c]">Password</label>
+                        <div className="flex items-center justify-between">
+                            <label className="block text-sm font-medium text-[#10275c]">Password</label>
+                            <Link to="/admin/forgot-password" className="text-sm text-[#eb5c10] hover:text-[#d4500b] font-medium">Forgot password?</Link>
+                        </div>
                         <div className="relative mt-2 rounded-md shadow-sm">
                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                 <Lock className="h-5 w-5 text-gray-400" />

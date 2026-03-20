@@ -13,6 +13,10 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
+        $request->validate([
+            'search' => 'nullable|string|max:200'
+        ]);
+
         $query = Product::with('category')->where('active', true);
 
         if ($request->category) {

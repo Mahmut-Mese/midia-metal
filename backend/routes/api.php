@@ -56,6 +56,8 @@ Route::prefix('v1')->group(function () {
     // Customer Auth (Public)
     Route::post('/customer/register', [Api\CustomerAuthController::class, 'register'])->middleware('throttle:5,1');
     Route::post('/customer/login', [Api\CustomerAuthController::class, 'login'])->middleware('throttle:5,1');
+    Route::post('/customer/forgot-password', [Api\CustomerPasswordResetController::class, 'forgotPassword'])->middleware('throttle:3,1');
+    Route::post('/customer/reset-password', [Api\CustomerPasswordResetController::class, 'resetPassword'])->middleware('throttle:3,1');
 
     // Customer Protected Routes
     Route::middleware(['customer.cookie', 'auth:sanctum', 'customer.only', 'throttle:60,1'])->group(function () {
@@ -86,6 +88,8 @@ Route::prefix('v1')->group(function () {
 // Admin Auth
 Route::prefix('admin')->group(function () {
     Route::post('/login', [Admin\AuthController::class, 'login'])->middleware('throttle:5,1');
+    Route::post('/forgot-password', [Admin\AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
+    Route::post('/reset-password', [Admin\AuthController::class, 'resetPassword'])->middleware('throttle:3,1');
 
     // Protected Admin Routes
     Route::middleware(['admin.cookie', 'auth:sanctum', 'admin.only', 'throttle:120,1'])->group(function () {
@@ -116,8 +120,10 @@ Route::prefix('admin')->group(function () {
         // Orders
         Route::apiResource('/orders', Admin\OrderController::class)->except(['store', 'update']);
         Route::put('/orders/{order}', [Admin\OrderController::class, 'update']);
+        Route::post('/orders/{order}/refund', [Admin\OrderController::class, 'refund']);
         Route::post('/orders/{order}/shipping/label', [Admin\OrderShippingController::class, 'createLabel']);
         Route::post('/orders/{order}/shipping/track', [Admin\OrderShippingController::class, 'refreshTracking']);
+        Route::post('/orders/{order}/shipping/void', [Admin\OrderShippingController::class, 'voidShipment']);
         Route::get('/orders/{order}/shipping/label/download', [Admin\OrderShippingController::class, 'downloadLabel']);
 
         // Quotes

@@ -24,6 +24,7 @@ class ShippingController extends Controller
             'shipping_address_line2' => 'nullable|string|max:255',
             'shipping_city' => 'nullable|string|max:255',
             'shipping_postcode' => 'nullable|string|max:255',
+            'shipping_county' => 'nullable|string|max:255',
             'shipping_country' => 'nullable|string|max:255',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|integer',
@@ -45,7 +46,8 @@ class ShippingController extends Controller
                 'street2' => $validated['shipping_address_line2'] ?? '',
                 'city' => $validated['shipping_city'] ?? '',
                 'postcode' => $validated['shipping_postcode'] ?? '',
-                'country' => $validated['shipping_country'] ?? 'United Kingdom',
+                'county' => $validated['shipping_county'] ?? '',
+                'country' => 'GB',
             ], $validated['items']);
         } catch (Throwable $e) {
             return response()->json([

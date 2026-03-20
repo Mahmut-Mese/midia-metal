@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { apiFetch } from "@/lib/api";
 import Seo from "@/components/Seo";
 import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
+import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from "@/lib/pricing";
 
 type VariantFilters = Record<string, string[]>;
 type VariantFacet = {
@@ -139,7 +140,7 @@ const ShopPage = () => {
       }
 
       fetchedProducts = fetchedProducts.filter((p: any) => {
-        const price = parsePriceValue(p.price);
+        const price = parsePriceValue(getStandardizedDisplayPrice(p));
         const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
         const matchesStock = !inStockOnly || !p.track_stock || Number(p.stock_quantity ?? 0) > 0;
         return matchesPrice && matchesStock;
@@ -150,8 +151,8 @@ const ShopPage = () => {
       fetchedProducts = fetchedProducts.filter((product: any) => matchesVariantFilters(product, selectedVariantFilters));
 
       fetchedProducts.sort((a: any, b: any) => {
-        const priceA = parsePriceValue(a.price);
-        const priceB = parsePriceValue(b.price);
+        const priceA = parsePriceValue(getStandardizedDisplayPrice(a));
+        const priceB = parsePriceValue(getStandardizedDisplayPrice(b));
         if (sortBy === "price-low") return priceA - priceB;
         if (sortBy === "price-high") return priceB - priceA;
         return 0;
@@ -292,10 +293,10 @@ const ShopPage = () => {
                         <img src={p.image} alt={p.name} className="w-full aspect-square object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
                       </div>
                       <h3 className="font-sans text-[16px] md:text-[20px] leading-tight font-semibold text-orange transition-colors">
-                        {p.name}
+                        {getStandardizedDisplayTitle(p)}
                       </h3>
                       <div className="flex items-baseline gap-2 mt-1">
-                        <p className="text-[14px] md:text-[20px] font-semibold text-[#1f2f52]">{p.price}</p>
+                        <p className="text-[14px] md:text-[20px] font-semibold text-[#1f2f52]">{getStandardizedDisplayPrice(p)}</p>
                         {p.old_price && (
                           <p className="text-[12px] md:text-[14px] text-[#9aa6bc] line-through font-normal">
                             {p.old_price}

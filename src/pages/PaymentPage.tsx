@@ -201,7 +201,7 @@ const PaymentPage = () => {
         ? `${checkoutForm.shipping_address}, ${checkoutForm.shipping_city}, ${checkoutForm.shipping_postcode}, ${checkoutForm.shipping_country}`
         : `${checkoutForm.address}, ${checkoutForm.city}, ${checkoutForm.postcode}, ${checkoutForm.country}`;
 
-      const shippingAddress = `${checkoutForm.shipping_address}, ${checkoutForm.shipping_city}, ${checkoutForm.shipping_postcode}, ${checkoutForm.shipping_country}`;
+      const shippingAddress = `${checkoutForm.shipping_address}, ${checkoutForm.shipping_city}, ${checkoutForm.shipping_county ? checkoutForm.shipping_county + ', ' : ''}${checkoutForm.shipping_postcode}, ${checkoutForm.shipping_country}`;
 
       const orderData = await apiFetch("/v1/orders", {
         method: "POST",
@@ -213,11 +213,13 @@ const PaymentPage = () => {
           shipping_address_line1: checkoutForm.shipping_address,
           shipping_city: checkoutForm.shipping_city,
           shipping_postcode: checkoutForm.shipping_postcode,
+          shipping_county: checkoutForm.shipping_county || null,
           shipping_country: checkoutForm.shipping_country,
           billing_address: billingAddress,
           billing_address_line1: checkoutForm.billingSameAsShipping ? checkoutForm.shipping_address : checkoutForm.address,
           billing_city: checkoutForm.billingSameAsShipping ? checkoutForm.shipping_city : checkoutForm.city,
           billing_postcode: checkoutForm.billingSameAsShipping ? checkoutForm.shipping_postcode : checkoutForm.postcode,
+          billing_county: checkoutForm.billingSameAsShipping ? (checkoutForm.shipping_county || null) : (checkoutForm.county || null),
           billing_country: checkoutForm.billingSameAsShipping ? checkoutForm.shipping_country : checkoutForm.country,
           notes: checkoutForm.notes,
           coupon_code: coupon?.code ?? null,

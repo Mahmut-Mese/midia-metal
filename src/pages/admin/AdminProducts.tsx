@@ -17,7 +17,7 @@ const normalizeShippingNumber = (value: unknown): number | null => {
 
 const shouldAutoGenerateVariantValue = (option: unknown): boolean => {
     const normalized = String(option ?? "").trim().toLowerCase();
-    return normalized.includes("measurement") || normalized.includes("panel size") || normalized.includes("filter size");
+    return normalized.includes("size") || normalized.includes("measurement") || normalized.includes("panel") || normalized.includes("filter");
 };
 
 const buildVariantValueFromDimensions = (
@@ -44,7 +44,7 @@ const buildVariantValueFromDimensions = (
     const heightInches = Math.round(heightMm / 25);
     const depthInches = Math.round(depthMm / 25);
 
-    return `H ${heightMm} x W ${widthMm} x D ${depthMm}mm (${heightInches}" x ${widthInches}" x ${depthInches}")`;
+    return `Size : H ${heightMm} x W ${widthMm} x D ${depthMm}mm (${heightInches}" x ${widthInches}" x ${depthInches}")`;
 };
 
 const stripCurrencyForAdmin = (value: unknown): string =>
@@ -467,6 +467,7 @@ export default function AdminProducts() {
                 ...product,
                 price: stripCurrencyForAdmin(product.price),
                 old_price: stripCurrencyForAdmin(product.old_price),
+                show_variant_in_title: Boolean(product.show_variant_in_title),
                 specifications: product.specifications || {},
                 variants: mapVariantsToProductPrice(product.variants || [], stripCurrencyForAdmin(product.price || "")),
                 variant_option: variantOptions.length === 1 ? variantOptions[0] : "",
@@ -497,6 +498,7 @@ export default function AdminProducts() {
                 specifications: {},
                 variants: [],
                 variant_option: "",
+                show_variant_in_title: false,
             }
         );
         setIsEditing(true);
@@ -611,30 +613,9 @@ export default function AdminProducts() {
         });
 
     const variantSuggestion = currentProduct ? getVariantSuggestion(currentProduct) : null;
-    const currentVariantOptions = Array.from(
-        new Set(((currentProduct?.variants || []) as any[]).map((variant: any) => String(variant?.option ?? "").trim()).filter(Boolean))
-    );
-    const sharedVariantOption = String(
-        currentProduct?.variant_option
-        || (currentVariantOptions.length === 1 ? currentVariantOptions[0] : "")
-        || variantSuggestion?.option
-        || ""
-    ).trim();
-    const useSharedVariantOption = Boolean(
-        sharedVariantOption
-        && (currentVariantOptions.length <= 1 || currentVariantOptions.every((option) => option === sharedVariantOption))
-    );
-    const hideVariantValueColumn = Boolean(
-        currentProduct
-        && Array.isArray(currentProduct.variants)
-        && currentProduct.variants.length > 0
-        && currentProduct.variants.every((variant: any) => shouldAutoGenerateVariantValue(variant.option))
-    );
-    const hideVariantOptionColumn = Boolean(
-        useSharedVariantOption
-        && currentVariantOptions.length > 0
-        && currentVariantOptions.every((option) => option === sharedVariantOption)
-    );
+    const useSharedVariantOption = false;
+    const hideVariantValueColumn = false;
+    const hideVariantOptionColumn = false;
 
     if (loading) return <div>Loading...</div>;
 
@@ -772,6 +753,17 @@ export default function AdminProducts() {
                                             onChange={(e) => setCurrentProduct({ ...currentProduct, name: e.target.value })}
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
                                         />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="inline-flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={currentProduct.show_variant_in_title}
+                                                onChange={(e) => setCurrentProduct({ ...currentProduct, show_variant_in_title: e.target.checked })}
+                                                className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 h-4 w-4"
+                                            />
+                                            <span className="ml-2 text-sm text-gray-700">Show variant in product title</span>
+                                        </label>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Price</label>
@@ -968,178 +960,33 @@ export default function AdminProducts() {
                                             />
                                         </div>
                                     )}
-                                    <div className="col-span-2 border rounded-lg bg-gray-50/70 p-4">
-                                        <div className="mb-4">
-                                            <label className="block text-sm font-bold text-[#10275c] uppercase tracking-wider">Shipping Profile</label>
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                Used for live courier rates and label creation. Configure the packed item size, weight, and whether it ships on its own.
-                                            </p>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="col-span-2 sm:col-span-1">
-                                                <label className="block text-sm font-medium text-gray-700">Shipping Class</label>
-                                                <select
-                                                    value={currentProduct.shipping_class || "standard"}
-                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_class: e.target.value })}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border bg-white"
-                                                >
-                                                    {SHIPPING_CLASS_OPTIONS.map((option) => (
-                                                        <option key={option.value} value={option.value}>{option.label} parcel</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div className="col-span-2 sm:col-span-1 flex items-end">
-                                                <label className="flex items-center">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={Boolean(currentProduct.ships_separately)}
-                                                        onChange={(e) => setCurrentProduct({ ...currentProduct, ships_separately: e.target.checked })}
-                                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                    />
-                                                    <span className="ml-2 text-sm text-gray-600">Ships in its own parcel</span>
-                                                </label>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">Weight (kg)</label>
-                                                <input
-                                                    type="number"
-                                                    min="0.01"
-                                                    step="0.001"
-                                                    value={currentProduct.shipping_weight_kg ?? ""}
-                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_weight_kg: e.target.value })}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">Length (cm)</label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    step="0.01"
-                                                    value={currentProduct.shipping_length_cm ?? ""}
-                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_length_cm: e.target.value })}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">Width (cm)</label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    step="0.01"
-                                                    value={currentProduct.shipping_width_cm ?? ""}
-                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_width_cm: e.target.value })}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">Height (cm)</label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    step="0.01"
-                                                    value={currentProduct.shipping_height_cm ?? ""}
-                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_height_cm: e.target.value })}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    <div className="col-span-2 border-t pt-6 bg-gray-50/50 p-6 rounded-lg">
-                                        <label className="block text-sm font-bold text-[#10275c] mb-1 uppercase tracking-wider">Product Variants</label>
-                                        <p className="text-xs text-gray-500 mb-4">Manage different versions of this product (e.g., Color Red, Blue or Size S, M, L)</p>
-                                        <p className="text-xs text-gray-500 mb-4">Each variant can use its own price. Leave a new variant price empty to default to the product price.</p>
-                                        <p className="text-xs text-gray-500 mb-4">Edit variants directly in the inputs below.</p>
-                                        {useSharedVariantOption && (
-                                            <div className="mb-4 max-w-sm">
-                                                <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Variant Option</label>
-                                                <input
-                                                    type="text"
-                                                    value={sharedVariantOption}
-                                                    onChange={(e) => {
-                                                        const nextOption = e.target.value;
-                                                        setCurrentProduct({
-                                                            ...currentProduct,
-                                                            variant_option: nextOption,
-                                                            variants: (currentProduct.variants || []).map((variant: any) => ({
-                                                                ...variant,
-                                                                option: nextOption,
-                                                            })),
-                                                        });
-                                                    }}
-                                                    className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                />
-                                            </div>
-                                        )}
+                                    <div className="col-span-2 border-t pt-6 bg-gray-50/50 py-6 px-1 rounded-lg">
+                                        <label className="block text-sm font-bold text-[#10275c] mb-1 uppercase tracking-wider px-4">PRODUCT VARIANTS</label>
+                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider px-4 mb-2">SIZE</p>
                                         <div className="space-y-4">
                                             {/* Variant List Table */}
-                                            {(currentProduct.variants || []).length > 0 && (
                                                 <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
-                                                    <table className={`${hideVariantValueColumn ? "min-w-[1220px]" : "min-w-[1540px]"} divide-y divide-gray-200`}>
+                                                    <table className="w-max divide-y divide-gray-200">
                                                         <thead className="bg-gray-50">
                                                             <tr>
-                                                                {!hideVariantOptionColumn && (
-                                                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Option</th>
-                                                                )}
-                                                                {!hideVariantValueColumn && (
-                                                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Value</th>
-                                                                )}
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Price</th>
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Stock</th>
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Weight (kg)</th>
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Length (cm)</th>
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Width (cm)</th>
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Height (cm)</th>
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Shipping Class</th>
-                                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Ships Separately</th>
-                                                                <th className="px-3 py-2 text-right"></th>
+
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Price</th>
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Stock</th>
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Weight (kg)</th>
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Length (cm)</th>
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Width (cm)</th>
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Height (cm)</th>
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Shipping Class</th>
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Ships Separately</th>
+                                                                <th className="px-2 py-2 text-right"></th>
                                                             </tr>
                                                         </thead>
                                                         <tbody className="bg-white divide-y divide-gray-200">
-                                                            {currentProduct.variants.map((v: any, idx: number) => (
+                                                            {(currentProduct.variants || []).map((v: any, idx: number) => (
                                                                 <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                                                                    {!hideVariantOptionColumn && (
-                                                                        <td className="px-3 py-2">
-                                                                            <input
-                                                                                type="text"
-                                                                                value={v.option ?? ""}
-                                                                                onChange={(e) => {
-                                                                                    const newVariants = [...(currentProduct.variants || [])];
-                                                                                    newVariants[idx] = {
-                                                                                        ...newVariants[idx],
-                                                                                        option: e.target.value,
-                                                                                    };
-                                                                                    setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                                }}
-                                                                                className="w-full min-w-[180px] rounded border border-gray-300 bg-white px-2 py-2 text-sm font-medium text-gray-900 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            />
-                                                                        </td>
-                                                                    )}
-                                                                    {!hideVariantValueColumn && (
-                                                                        <td className="px-3 py-2">
-                                                                            {shouldAutoGenerateVariantValue(v.option) ? (
-                                                                                <div className="min-w-[320px] rounded border border-gray-200 bg-gray-50 px-2 py-2 text-sm text-gray-500">
-                                                                                    Auto-generated
-                                                                                </div>
-                                                                            ) : (
-                                                                                <input
-                                                                                    type="text"
-                                                                                    value={v.value ?? ""}
-                                                                                    onChange={(e) => {
-                                                                                        const newVariants = [...(currentProduct.variants || [])];
-                                                                                        newVariants[idx] = {
-                                                                                            ...newVariants[idx],
-                                                                                            value: e.target.value,
-                                                                                        };
-                                                                                        setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                                    }}
-                                                                                    className="w-full min-w-[320px] rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                                />
-                                                                            )}
-                                                                        </td>
-                                                                    )}
-                                                                    <td className="px-3 py-2">
+
+                                                                    <td className="px-2 py-2">
                                                                         <input
                                                                             type="text"
                                                                             value={v.price ?? ""}
@@ -1151,11 +998,11 @@ export default function AdminProducts() {
                                                                                 };
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
-                                                                            className="w-full min-w-[120px] rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
                                                                             placeholder={currentProduct.price || "£0.00"}
                                                                         />
                                                                     </td>
-                                                                    <td className="px-3 py-2">
+                                                                    <td className="px-2 py-2">
                                                                         <input
                                                                             type="number"
                                                                             min={0}
@@ -1168,10 +1015,10 @@ export default function AdminProducts() {
                                                                                 };
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
-                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
                                                                         />
                                                                     </td>
-                                                                    <td className="px-3 py-2">
+                                                                    <td className="px-2 py-2">
                                                                         <input
                                                                             type="number"
                                                                             min={0.01}
@@ -1185,11 +1032,11 @@ export default function AdminProducts() {
                                                                                 };
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
-                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
                                                                             placeholder="base"
                                                                         />
                                                                     </td>
-                                                                    <td className="px-3 py-2">
+                                                                    <td className="px-2 py-2">
                                                                         <input
                                                                             type="number"
                                                                             min={1}
@@ -1212,11 +1059,11 @@ export default function AdminProducts() {
                                                                                 }
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
-                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
                                                                             placeholder="Length"
                                                                         />
                                                                     </td>
-                                                                    <td className="px-3 py-2">
+                                                                    <td className="px-2 py-2">
                                                                         <input
                                                                             type="number"
                                                                             min={1}
@@ -1239,11 +1086,11 @@ export default function AdminProducts() {
                                                                                 }
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
-                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
                                                                             placeholder="Width"
                                                                         />
                                                                     </td>
-                                                                    <td className="px-3 py-2">
+                                                                    <td className="px-2 py-2">
                                                                         <input
                                                                             type="number"
                                                                             min={1}
@@ -1266,11 +1113,11 @@ export default function AdminProducts() {
                                                                                 }
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
-                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
                                                                             placeholder="Height"
                                                                         />
                                                                     </td>
-                                                                    <td className="px-3 py-2">
+                                                                    <td className="px-2 py-2">
                                                                         <select
                                                                             value={v.shipping_class ?? ""}
                                                                             onChange={(e) => {
@@ -1281,7 +1128,7 @@ export default function AdminProducts() {
                                                                                 };
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
-                                                                            className="w-36 rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
+                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
                                                                         >
                                                                             <option value="">Use base</option>
                                                                             {SHIPPING_CLASS_OPTIONS.map((option) => (
@@ -1289,7 +1136,7 @@ export default function AdminProducts() {
                                                                             ))}
                                                                         </select>
                                                                     </td>
-                                                                    <td className="px-3 py-2">
+                                                                    <td className="px-2 py-2">
                                                                         <label className="flex items-center gap-2 text-sm text-gray-600">
                                                                             <input
                                                                                 type="checkbox"
@@ -1307,7 +1154,7 @@ export default function AdminProducts() {
                                                                             <span>Yes</span>
                                                                         </label>
                                                                     </td>
-                                                                    <td className="px-3 py-2 text-right">
+                                                                    <td className="px-2 py-2 text-right">
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => {
@@ -1323,117 +1170,103 @@ export default function AdminProducts() {
                                                                 </tr>
                                                             ))}
                                                         </tbody>
+                                                        <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                                            <tr>
+                                                                <td className="px-2 py-2">
+                                                                    <input id="var_price" type="text" placeholder={currentProduct.price || "£0.00"} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <input id="var_stock" type="number" placeholder="10" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <input id="var_shipping_weight" type="number" min="0.01" step="0.001" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <input id="var_shipping_length" type="number" min="1" step="0.01" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <input id="var_shipping_width" type="number" min="1" step="0.01" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <input id="var_shipping_height" type="number" min="1" step="0.01" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <select id="var_shipping_class" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none">
+                                                                        <option value="">Use base</option>
+                                                                        {SHIPPING_CLASS_OPTIONS.map((option) => (
+                                                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </td>
+                                                                <td className="px-2 py-2">
+                                                                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                                                                        <input id="var_ships_separately" type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                                        <span>Yes</span>
+                                                                    </label>
+                                                                </td>
+                                                                <td className="px-2 py-2 text-right">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const priceEl = document.getElementById('var_price') as HTMLInputElement;
+                                                                            const stockEl = document.getElementById('var_stock') as HTMLInputElement;
+                                                                            const weightEl = document.getElementById('var_shipping_weight') as HTMLInputElement;
+                                                                            const lengthEl = document.getElementById('var_shipping_length') as HTMLInputElement;
+                                                                            const widthEl = document.getElementById('var_shipping_width') as HTMLInputElement;
+                                                                            const heightEl = document.getElementById('var_shipping_height') as HTMLInputElement;
+                                                                            const classEl = document.getElementById('var_shipping_class') as HTMLSelectElement;
+                                                                            const separateEl = document.getElementById('var_ships_separately') as HTMLInputElement;
+
+                                                                            const resolvedOption = "Size";
+                                                                            const generatedValue = buildVariantValueFromDimensions(
+                                                                                resolvedOption,
+                                                                                lengthEl?.value,
+                                                                                widthEl?.value,
+                                                                                heightEl?.value,
+                                                                            );
+
+                                                                            if (!generatedValue) {
+                                                                                toast.error("Enter Length, Width, and Height to generate the Size label.");
+                                                                                return;
+                                                                            }
+
+                                                                            setCurrentProduct({
+                                                                                ...currentProduct,
+                                                                                variants: [
+                                                                                    ...(currentProduct.variants || []),
+                                                                                    {
+                                                                                        option: resolvedOption,
+                                                                                        value: generatedValue,
+                                                                                        price: normalizeVariantPrice(priceEl?.value, currentProduct.price),
+                                                                                        stock: normalizeVariantStock(stockEl.value),
+                                                                                        shipping_weight_kg: normalizeShippingNumber(weightEl?.value),
+                                                                                        shipping_length_cm: normalizeShippingNumber(lengthEl?.value),
+                                                                                        shipping_width_cm: normalizeShippingNumber(widthEl?.value),
+                                                                                        shipping_height_cm: normalizeShippingNumber(heightEl?.value),
+                                                                                        shipping_class: classEl?.value || "",
+                                                                                        ships_separately: Boolean(separateEl?.checked),
+                                                                                    }
+                                                                                ]
+                                                                            });
+
+                                                                            if (priceEl) priceEl.value = "";
+                                                                            stockEl.value = "";
+                                                                            if (weightEl) weightEl.value = "";
+                                                                            if (lengthEl) lengthEl.value = "";
+                                                                            if (widthEl) widthEl.value = "";
+                                                                            if (heightEl) heightEl.value = "";
+                                                                            if (classEl) classEl.value = "";
+                                                                            if (separateEl) separateEl.checked = false;
+                                                                        }}
+                                                                        className="bg-[#eb5c10] text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-[#d4500b] transition-colors shadow-sm whitespace-nowrap"
+                                                                    >
+                                                                        Add
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        </tfoot>
                                                     </table>
                                                 </div>
-                                            )}
-
-                                            {/* New Variant Inputs */}
-                                            <div className={`grid grid-cols-2 ${useSharedVariantOption ? "md:grid-cols-4 xl:grid-cols-8" : "md:grid-cols-5 xl:grid-cols-9"} gap-3 items-end p-4 border rounded-md bg-white shadow-sm`}>
-                                                {!useSharedVariantOption && (
-                                                    <div>
-                                                        <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Option</label>
-                                                        <input id="var_opt" type="text" placeholder={variantSuggestion?.option || "Size"} className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
-                                                    </div>
-                                                )}
-                                                <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Price</label>
-                                                    <input id="var_price" type="text" placeholder={currentProduct.price || "£0.00"} className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Stock</label>
-                                                    <input id="var_stock" type="number" placeholder="10" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Weight (kg)</label>
-                                                    <input id="var_shipping_weight" type="number" min="0.01" step="0.001" placeholder="base" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Length (cm)</label>
-                                                    <input id="var_shipping_length" type="number" min="1" step="0.01" placeholder="base" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Width (cm)</label>
-                                                    <input id="var_shipping_width" type="number" min="1" step="0.01" placeholder="base" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Height (cm)</label>
-                                                    <input id="var_shipping_height" type="number" min="1" step="0.01" placeholder="base" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1">Shipping Class</label>
-                                                    <select id="var_shipping_class" className="w-full text-xs p-2 border rounded shadow-sm focus:ring-1 focus:ring-[#eb5c10] border-gray-300 bg-white">
-                                                        <option value="">Use base</option>
-                                                        {SHIPPING_CLASS_OPTIONS.map((option) => (
-                                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div className="flex items-center gap-2 pb-2">
-                                                    <input id="var_ships_separately" type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                                    <label htmlFor="var_ships_separately" className="text-[10px] text-gray-500 uppercase font-bold">Ships Separately</label>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const optEl = document.getElementById('var_opt') as HTMLInputElement;
-                                                        const priceEl = document.getElementById('var_price') as HTMLInputElement;
-                                                        const stockEl = document.getElementById('var_stock') as HTMLInputElement;
-                                                        const weightEl = document.getElementById('var_shipping_weight') as HTMLInputElement;
-                                                        const lengthEl = document.getElementById('var_shipping_length') as HTMLInputElement;
-                                                        const widthEl = document.getElementById('var_shipping_width') as HTMLInputElement;
-                                                        const heightEl = document.getElementById('var_shipping_height') as HTMLInputElement;
-                                                        const classEl = document.getElementById('var_shipping_class') as HTMLSelectElement;
-                                                        const separateEl = document.getElementById('var_ships_separately') as HTMLInputElement;
-                                                        const generatedValue = buildVariantValueFromDimensions(
-                                                            useSharedVariantOption ? sharedVariantOption : optEl?.value,
-                                                            lengthEl?.value,
-                                                            widthEl?.value,
-                                                            heightEl?.value,
-                                                        );
-                                                        const resolvedOption = (useSharedVariantOption ? sharedVariantOption : optEl?.value || "").trim();
-                                                        const isMeasurementVariant = shouldAutoGenerateVariantValue(resolvedOption);
-                                                        const resolvedValue = isMeasurementVariant ? generatedValue : resolvedOption;
-
-                                                        if (isMeasurementVariant && !generatedValue) {
-                                                            toast.error("For measurement variants, enter Len / Wid / Ht in cm.");
-                                                            return;
-                                                        }
-
-                                                        if (resolvedOption && resolvedValue) {
-                                                            setCurrentProduct({
-                                                                ...currentProduct,
-                                                                variants: [
-                                                                    ...(currentProduct.variants || []),
-                                                                    {
-                                                                        option: resolvedOption,
-                                                                        value: resolvedValue,
-                                                                        price: normalizeVariantPrice(priceEl?.value, currentProduct.price),
-                                                                        stock: normalizeVariantStock(stockEl.value),
-                                                                        shipping_weight_kg: normalizeShippingNumber(weightEl?.value),
-                                                                        shipping_length_cm: normalizeShippingNumber(lengthEl?.value),
-                                                                        shipping_width_cm: normalizeShippingNumber(widthEl?.value),
-                                                                        shipping_height_cm: normalizeShippingNumber(heightEl?.value),
-                                                                        shipping_class: classEl?.value || "",
-                                                                        ships_separately: Boolean(separateEl?.checked),
-                                                                    }
-                                                                ]
-                                                            });
-                                                            if (optEl) optEl.value = ""; if (priceEl) priceEl.value = ""; stockEl.value = "";
-                                                            if (weightEl) weightEl.value = "";
-                                                            if (lengthEl) lengthEl.value = "";
-                                                            if (widthEl) widthEl.value = "";
-                                                            if (heightEl) heightEl.value = "";
-                                                            if (classEl) classEl.value = "";
-                                                            if (separateEl) separateEl.checked = false;
-                                                        } else {
-                                                            toast.error("Variant option is required.");
-                                                        }
-                                                    }}
-                                                    className="bg-[#eb5c10] text-white py-2 px-3 rounded text-sm font-bold hover:bg-[#d4500b] transition-colors shadow-sm"
-                                                >
-                                                    Add Variant
-                                                </button>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>

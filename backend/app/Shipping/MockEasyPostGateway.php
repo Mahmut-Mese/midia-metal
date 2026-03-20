@@ -55,7 +55,6 @@ class MockEasyPostGateway implements ShippingGateway
         $baseRate = round((float) config('services.shipping.default_rate', 6.50), 2);
         $currency = 'GBP';
         $profile = $this->resolveDeliveryProfile($toAddress);
-        $estimatedDate = CarbonImmutable::now('Europe/London')->addWeekdays($profile['delivery_days'])->format('Y-m-d');
         $parcelSummary = is_array($context['parcel_summary'] ?? null) ? $context['parcel_summary'] : [];
         $parcelCount = max(1, (int) ($parcelSummary['parcel_count'] ?? 1));
         $totalWeight = max(0, (float) ($parcelSummary['total_weight_kg'] ?? config('services.shipping.default_parcel.weight', 2)));
@@ -65,55 +64,59 @@ class MockEasyPostGateway implements ShippingGateway
         $weightSurcharge = max(0, ceil(max(0, $totalWeight - 2))) * 1.25;
         $standardRate = round($baseRate + $profile['rate_surcharge'] + $classSurcharge + $parcelSurcharge + $weightSurcharge, 2);
 
+        $estimatedDate48 = CarbonImmutable::now('Europe/London')->addWeekdays($profile['tracked_48_days'])->format('Y-m-d');
+        $estimatedDate24 = CarbonImmutable::now('Europe/London')->addWeekdays($profile['tracked_24_days'])->format('Y-m-d');
+        $estimatedDateSD = CarbonImmutable::now('Europe/London')->addWeekdays(1)->format('Y-m-d');
+
         return [
             [
                 'provider' => $this->provider(),
-                'carrier' => config('services.easypost.default_carrier', 'Royal Mail'),
-                'service' => 'Postage & Packing - Standard Delivery',
-                'service_code' => 'standard',
+                'carrier' => 'Royal Mail',
+                'service' => 'Royal Mail Tracked 48',
+                'service_code' => 'tracked_48',
                 'rate' => $standardRate,
                 'currency' => $currency,
-                'delivery_days' => $profile['delivery_days'],
-                'estimated_delivery_date' => $estimatedDate,
-                'estimated_delivery_window_start' => $profile['standard_window_start'],
-                'estimated_delivery_window_end' => $profile['standard_window_end'],
+                'delivery_days' => $profile['tracked_48_days'],
+                'estimated_delivery_date' => $estimatedDate48,
+                'estimated_delivery_window_start' => '08:00',
+                'estimated_delivery_window_end' => '18:00',
                 'is_premium' => false,
-                'rate_id' => 'mock_standard',
-                'rate_ids' => [['rate_id' => 'mock_standard', 'parcel_reference' => 'aggregate']],
+                'rate_id' => 'mock_tracked_48',
+                'rate_ids' => [['rate_id' => 'mock_tracked_48', 'parcel_reference' => 'aggregate']],
                 'parcels' => $context['parcels'] ?? [],
                 'parcel_summary' => $parcelSummary,
             ],
             [
                 'provider' => $this->provider(),
-                'carrier' => config('services.easypost.default_carrier', 'Royal Mail'),
-                'service' => 'Before 10:30AM Delivery',
-                'service_code' => 'before_1030',
-                'rate' => round($standardRate + 10 + $profile['premium_surcharge'], 2),
+                'carrier' => 'Royal Mail',
+                'service' => 'Royal Mail Tracked 24',
+                'service_code' => 'tracked_24',
+                'rate' => round($standardRate + 3.50, 2),
                 'currency' => $currency,
-                'delivery_days' => $profile['delivery_days'],
-                'estimated_delivery_date' => $estimatedDate,
-                'estimated_delivery_window_start' => '07:30',
-                'estimated_delivery_window_end' => '10:00',
-                'is_premium' => true,
-                'rate_id' => 'mock_before_1030',
-                'rate_ids' => [['rate_id' => 'mock_before_1030', 'parcel_reference' => 'aggregate']],
+                'delivery_days' => $profile['tracked_24_days'],
+                'estimated_delivery_date' => $estimatedDate24,
+                'estimated_delivery_window_start' => '08:00',
+                'estimated_delivery_window_end' => '18:00',
+                'is_premium' => false,
+                'rate_id' => 'mock_tracked_24',
+                'rate_ids' => [['rate_id' => 'mock_tracked_24', 'parcel_reference' => 'aggregate']],
                 'parcels' => $context['parcels'] ?? [],
                 'parcel_summary' => $parcelSummary,
             ],
             [
                 'provider' => $this->provider(),
-                'carrier' => config('services.easypost.default_carrier', 'Royal Mail'),
-                'service' => 'Before Midday Delivery',
-                'service_code' => 'before_midday',
-                'rate' => round($standardRate + 8 + $profile['premium_surcharge'], 2),
+                'carrier' => 'Royal Mail',
+                'service' => 'Royal Mail Special Delivery Guaranteed by 1pm',
+                'service_code' => 'special_delivery_1pm',
+                'rate' => round($standardRate + 12.00 + $profile['premium_surcharge'], 2),
                 'currency' => $currency,
-                'delivery_days' => $profile['delivery_days'],
-                'estimated_delivery_date' => $estimatedDate,
+                'delivery_days' => 1,
+                'estimated_delivery_date' => $estimatedDateSD,
                 'estimated_delivery_window_start' => '07:30',
-                'estimated_delivery_window_end' => '12:00',
+                'estimated_delivery_window_end' => '13:00',
                 'is_premium' => true,
-                'rate_id' => 'mock_before_midday',
-                'rate_ids' => [['rate_id' => 'mock_before_midday', 'parcel_reference' => 'aggregate']],
+                'rate_id' => 'mock_special_delivery_1pm',
+                'rate_ids' => [['rate_id' => 'mock_special_delivery_1pm', 'parcel_reference' => 'aggregate']],
                 'parcels' => $context['parcels'] ?? [],
                 'parcel_summary' => $parcelSummary,
             ],
@@ -149,8 +152,8 @@ class MockEasyPostGateway implements ShippingGateway
         return [
             'tracking_number' => $primaryShipment['tracking_number'],
             'shipping_provider' => $this->provider(),
-            'shipping_carrier' => config('services.easypost.default_carrier', 'Royal Mail'),
-            'shipping_service' => config('services.easypost.default_service', 'Tracked 48'),
+            'shipping_carrier' => 'Royal Mail',
+            'shipping_service' => data_get($order->shipping_metadata, 'selected_delivery_option.service', 'Royal Mail Tracked 48'),
             'shipping_status' => $tracking['status'],
             'shipping_shipment_id' => $shipmentId,
             'shipping_label_url' => url(Storage::url($labelPath)),
@@ -165,6 +168,7 @@ class MockEasyPostGateway implements ShippingGateway
                 'parcels' => $parcels,
                 'parcel_summary' => $context['parcel_summary'] ?? null,
                 'shipments' => $shipments,
+                'label_generated_at' => now()->toIso8601String(),
             ],
         ];
     }
@@ -191,8 +195,8 @@ class MockEasyPostGateway implements ShippingGateway
             return [
                 'tracking_number' => $primary['tracking_number'] ?? $order->tracking_number,
                 'shipping_provider' => $order->shipping_provider ?: $this->provider(),
-                'shipping_carrier' => $order->shipping_carrier ?: config('services.easypost.default_carrier', 'Royal Mail'),
-                'shipping_service' => $order->shipping_service ?: config('services.easypost.default_service', 'Tracked 48'),
+                'shipping_carrier' => $order->shipping_carrier ?: 'Royal Mail',
+                'shipping_service' => $order->shipping_service ?: 'Royal Mail Tracked 48',
                 'shipping_status' => $this->aggregateStatus(array_column($resolved, 'status')),
                 'shipping_metadata' => array_merge($order->shipping_metadata ?? [], [
                     'mode' => 'mock',
@@ -211,8 +215,8 @@ class MockEasyPostGateway implements ShippingGateway
         return [
             'tracking_number' => $trackingNumber,
             'shipping_provider' => $order->shipping_provider ?: $this->provider(),
-            'shipping_carrier' => $order->shipping_carrier ?: config('services.easypost.default_carrier', 'Royal Mail'),
-            'shipping_service' => $order->shipping_service ?: config('services.easypost.default_service', 'Tracked 48'),
+            'shipping_carrier' => $order->shipping_carrier ?: 'Royal Mail',
+            'shipping_service' => $order->shipping_service ?: 'Royal Mail Tracked 48',
             'shipping_status' => $tracking['status'],
             'shipping_metadata' => array_merge($order->shipping_metadata ?? [], [
                 'mode' => 'mock',
@@ -222,6 +226,30 @@ class MockEasyPostGateway implements ShippingGateway
                 'last_checked_at' => now()->toIso8601String(),
                 'supported_magic_codes' => array_keys(self::MAGIC_TRACKING_CODES),
             ]),
+        ];
+    }
+
+    public function voidShipment(Order $order): array
+    {
+        return [
+            'shipping_status' => 'voided',
+            'shipping_metadata' => array_merge($order->shipping_metadata ?? [], [
+                'voided_at' => now()->toIso8601String(),
+                'void_results' => [[
+                    'shipment_id' => $order->shipping_shipment_id ?: 'mock',
+                    'status' => 'submitted',
+                    'refund_status' => 'submitted',
+                ]],
+            ]),
+        ];
+    }
+
+    public function validateAddress(array $address): array
+    {
+        return [
+            'valid' => true,
+            'messages' => [],
+            'verified_address' => null,
         ];
     }
 
@@ -246,21 +274,21 @@ class MockEasyPostGateway implements ShippingGateway
             'order' => $order,
             'shipmentId' => $shipmentId,
             'trackingNumber' => $trackingNumber,
-            'carrier' => config('services.easypost.default_carrier', 'Royal Mail'),
-            'service' => config('services.easypost.default_service', 'Tracked 48'),
+            'carrier' => 'Royal Mail',
+            'service' => data_get($order->shipping_metadata, 'selected_delivery_option.service', 'Royal Mail Tracked 48'),
             'fromAddress' => [
                 config('services.shipping.from_company'),
                 config('services.shipping.from_address_line1'),
                 config('services.shipping.from_address_line2'),
                 trim(config('services.shipping.from_city') . ' ' . config('services.shipping.from_postcode')),
-                config('services.shipping.from_country'),
+                config('services.shipping.from_county'),
             ],
             'toAddress' => [
                 $order->customer_name,
                 $order->shipping_address_line1 ?: $order->shipping_address,
                 $order->shipping_address_line2,
                 trim(($order->shipping_city ?: '') . ' ' . ($order->shipping_postcode ?: '')),
-                $order->shipping_country ?: '',
+                $order->shipping_county ?: '',
             ],
         ])->render();
 
@@ -271,7 +299,7 @@ class MockEasyPostGateway implements ShippingGateway
 
     /**
      * @param  array<string, mixed>  $toAddress
-     * @return array{delivery_days:int,rate_surcharge:float,premium_surcharge:float,standard_window_start:string,standard_window_end:string}
+     * @return array{tracked_48_days:int,tracked_24_days:int,rate_surcharge:float,premium_surcharge:float}
      */
     private function resolveDeliveryProfile(array $toAddress): array
     {
@@ -285,57 +313,46 @@ class MockEasyPostGateway implements ShippingGateway
 
         if ($isNorthernIreland) {
             return [
-                'delivery_days' => 3,
+                'tracked_48_days' => 3,
+                'tracked_24_days' => 2,
                 'rate_surcharge' => 4.50,
                 'premium_surcharge' => 2.00,
-                'standard_window_start' => '08:30',
-                'standard_window_end' => '19:00',
             ];
         }
 
         if ($isRemote) {
             return [
-                'delivery_days' => 4,
+                'tracked_48_days' => 4,
+                'tracked_24_days' => 3,
                 'rate_surcharge' => 7.00,
                 'premium_surcharge' => 3.50,
-                'standard_window_start' => '09:00',
-                'standard_window_end' => '19:30',
             ];
         }
 
         if ($isScotland) {
             return [
-                'delivery_days' => 3,
+                'tracked_48_days' => 3,
+                'tracked_24_days' => 2,
                 'rate_surcharge' => 2.00,
                 'premium_surcharge' => 1.50,
-                'standard_window_start' => '08:00',
-                'standard_window_end' => '18:30',
             ];
         }
 
         if ($isLondon) {
             return [
-                'delivery_days' => 1,
+                'tracked_48_days' => 2,
+                'tracked_24_days' => 1,
                 'rate_surcharge' => 0.00,
                 'premium_surcharge' => 0.00,
-                'standard_window_start' => '07:30',
-                'standard_window_end' => '18:00',
             ];
         }
 
-        $seed = abs(crc32(($postcode ?: 'UK') . '|' . ($city ?: 'CITY'))) % 3;
-        $deliveryDays = match ($seed) {
-            0 => 1,
-            1 => 2,
-            default => 3,
-        };
-
+        // Default UK mainland
         return [
-            'delivery_days' => $deliveryDays,
-            'rate_surcharge' => $deliveryDays === 1 ? 1.50 : ($deliveryDays === 3 ? 1.00 : 0.00),
-            'premium_surcharge' => $deliveryDays === 1 ? 0.50 : 0.00,
-            'standard_window_start' => $deliveryDays === 1 ? '07:30' : '08:00',
-            'standard_window_end' => $deliveryDays === 3 ? '19:00' : '18:00',
+            'tracked_48_days' => 3,
+            'tracked_24_days' => 1,
+            'rate_surcharge' => 1.00,
+            'premium_surcharge' => 0.50,
         ];
     }
 

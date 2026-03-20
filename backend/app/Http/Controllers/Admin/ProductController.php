@@ -32,6 +32,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'show_variant_in_title' => 'boolean',
             'price' => 'required|string',
             'image' => 'nullable|string',
             'gallery' => 'nullable|array',
@@ -45,12 +46,12 @@ class ProductController extends Controller
             'order' => 'integer',
             'track_stock' => 'boolean',
             'stock_quantity' => 'nullable|integer',
-            'shipping_weight_kg' => 'required|numeric|min:0.01|max:999.999',
-            'shipping_length_cm' => 'required|numeric|min:1|max:999.99',
-            'shipping_width_cm' => 'required|numeric|min:1|max:999.99',
-            'shipping_height_cm' => 'required|numeric|min:1|max:999.99',
-            'shipping_class' => 'required|string|in:standard,bulky,oversized',
-            'ships_separately' => 'boolean',
+            'shipping_weight_kg' => 'nullable|numeric|min:0.01|max:999.999',
+            'shipping_length_cm' => 'nullable|numeric|min:1|max:999.99',
+            'shipping_width_cm' => 'nullable|numeric|min:1|max:999.99',
+            'shipping_height_cm' => 'nullable|numeric|min:1|max:999.99',
+            'shipping_class' => 'nullable|string|in:standard,bulky,oversized',
+            'ships_separately' => 'nullable|boolean',
             'specifications' => 'nullable|array',
             'variants' => 'nullable|array',
         ]);
@@ -72,6 +73,7 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'show_variant_in_title' => 'boolean',
             'price' => 'required|string',
             'image' => 'nullable|string',
             'gallery' => 'nullable|array',
@@ -85,12 +87,12 @@ class ProductController extends Controller
             'order' => 'integer',
             'track_stock' => 'boolean',
             'stock_quantity' => 'nullable|integer',
-            'shipping_weight_kg' => 'required|numeric|min:0.01|max:999.999',
-            'shipping_length_cm' => 'required|numeric|min:1|max:999.99',
-            'shipping_width_cm' => 'required|numeric|min:1|max:999.99',
-            'shipping_height_cm' => 'required|numeric|min:1|max:999.99',
-            'shipping_class' => 'required|string|in:standard,bulky,oversized',
-            'ships_separately' => 'boolean',
+            'shipping_weight_kg' => 'nullable|numeric|min:0.01|max:999.999',
+            'shipping_length_cm' => 'nullable|numeric|min:1|max:999.99',
+            'shipping_width_cm' => 'nullable|numeric|min:1|max:999.99',
+            'shipping_height_cm' => 'nullable|numeric|min:1|max:999.99',
+            'shipping_class' => 'nullable|string|in:standard,bulky,oversized',
+            'ships_separately' => 'nullable|boolean',
             'specifications' => 'nullable|array',
             'variants' => 'nullable|array',
         ]);

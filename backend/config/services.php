@@ -51,6 +51,7 @@ return [
         'from_address_line2' => env('SHIPPING_FROM_ADDRESS_LINE2', 'Roebuck Road, Hainault Business Park'),
         'from_city' => env('SHIPPING_FROM_CITY', 'Ilford'),
         'from_postcode' => env('SHIPPING_FROM_POSTCODE', 'IG6 3UG'),
+        'from_county' => env('SHIPPING_FROM_COUNTY', 'Essex'),
         'from_country' => env('SHIPPING_FROM_COUNTRY', 'GB'),
         'default_rate' => (float) env('SHIPPING_DEFAULT_RATE', 6.50),
         'default_parcel' => [

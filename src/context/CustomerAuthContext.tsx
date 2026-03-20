@@ -17,7 +17,7 @@ interface Customer {
 
 interface CustomerAuthContextType {
     customer: Customer | null;
-    token: string | null;
+    isAuthenticated: boolean;
     isLoading: boolean;
     login: (customerData: Customer) => void;
     logout: () => void;
@@ -28,7 +28,7 @@ const CustomerAuthContext = createContext<CustomerAuthContextType | undefined>(u
 
 export function CustomerAuthProvider({ children }: { children: ReactNode }) {
     const [customer, setCustomer] = useState<Customer | null>(null);
-    const [token, setToken] = useState<string | null>(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -48,19 +48,19 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
                     }
 
                     setCustomer(data);
-                    setToken("cookie");
+                    setIsAuthenticated(true);
                 } else {
                     if (!isMounted) {
                         return;
                     }
 
-                    setToken(null);
+                    setIsAuthenticated(false);
                     setCustomer(null);
                 }
             } catch (error) {
                 console.error("Failed to fetch customer profile", error);
                 if (isMounted) {
-                    setToken(null);
+                    setIsAuthenticated(false);
                     setCustomer(null);
                 }
             } finally {
@@ -78,12 +78,12 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const login = (customerData: Customer) => {
-        setToken("cookie");
+        setIsAuthenticated(true);
         setCustomer(customerData);
     };
 
     const logout = () => {
-        setToken(null);
+        setIsAuthenticated(false);
         setCustomer(null);
     };
 
@@ -92,7 +92,7 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <CustomerAuthContext.Provider value={{ customer, token, isLoading, login, logout, updateCustomer }}>
+        <CustomerAuthContext.Provider value={{ customer, isAuthenticated, isLoading, login, logout, updateCustomer }}>
             {children}
         </CustomerAuthContext.Provider>
     );
