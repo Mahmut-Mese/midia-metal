@@ -17,18 +17,23 @@ export const resolveSelectedVariantUnitPrice = (
   selectedVariants?: Record<string, any> | null,
 ): number | null => {
   const base = parseMoneyValue(basePrice);
-  const variantPrices = Object.values(selectedVariants || {})
-    .map((variant) => parseMoneyValue(variant?.price))
-    .filter((price): price is number => price !== null);
-
-  if (variantPrices.length === 0) {
-    return base;
+  const variants = Object.values(selectedVariants || {}).filter(Boolean);
+  
+  // 1. Prioritize any variant specifically named "Size" (or similar) that has a price
+  const sizeVariant = variants.find(v => {
+    const opt = String(v.option ?? "").toLowerCase();
+    return opt === "size" || opt === "ölçü" || opt === "ebat";
+  });
+  
+  const sizePrice = parseMoneyValue(sizeVariant?.price);
+  if (sizePrice !== null) {
+    return sizePrice;
   }
 
-  const uniqueVariantPrices = Array.from(new Set(variantPrices.map((price) => price.toFixed(2))));
-
-  if (uniqueVariantPrices.length === 1) {
-    return Number(uniqueVariantPrices[0]);
+  // 2. Fallback: Find the first variant with a non-null price
+  const variantWithPrice = variants.find(v => parseMoneyValue(v.price) !== null);
+  if (variantWithPrice) {
+    return parseMoneyValue(variantWithPrice.price);
   }
 
   return base;
@@ -58,24 +63,32 @@ export const getStandardizedDisplayTitle = (product: any, activeVariantMap?: Rec
   
   let appendText = "";
   if (product.show_variant_in_title) {
+    const isSizeOption = (opt: any) => {
+      const normalized = String(opt ?? "").toLowerCase();
+      return normalized === "size" || normalized === "ölçü" || normalized === "ebat";
+    };
+
     if (activeVariantMap && Object.keys(activeVariantMap).length > 0) {
-      const values = Object.values(activeVariantMap).map((v: any) => v.value).filter(Boolean);
-      if (values.length > 0) {
-        appendText = ` - ${values.join(' / ')}`;
+      const sizeVariant = Object.values(activeVariantMap).find((v: any) => isSizeOption(v.option));
+      if (sizeVariant && sizeVariant.value) {
+        appendText = ` - ${sizeVariant.value}`;
       }
     } else if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
-      const validVariants = product.variants.filter((v: any) => v.price !== null && v.price !== undefined && String(v.price).trim() !== "");
-      if (validVariants.length > 0) {
-        const cheapest = validVariants.reduce((min: any, curr: any) => {
-          const currPrice = parseFloat(String(curr.price).replace(/[^\d.-]/g, "")) || 0;
-          const minPrice = parseFloat(String(min.price).replace(/[^\d.-]/g, "")) || 0;
-          return currPrice < minPrice ? curr : min;
-        }, validVariants[0]);
-        if (cheapest && cheapest.value) {
-          appendText = ` - ${cheapest.value}`;
+      const sizeVariants = product.variants.filter((v: any) => isSizeOption(v.option));
+      if (sizeVariants.length > 0) {
+        const validVariants = sizeVariants.filter((v: any) => v.price !== null && v.price !== undefined && String(v.price).trim() !== "");
+        if (validVariants.length > 0) {
+          const cheapest = validVariants.reduce((min: any, curr: any) => {
+            const currPrice = parseFloat(String(curr.price).replace(/[^\d.-]/g, "")) || 0;
+            const minPrice = parseFloat(String(min.price).replace(/[^\d.-]/g, "")) || 0;
+            return currPrice < minPrice ? curr : min;
+          }, validVariants[0]);
+          if (cheapest && cheapest.value) {
+            appendText = ` - ${cheapest.value}`;
+          }
+        } else if (sizeVariants[0] && sizeVariants[0].value) {
+          appendText = ` - ${sizeVariants[0].value}`;
         }
-      } else {
-        appendText = ` - ${product.variants[0].value}`;
       }
     }
   }

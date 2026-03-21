@@ -81,7 +81,9 @@ const mapVariantsToProductPrice = (variants: any[] = [], productPrice: string) =
                 variant.shipping_width_cm,
                 variant.shipping_height_cm,
             ) || String(variant.value).trim(),
-            price: normalizeVariantPrice(variant.price, productPrice),
+            price: String(variant.option ?? "").toLowerCase() === "size"
+                ? normalizeVariantPrice(variant.price, productPrice)
+                : (variant.price || null),
             stock: normalizeVariantStock(variant.stock),
             shipping_weight_kg: normalizeShippingNumber(variant.shipping_weight_kg),
             shipping_length_cm: normalizeShippingNumber(variant.shipping_length_cm),
@@ -94,24 +96,29 @@ const mapVariantsToProductPrice = (variants: any[] = [], productPrice: string) =
 const mapVariantsForStorage = (variants: any[] = [], productPrice: string) =>
     variants
         .filter((variant) => variant?.option && variant?.value)
-        .map((variant) => ({
-            ...variant,
-            option: String(variant.option).trim(),
-            value: buildVariantValueFromDimensions(
-                variant.option,
-                variant.shipping_length_cm,
-                variant.shipping_width_cm,
-                variant.shipping_height_cm,
-            ) || String(variant.value).trim(),
-            price: formatPriceForStorage(variant.price, productPrice),
-            stock: normalizeVariantStock(variant.stock),
-            shipping_weight_kg: normalizeShippingNumber(variant.shipping_weight_kg),
-            shipping_length_cm: normalizeShippingNumber(variant.shipping_length_cm),
-            shipping_width_cm: normalizeShippingNumber(variant.shipping_width_cm),
-            shipping_height_cm: normalizeShippingNumber(variant.shipping_height_cm),
-            shipping_class: typeof variant.shipping_class === "string" ? variant.shipping_class : "",
-            ships_separately: Boolean(variant.ships_separately),
-        }));
+        .map((variant) => {
+            const isSize = String(variant.option ?? "").toLowerCase() === "size";
+            return {
+                ...variant,
+                option: String(variant.option).trim(),
+                value: buildVariantValueFromDimensions(
+                    variant.option,
+                    variant.shipping_length_cm,
+                    variant.shipping_width_cm,
+                    variant.shipping_height_cm,
+                ) || String(variant.value).trim(),
+                price: isSize
+                    ? formatPriceForStorage(variant.price, productPrice)
+                    : (variant.price || null),
+                stock: normalizeVariantStock(variant.stock),
+                shipping_weight_kg: normalizeShippingNumber(variant.shipping_weight_kg),
+                shipping_length_cm: normalizeShippingNumber(variant.shipping_length_cm),
+                shipping_width_cm: normalizeShippingNumber(variant.shipping_width_cm),
+                shipping_height_cm: normalizeShippingNumber(variant.shipping_height_cm),
+                shipping_class: typeof variant.shipping_class === "string" ? variant.shipping_class : "",
+                ships_separately: Boolean(variant.ships_separately),
+            };
+        });
 
 const SHIPPING_CLASS_OPTIONS = [
     { value: "standard", label: "Standard" },
@@ -962,313 +969,193 @@ export default function AdminProducts() {
                                     )}
 
                                     <div className="col-span-2 border-t pt-6 bg-gray-50/50 py-6 px-1 rounded-lg">
-                                        <label className="block text-sm font-bold text-[#10275c] mb-1 uppercase tracking-wider px-4">PRODUCT VARIANTS</label>
-                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider px-4 mb-2">SIZE</p>
-                                        <div className="space-y-4">
-                                            {/* Variant List Table */}
-                                                <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
-                                                    <table className="w-max divide-y divide-gray-200">
-                                                        <thead className="bg-gray-50">
-                                                            <tr>
+                                        <label className="block text-sm font-bold text-[#10275c] mb-4 uppercase tracking-wider px-4">PRODUCT VARIANTS</label>
 
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Price</th>
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Stock</th>
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Weight (kg)</th>
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Length (cm)</th>
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Width (cm)</th>
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Height (cm)</th>
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Shipping Class</th>
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Ships Separately</th>
-                                                                <th className="px-2 py-2 text-right"></th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="bg-white divide-y divide-gray-200">
-                                                            {(currentProduct.variants || []).map((v: any, idx: number) => (
+                                        {/* ── SIZE (fixed) ── */}
+                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider px-4 mb-2">Size</p>
+                                        <div className="space-y-4 mb-6">
+                                            <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
+                                                <table className="w-max divide-y divide-gray-200">
+                                                    <thead className="bg-gray-50">
+                                                        <tr>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Size Label</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Price</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Stock</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Weight (kg)</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Length (cm)</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Width (cm)</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Height (cm)</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Shipping Class</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Ships Separately</th>
+                                                            <th className="px-2 py-2 text-right"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="bg-white divide-y divide-gray-200">
+                                                        {(currentProduct.variants || []).filter((v: any) => String(v.option ?? "").toLowerCase() === "size").map((v: any, _idx: number) => {
+                                                            const idx = (currentProduct.variants || []).indexOf(v);
+                                                            return (
                                                                 <tr key={idx} className="hover:bg-gray-50 transition-colors">
-
                                                                     <td className="px-2 py-2">
                                                                         <input
                                                                             type="text"
-                                                                            value={v.price ?? ""}
+                                                                            value={v.value ?? ""}
                                                                             onChange={(e) => {
                                                                                 const newVariants = [...(currentProduct.variants || [])];
-                                                                                newVariants[idx] = {
-                                                                                    ...newVariants[idx],
-                                                                                    price: e.target.value,
-                                                                                };
+                                                                                newVariants[idx] = { ...newVariants[idx], value: e.target.value };
                                                                                 setCurrentProduct({ ...currentProduct, variants: newVariants });
                                                                             }}
                                                                             className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder={currentProduct.price || "£0.00"}
+                                                                            placeholder="e.g. H600mm"
                                                                         />
                                                                     </td>
                                                                     <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={0}
-                                                                            value={v.stock ?? ""}
-                                                                            onChange={(e) => {
-                                                                                const newVariants = [...(currentProduct.variants || [])];
-                                                                                newVariants[idx] = {
-                                                                                    ...newVariants[idx],
-                                                                                    stock: normalizeVariantStock(e.target.value),
-                                                                                };
-                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                            }}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                        />
+                                                                        <input type="text" value={v.price ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], price: e.target.value }; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder={currentProduct.price || "£0.00"} />
                                                                     </td>
                                                                     <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={0.01}
-                                                                            step="0.001"
-                                                                            value={v.shipping_weight_kg ?? ""}
-                                                                            onChange={(e) => {
-                                                                                const newVariants = [...(currentProduct.variants || [])];
-                                                                                newVariants[idx] = {
-                                                                                    ...newVariants[idx],
-                                                                                    shipping_weight_kg: normalizeShippingNumber(e.target.value),
-                                                                                };
-                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                            }}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder="base"
-                                                                        />
+                                                                        <input type="number" min={0} value={v.stock ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], stock: normalizeVariantStock(e.target.value) }; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
                                                                     </td>
                                                                     <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={1}
-                                                                            step="0.01"
-                                                                            value={v.shipping_length_cm ?? ""}
-                                                                            onChange={(e) => {
-                                                                                const newVariants = [...(currentProduct.variants || [])];
-                                                                                newVariants[idx] = {
-                                                                                    ...newVariants[idx],
-                                                                                    shipping_length_cm: normalizeShippingNumber(e.target.value),
-                                                                                };
-                                                                                const generatedValue = buildVariantValueFromDimensions(
-                                                                                    newVariants[idx].option,
-                                                                                    e.target.value,
-                                                                                    newVariants[idx].shipping_width_cm,
-                                                                                    newVariants[idx].shipping_height_cm,
-                                                                                );
-                                                                                if (generatedValue) {
-                                                                                    newVariants[idx].value = generatedValue;
-                                                                                }
-                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                            }}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder="Length"
-                                                                        />
+                                                                        <input type="number" min={0.01} step="0.001" value={v.shipping_weight_kg ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], shipping_weight_kg: normalizeShippingNumber(e.target.value) }; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="base" />
                                                                     </td>
                                                                     <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={1}
-                                                                            step="0.01"
-                                                                            value={v.shipping_width_cm ?? ""}
-                                                                            onChange={(e) => {
-                                                                                const newVariants = [...(currentProduct.variants || [])];
-                                                                                newVariants[idx] = {
-                                                                                    ...newVariants[idx],
-                                                                                    shipping_width_cm: normalizeShippingNumber(e.target.value),
-                                                                                };
-                                                                                const generatedValue = buildVariantValueFromDimensions(
-                                                                                    newVariants[idx].option,
-                                                                                    newVariants[idx].shipping_length_cm,
-                                                                                    e.target.value,
-                                                                                    newVariants[idx].shipping_height_cm,
-                                                                                );
-                                                                                if (generatedValue) {
-                                                                                    newVariants[idx].value = generatedValue;
-                                                                                }
-                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                            }}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder="Width"
-                                                                        />
+                                                                        <input type="number" min={1} step="0.01" value={v.shipping_length_cm ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], shipping_length_cm: normalizeShippingNumber(e.target.value) }; const gen = buildVariantValueFromDimensions("Size", e.target.value, nv[idx].shipping_width_cm, nv[idx].shipping_height_cm); if (gen) nv[idx].value = gen; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="base" />
                                                                     </td>
                                                                     <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={1}
-                                                                            step="0.01"
-                                                                            value={v.shipping_height_cm ?? ""}
-                                                                            onChange={(e) => {
-                                                                                const newVariants = [...(currentProduct.variants || [])];
-                                                                                newVariants[idx] = {
-                                                                                    ...newVariants[idx],
-                                                                                    shipping_height_cm: normalizeShippingNumber(e.target.value),
-                                                                                };
-                                                                                const generatedValue = buildVariantValueFromDimensions(
-                                                                                    newVariants[idx].option,
-                                                                                    newVariants[idx].shipping_length_cm,
-                                                                                    newVariants[idx].shipping_width_cm,
-                                                                                    e.target.value,
-                                                                                );
-                                                                                if (generatedValue) {
-                                                                                    newVariants[idx].value = generatedValue;
-                                                                                }
-                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                            }}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder="Height"
-                                                                        />
+                                                                        <input type="number" min={1} step="0.01" value={v.shipping_width_cm ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], shipping_width_cm: normalizeShippingNumber(e.target.value) }; const gen = buildVariantValueFromDimensions("Size", nv[idx].shipping_length_cm, e.target.value, nv[idx].shipping_height_cm); if (gen) nv[idx].value = gen; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="base" />
                                                                     </td>
                                                                     <td className="px-2 py-2">
-                                                                        <select
-                                                                            value={v.shipping_class ?? ""}
-                                                                            onChange={(e) => {
-                                                                                const newVariants = [...(currentProduct.variants || [])];
-                                                                                newVariants[idx] = {
-                                                                                    ...newVariants[idx],
-                                                                                    shipping_class: e.target.value,
-                                                                                };
-                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                            }}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                        >
+                                                                        <input type="number" min={1} step="0.01" value={v.shipping_height_cm ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], shipping_height_cm: normalizeShippingNumber(e.target.value) }; const gen = buildVariantValueFromDimensions("Size", nv[idx].shipping_length_cm, nv[idx].shipping_width_cm, e.target.value); if (gen) nv[idx].value = gen; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="base" />
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        <select value={v.shipping_class ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], shipping_class: e.target.value }; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none">
                                                                             <option value="">Use base</option>
-                                                                            {SHIPPING_CLASS_OPTIONS.map((option) => (
-                                                                                <option key={option.value} value={option.value}>{option.label}</option>
-                                                                            ))}
+                                                                            {SHIPPING_CLASS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                                                                         </select>
                                                                     </td>
                                                                     <td className="px-2 py-2">
                                                                         <label className="flex items-center gap-2 text-sm text-gray-600">
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={Boolean(v.ships_separately)}
-                                                                                onChange={(e) => {
-                                                                                    const newVariants = [...(currentProduct.variants || [])];
-                                                                                    newVariants[idx] = {
-                                                                                        ...newVariants[idx],
-                                                                                        ships_separately: e.target.checked,
-                                                                                    };
-                                                                                    setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                                }}
-                                                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                                            />
+                                                                            <input type="checkbox" checked={Boolean(v.ships_separately)} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], ships_separately: e.target.checked }; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                                                                             <span>Yes</span>
                                                                         </label>
                                                                     </td>
                                                                     <td className="px-2 py-2 text-right">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                const newVariants = [...currentProduct.variants];
-                                                                                newVariants.splice(idx, 1);
-                                                                                setCurrentProduct({ ...currentProduct, variants: newVariants });
-                                                                            }}
-                                                                            className="text-red-400 hover:text-red-600 p-1"
-                                                                        >
-                                                                            <Trash2 className="w-4 h-4" />
-                                                                        </button>
+                                                                        <button type="button" onClick={() => { const nv = [...currentProduct.variants]; nv.splice(idx, 1); setCurrentProduct({ ...currentProduct, variants: nv }); }} className="text-red-400 hover:text-red-600 p-1"><Trash2 className="w-4 h-4" /></button>
                                                                     </td>
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                        <tfoot className="bg-gray-50 border-t-2 border-gray-200">
-                                                            <tr>
-                                                                <td className="px-2 py-2">
-                                                                    <input id="var_price" type="text" placeholder={currentProduct.price || "£0.00"} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input id="var_stock" type="number" placeholder="10" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input id="var_shipping_weight" type="number" min="0.01" step="0.001" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input id="var_shipping_length" type="number" min="1" step="0.01" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input id="var_shipping_width" type="number" min="1" step="0.01" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input id="var_shipping_height" type="number" min="1" step="0.01" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <select id="var_shipping_class" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none">
-                                                                        <option value="">Use base</option>
-                                                                        {SHIPPING_CLASS_OPTIONS.map((option) => (
-                                                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <label className="flex items-center gap-2 text-sm text-gray-600">
-                                                                        <input id="var_ships_separately" type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                                                        <span>Yes</span>
-                                                                    </label>
-                                                                </td>
-                                                                <td className="px-2 py-2 text-right">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            const priceEl = document.getElementById('var_price') as HTMLInputElement;
-                                                                            const stockEl = document.getElementById('var_stock') as HTMLInputElement;
-                                                                            const weightEl = document.getElementById('var_shipping_weight') as HTMLInputElement;
-                                                                            const lengthEl = document.getElementById('var_shipping_length') as HTMLInputElement;
-                                                                            const widthEl = document.getElementById('var_shipping_width') as HTMLInputElement;
-                                                                            const heightEl = document.getElementById('var_shipping_height') as HTMLInputElement;
-                                                                            const classEl = document.getElementById('var_shipping_class') as HTMLSelectElement;
-                                                                            const separateEl = document.getElementById('var_ships_separately') as HTMLInputElement;
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                    <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                                        <tr>
+                                                            <td className="px-2 py-2 text-xs text-gray-400 italic">auto</td>
+                                                            <td className="px-2 py-2"><input id="sz_price" type="text" placeholder={currentProduct.price || "£0.00"} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                            <td className="px-2 py-2"><input id="sz_stock" type="number" placeholder="10" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                            <td className="px-2 py-2"><input id="sz_weight" type="number" min="0.01" step="0.001" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                            <td className="px-2 py-2"><input id="sz_length" type="number" min="1" step="0.01" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                            <td className="px-2 py-2"><input id="sz_width" type="number" min="1" step="0.01" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                            <td className="px-2 py-2"><input id="sz_height" type="number" min="1" step="0.01" placeholder="base" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                            <td className="px-2 py-2">
+                                                                <select id="sz_class" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none">
+                                                                    <option value="">Use base</option>
+                                                                    {SHIPPING_CLASS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                                                </select>
+                                                            </td>
+                                                            <td className="px-2 py-2">
+                                                                <label className="flex items-center gap-2 text-sm text-gray-600">
+                                                                    <input id="sz_separate" type="checkbox" className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                                    <span>Yes</span>
+                                                                </label>
+                                                            </td>
+                                                            <td className="px-2 py-2 text-right">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const priceEl = document.getElementById('sz_price') as HTMLInputElement;
+                                                                        const stockEl = document.getElementById('sz_stock') as HTMLInputElement;
+                                                                        const weightEl = document.getElementById('sz_weight') as HTMLInputElement;
+                                                                        const lengthEl = document.getElementById('sz_length') as HTMLInputElement;
+                                                                        const widthEl = document.getElementById('sz_width') as HTMLInputElement;
+                                                                        const heightEl = document.getElementById('sz_height') as HTMLInputElement;
+                                                                        const classEl = document.getElementById('sz_class') as HTMLSelectElement;
+                                                                        const separateEl = document.getElementById('sz_separate') as HTMLInputElement;
+                                                                        const generatedValue = buildVariantValueFromDimensions("Size", lengthEl?.value, widthEl?.value, heightEl?.value);
+                                                                        if (!generatedValue) { toast.error("Enter Length, Width, and Height to generate the Size label."); return; }
+                                                                        setCurrentProduct({ ...currentProduct, variants: [...(currentProduct.variants || []), { option: "Size", value: generatedValue, price: normalizeVariantPrice(priceEl?.value, currentProduct.price), stock: normalizeVariantStock(stockEl.value), shipping_weight_kg: normalizeShippingNumber(weightEl?.value), shipping_length_cm: normalizeShippingNumber(lengthEl?.value), shipping_width_cm: normalizeShippingNumber(widthEl?.value), shipping_height_cm: normalizeShippingNumber(heightEl?.value), shipping_class: classEl?.value || "", ships_separately: Boolean(separateEl?.checked) }] });
+                                                                        if (priceEl) priceEl.value = ""; stockEl.value = ""; if (weightEl) weightEl.value = ""; if (lengthEl) lengthEl.value = ""; if (widthEl) widthEl.value = ""; if (heightEl) heightEl.value = ""; if (classEl) classEl.value = ""; if (separateEl) separateEl.checked = false;
+                                                                    }}
+                                                                    className="bg-[#eb5c10] text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-[#d4500b] transition-colors shadow-sm whitespace-nowrap"
+                                                                >Add</button>
+                                                            </td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        </div>
 
-                                                                            const resolvedOption = "Size";
-                                                                            const generatedValue = buildVariantValueFromDimensions(
-                                                                                resolvedOption,
-                                                                                lengthEl?.value,
-                                                                                widthEl?.value,
-                                                                                heightEl?.value,
-                                                                            );
-
-                                                                            if (!generatedValue) {
-                                                                                toast.error("Enter Length, Width, and Height to generate the Size label.");
-                                                                                return;
-                                                                            }
-
-                                                                            setCurrentProduct({
-                                                                                ...currentProduct,
-                                                                                variants: [
-                                                                                    ...(currentProduct.variants || []),
-                                                                                    {
-                                                                                        option: resolvedOption,
-                                                                                        value: generatedValue,
-                                                                                        price: normalizeVariantPrice(priceEl?.value, currentProduct.price),
-                                                                                        stock: normalizeVariantStock(stockEl.value),
-                                                                                        shipping_weight_kg: normalizeShippingNumber(weightEl?.value),
-                                                                                        shipping_length_cm: normalizeShippingNumber(lengthEl?.value),
-                                                                                        shipping_width_cm: normalizeShippingNumber(widthEl?.value),
-                                                                                        shipping_height_cm: normalizeShippingNumber(heightEl?.value),
-                                                                                        shipping_class: classEl?.value || "",
-                                                                                        ships_separately: Boolean(separateEl?.checked),
-                                                                                    }
-                                                                                ]
-                                                                            });
-
-                                                                            if (priceEl) priceEl.value = "";
-                                                                            stockEl.value = "";
-                                                                            if (weightEl) weightEl.value = "";
-                                                                            if (lengthEl) lengthEl.value = "";
-                                                                            if (widthEl) widthEl.value = "";
-                                                                            if (heightEl) heightEl.value = "";
-                                                                            if (classEl) classEl.value = "";
-                                                                            if (separateEl) separateEl.checked = false;
-                                                                        }}
-                                                                        className="bg-[#eb5c10] text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-[#d4500b] transition-colors shadow-sm whitespace-nowrap"
-                                                                    >
-                                                                        Add
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        </tfoot>
-                                                    </table>
-                                                </div>
+                                        {/* ── OTHER VARIANTS (flexible) ── */}
+                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider px-4 mb-2">Other Variants <span className="normal-case font-normal text-gray-400">(Color, Material, etc.)</span></p>
+                                        <div className="space-y-4">
+                                            <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
+                                                <table className="w-max divide-y divide-gray-200">
+                                                    <thead className="bg-gray-50">
+                                                        <tr>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Option</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Value</th>
+                                                            <th className="px-2 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Stock</th>
+                                                            <th className="px-2 py-2 text-right"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="bg-white divide-y divide-gray-200">
+                                                        {(currentProduct.variants || []).filter((v: any) => String(v.option ?? "").toLowerCase() !== "size").map((v: any, _idx: number) => {
+                                                            const idx = (currentProduct.variants || []).indexOf(v);
+                                                            return (
+                                                                <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                                                    <td className="px-2 py-2">
+                                                                        <input type="text" value={v.option ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], option: e.target.value }; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="Color" />
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        <input type="text" value={v.value ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], value: e.target.value }; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="e.g. Red" />
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        <input type="number" min={0} value={v.stock ?? ""} onChange={(e) => { const nv = [...(currentProduct.variants || [])]; nv[idx] = { ...nv[idx], stock: normalizeVariantStock(e.target.value) }; setCurrentProduct({ ...currentProduct, variants: nv }); }} className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" />
+                                                                    </td>
+                                                                    <td className="px-2 py-2 text-right">
+                                                                        <button type="button" onClick={() => { const nv = [...currentProduct.variants]; nv.splice(idx, 1); setCurrentProduct({ ...currentProduct, variants: nv }); }} className="text-red-400 hover:text-red-600 p-1"><Trash2 className="w-4 h-4" /></button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                    <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                                        <tr>
+                                                            <td className="px-2 py-2"><input id="ov_option" type="text" placeholder="Color" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                            <td className="px-2 py-2"><input id="ov_value" type="text" placeholder="e.g. Red" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                            <td className="px-2 py-2"><input id="ov_stock" type="number" placeholder="10" className="w-16 rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                            <td className="px-2 py-2 text-right">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const optEl = document.getElementById('ov_option') as HTMLInputElement;
+                                                                        const valEl = document.getElementById('ov_value') as HTMLInputElement;
+                                                                        const stEl = document.getElementById('ov_stock') as HTMLInputElement;
+                                                                        const optionName = optEl?.value.trim();
+                                                                        const variantValue = valEl?.value.trim();
+                                                                        if (!optionName) { toast.error("Please enter an option name (e.g. Color)."); return; }
+                                                                        if (!variantValue) { toast.error("Please enter a value (e.g. Red)."); return; }
+                                                                        setCurrentProduct({ ...currentProduct, variants: [...(currentProduct.variants || []), { option: optionName, value: variantValue, price: null, stock: normalizeVariantStock(stEl?.value), shipping_weight_kg: null, shipping_length_cm: null, shipping_width_cm: null, shipping_height_cm: null, shipping_class: "", ships_separately: false }] });
+                                                                        if (optEl) optEl.value = ""; if (valEl) valEl.value = ""; if (stEl) stEl.value = "";
+                                                                    }}
+                                                                    className="bg-[#eb5c10] text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-[#d4500b] transition-colors shadow-sm whitespace-nowrap"
+                                                                >Add</button>
+                                                            </td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
                                         </div>
                                     </div>
+
+
                                 </div>
                                 <div className="pt-4 border-t flex justify-end gap-3 sticky bottom-0 bg-white shadow-[0_-5px_15px_-5px_rgba(0,0,0,0.05)] pb-4">
                                     <button

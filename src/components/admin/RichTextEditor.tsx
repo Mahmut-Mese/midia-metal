@@ -12,6 +12,11 @@ import {
   Link2,
   Eraser,
   Palette,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  LayoutGrid,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
@@ -30,9 +35,51 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
   const editorRef = useRef<HTMLDivElement>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<Range | null>(null);
+  const draggingImageRef = useRef<HTMLImageElement | null>(null);
+  const activeImgRowRef = useRef<HTMLElement | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null);
+  const [imageRect, setImageRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+
+  const updateImageRect = () => {
+    if (!selectedImage || !wrapperRef.current) return;
+    if (!document.body.contains(selectedImage)) {
+      setSelectedImage(null);
+      return;
+    }
+    const wrapperBounds = wrapperRef.current.getBoundingClientRect();
+    const imgBounds = selectedImage.getBoundingClientRect();
+
+    setImageRect({
+      top: imgBounds.top - wrapperBounds.top,
+      left: imgBounds.left - wrapperBounds.left,
+      width: imgBounds.width,
+      height: imgBounds.height,
+    });
+  };
+
+  useEffect(() => {
+    if (selectedImage) {
+      updateImageRect();
+      const observer = new ResizeObserver(updateImageRect);
+      observer.observe(selectedImage);
+      
+      const handleScroll = () => updateImageRect();
+      editorRef.current?.addEventListener("scroll", handleScroll);
+      window.addEventListener("scroll", handleScroll, true);
+      
+      return () => {
+        observer.disconnect();
+        editorRef.current?.removeEventListener("scroll", handleScroll);
+        window.removeEventListener("scroll", handleScroll, true);
+      };
+    } else {
+      setImageRect(null);
+    }
+  }, [selectedImage]);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== (value || "")) {
@@ -42,6 +89,72 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
 
   const emitChange = () => {
     onChange(editorRef.current?.innerHTML || "");
+  };
+
+  const handleEditorClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "IMG") {
+      setSelectedImage(target as HTMLImageElement);
+    } else {
+      setSelectedImage(null);
+    }
+
+    // Track if clicking inside an img-row
+    let node: HTMLElement | null = target;
+    let foundRow: HTMLElement | null = null;
+    while (node && node !== editorRef.current) {
+      if (node.classList?.contains("img-row")) {
+        foundRow = node;
+        break;
+      }
+      node = node.parentElement;
+    }
+    activeImgRowRef.current = foundRow;
+  };
+
+  const applyImageWidth = (width: string) => {
+    if (!selectedImage) return;
+    selectedImage.style.width = width;
+    emitChange();
+  };
+
+  const handleResizeStart = (e: React.MouseEvent, direction: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!selectedImage) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = selectedImage.getBoundingClientRect().width;
+    const startHeight = selectedImage.getBoundingClientRect().height;
+
+    selectedImage.style.maxWidth = "none";
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      let newWidth = startWidth;
+      let newHeight = startHeight;
+
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+
+      if (direction.includes("e")) newWidth += deltaX;
+      if (direction.includes("w")) newWidth -= deltaX;
+      if (direction.includes("s")) newHeight += deltaY;
+      if (direction.includes("n")) newHeight -= deltaY;
+
+      selectedImage.style.width = `${Math.max(20, newWidth)}px`;
+      selectedImage.style.height = `${Math.max(20, newHeight)}px`;
+      updateImageRect();
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      emitChange();
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   };
 
   const saveSelection = () => {
@@ -100,8 +213,12 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
 
     if (lastNode) {
       const newRange = document.createRange();
-      newRange.setStartAfter(lastNode);
-      newRange.collapse(true);
+      if (lastNode.nodeType === Node.ELEMENT_NODE) {
+        newRange.selectNodeContents(lastNode);
+      } else {
+        newRange.setStartAfter(lastNode);
+      }
+      newRange.collapse(false);
       selection.removeAllRanges();
       selection.addRange(newRange);
       selectionRef.current = newRange.cloneRange();
@@ -154,16 +271,46 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
       return;
     }
 
+    if (selectedImage) {
+      const newRange = document.createRange();
+      newRange.setStartAfter(selectedImage);
+      newRange.collapse(true);
+      selectionRef.current = newRange;
+      setSelectedImage(null);
+    }
+
+    // Check if we have an active img-row container
+    const imgRowTarget = activeImgRowRef.current;
+
     setIsUploading(true);
     try {
       for (const file of files) {
         const url = await uploadImage(file);
         const alt = file.name.replace(/\.[^/.]+$/, "");
-        const escapedSrc = String(url).replace(/"/g, "&quot;");
-        const escapedAlt = alt.replace(/"/g, "&quot;");
-        insertHtmlAtSelection(
-          `<p><img src="${escapedSrc}" alt="${escapedAlt}" style="max-width:100%;height:auto;display:block;" /></p><p><br></p>`
-        );
+
+        if (imgRowTarget && editorRef.current?.contains(imgRowTarget)) {
+          // Remove the placeholder hint if present
+          const hint = imgRowTarget.querySelector<HTMLSpanElement>("span[contenteditable='false']");
+          if (hint) {
+            imgRowTarget.removeChild(hint);
+          }
+          // Remove <br> placeholders
+          imgRowTarget.querySelectorAll<HTMLBRElement>("br").forEach(br => br.remove());
+
+          // Create the img element and append directly into the flex row
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = alt;
+          img.style.cssText = "height:auto;display:inline-block;margin:4px;max-width:48%;";
+          img.loading = "lazy";
+          imgRowTarget.appendChild(img);
+        } else {
+          const escapedSrc = String(url).replace(/"/g, "&quot;");
+          const escapedAlt = alt.replace(/"/g, "&quot;");
+          insertHtmlAtSelection(
+            `<img src="${escapedSrc}" alt="${escapedAlt}" style="max-width:100%;height:auto;display:inline-block;margin:5px;" />&nbsp;`
+          );
+        }
       }
       toast.success(files.length > 1 ? "Images uploaded" : "Image uploaded");
     } catch (error: any) {
@@ -243,6 +390,62 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
     insertHtmlAtSelection(`<${type}>${listItems}</${type}><p><br></p>`);
   };
 
+  const insertImageRow = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    // Create the flex row container with a visual hint 
+    const row = document.createElement("div");
+    row.className = "img-row";
+    row.setAttribute("style", "display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin:8px 0;min-height:60px;padding:6px;border:2px dashed #eb5c10;border-radius:6px;position:relative;");
+
+    // Create a placeholder hint span (cleared when images drop in)
+    const hint = document.createElement("span");
+    hint.style.cssText = "color:#eb5c10;font-size:12px;opacity:0.7;pointer-events:none;align-self:center;";
+    hint.setAttribute("contenteditable", "false");
+    hint.textContent = "← Drop or upload images here to place side-by-side";
+    row.appendChild(hint);
+
+    // Find current block-level ancestor in the editor
+    const sel = window.getSelection();
+    let blockAncestor: Node | null = null;
+    if (sel && sel.rangeCount > 0) {
+      let node: Node | null = sel.getRangeAt(0).startContainer;
+      while (node && node.parentNode !== editor) {
+        node = node.parentNode;
+      }
+      if (node && node.parentNode === editor) {
+        blockAncestor = node;
+      }
+    }
+
+    // Insert the row AFTER the block-level ancestor (or at the end)
+    if (blockAncestor) {
+      editor.insertBefore(row, blockAncestor.nextSibling);
+    } else {
+      editor.appendChild(row);
+    }
+
+    // Add a trailing paragraph so user can type below
+    const after = document.createElement("p");
+    after.innerHTML = "<br>";
+    row.parentNode?.insertBefore(after, row.nextSibling);
+
+    // Move cursor inside the row (after the hint span)
+    const newRange = document.createRange();
+    newRange.setStart(row, row.childNodes.length);
+    newRange.collapse(true);
+    sel?.removeAllRanges();
+    sel?.addRange(newRange);
+    selectionRef.current = newRange.cloneRange();
+
+    // Track this as the active image row
+    activeImgRowRef.current = row;
+
+    emitChange();
+    toast.info("Image row created! Now click Upload Image to add images side by side.", { duration: 4000 });
+  };
+
   const buttons = [
     { title: "Bold", icon: Bold, action: () => runCommand("bold") },
     { title: "Italic", icon: Italic, action: () => runCommand("italic") },
@@ -254,6 +457,7 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
     { title: "Quote", icon: Quote, action: () => runCommand("formatBlock", "<blockquote>") },
     { title: "Link", icon: Link2, action: addLink },
     { title: "Upload Image", icon: ImagePlus, action: openImagePicker },
+    { title: "Image Row (Side-by-Side)", icon: LayoutGrid, action: insertImageRow },
     { title: "Text Color", icon: Palette, action: openColorPicker },
     { title: "Clear Format", icon: Eraser, action: () => runCommand("removeFormat") },
   ];
@@ -261,7 +465,7 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
   return (
     <div>
       {label ? <label className="block text-sm font-medium text-gray-700">{label}</label> : null}
-      <div className="mt-1 border border-gray-300 rounded-md overflow-hidden bg-white">
+      <div ref={wrapperRef} className="mt-1 border border-gray-300 rounded-md overflow-hidden bg-white relative">
         <div className="border-b border-gray-200 bg-gray-50 p-2 flex flex-wrap gap-1">
           {buttons.map(({ title, icon: Icon, action }) => (
             <button
@@ -300,8 +504,19 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
           ref={editorRef}
           contentEditable
           suppressContentEditableWarning
+          onClick={handleEditorClick}
           onMouseUp={saveSelection}
           onKeyUp={saveSelection}
+          onDragStart={(event) => {
+            const target = event.target as HTMLElement;
+            if (target.tagName === "IMG") {
+              draggingImageRef.current = target as HTMLImageElement;
+              event.dataTransfer.setData("text/x-internal-img", "1");
+              setSelectedImage(null);
+            } else {
+              draggingImageRef.current = null;
+            }
+          }}
           onDragEnter={(event) => {
             event.preventDefault();
             setIsDragOver(true);
@@ -319,6 +534,87 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
             event.preventDefault();
             setIsDragOver(false);
 
+            // Internal image drag — smart drop: into img-row container if target is one, else root level
+            if (draggingImageRef.current && event.dataTransfer.getData("text/x-internal-img") === "1") {
+              const img = draggingImageRef.current;
+              draggingImageRef.current = null;
+              const editor = editorRef.current;
+              if (!editor) return;
+
+              // Remove image from old location
+              const oldParent = img.parentNode as HTMLElement | null;
+              oldParent?.removeChild(img);
+
+              // Clean up empty old parent (if it was a <p> that's now empty)
+              if (
+                oldParent &&
+                oldParent !== editor &&
+                oldParent.tagName === "P" &&
+                oldParent.textContent?.trim() === "" &&
+                oldParent.childNodes.length === 0
+              ) {
+                oldParent.parentNode?.removeChild(oldParent);
+              }
+
+              // Determine what we dropped onto
+              const dropTarget = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+
+              // Walk up from drop target to find img-row container
+              let imgRow: HTMLElement | null = null;
+              let walker: HTMLElement | null = dropTarget;
+              while (walker && walker !== editor) {
+                if (walker.classList?.contains("img-row")) {
+                  imgRow = walker;
+                  break;
+                }
+                walker = walker.parentElement;
+              }
+
+              if (imgRow) {
+                // Drop is onto an img-row — insert image at the correct position within the row
+                const children = Array.from(imgRow.children) as HTMLElement[];
+                let insertBeforeChild: Element | null = null;
+                for (const child of children) {
+                  const r = child.getBoundingClientRect();
+                  if (event.clientX < r.left + r.width / 2) {
+                    insertBeforeChild = child;
+                    break;
+                  }
+                }
+                img.style.maxWidth = "none";
+                if (insertBeforeChild) {
+                  imgRow.insertBefore(img, insertBeforeChild);
+                } else {
+                  imgRow.appendChild(img);
+                }
+              } else {
+                // Drop is onto empty area — find closest root-level child and insert before/after
+                const editorRect = editor.getBoundingClientRect();
+                let insertBefore: Node | null = null;
+                for (const child of Array.from(editor.childNodes)) {
+                  if (child === img) continue;
+                  const el = child as HTMLElement;
+                  if (!el.getBoundingClientRect) continue;
+                  const r = el.getBoundingClientRect();
+                  const midY = r.top + r.height / 2 - editorRect.top;
+                  if (event.clientY - editorRect.top < midY) {
+                    insertBefore = child;
+                    break;
+                  }
+                }
+                if (insertBefore) {
+                  editor.insertBefore(img, insertBefore);
+                } else {
+                  editor.appendChild(img);
+                }
+              }
+
+              emitChange();
+              return;
+            }
+
+            draggingImageRef.current = null;
+
             const files = Array.from(event.dataTransfer.files || []).filter((file) => file.type.startsWith("image/"));
             if (!files.length) return;
 
@@ -330,8 +626,97 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
             saveSelection();
             emitChange();
           }}
-          className={`min-h-[220px] p-3 focus:outline-none text-sm leading-6 text-gray-700 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:my-1 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#eb5c10] [&_blockquote]:pl-3 [&_blockquote]:italic ${isDragOver ? "bg-[#fff7f2] ring-2 ring-[#eb5c10]/40" : ""}`}
+          className={`min-h-[220px] max-h-[600px] overflow-y-auto p-3 focus:outline-none text-sm leading-6 text-gray-700 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:my-1 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#eb5c10] [&_blockquote]:pl-3 [&_blockquote]:italic ${isDragOver ? "bg-[#fff7f2] ring-2 ring-[#eb5c10]/40" : ""}`}
         />
+
+        {selectedImage && imageRect && (
+          <div
+            className="absolute pointer-events-none border-2 border-[#eb5c10] z-10"
+            style={{
+              top: imageRect.top,
+              left: imageRect.left,
+              width: imageRect.width,
+              height: imageRect.height,
+            }}
+          >
+            {/* Corners */}
+            <div className="absolute w-3 h-3 bg-white border border-[#eb5c10] cursor-nwse-resize -top-1.5 -left-1.5 pointer-events-auto" onMouseDown={(e) => handleResizeStart(e, "nw")} />
+            <div className="absolute w-3 h-3 bg-white border border-[#eb5c10] cursor-nesw-resize -top-1.5 -right-1.5 pointer-events-auto" onMouseDown={(e) => handleResizeStart(e, "ne")} />
+            <div className="absolute w-3 h-3 bg-white border border-[#eb5c10] cursor-nesw-resize -bottom-1.5 -left-1.5 pointer-events-auto" onMouseDown={(e) => handleResizeStart(e, "sw")} />
+            <div className="absolute w-3 h-3 bg-white border border-[#eb5c10] cursor-nwse-resize -bottom-1.5 -right-1.5 pointer-events-auto" onMouseDown={(e) => handleResizeStart(e, "se")} />
+            
+            {/* Edges */}
+            <div className="absolute w-3 h-3 bg-white border border-[#eb5c10] cursor-ns-resize -top-1.5 left-1/2 -translate-x-1/2 pointer-events-auto" onMouseDown={(e) => handleResizeStart(e, "n")} />
+            <div className="absolute w-3 h-3 bg-white border border-[#eb5c10] cursor-ns-resize -bottom-1.5 left-1/2 -translate-x-1/2 pointer-events-auto" onMouseDown={(e) => handleResizeStart(e, "s")} />
+            <div className="absolute w-3 h-3 bg-white border border-[#eb5c10] cursor-ew-resize top-1/2 -translate-y-1/2 -left-1.5 pointer-events-auto" onMouseDown={(e) => handleResizeStart(e, "w")} />
+            <div className="absolute w-3 h-3 bg-white border border-[#eb5c10] cursor-ew-resize top-1/2 -translate-y-1/2 -right-1.5 pointer-events-auto" onMouseDown={(e) => handleResizeStart(e, "e")} />
+          
+            {/* Alignment Toolbar */}
+            <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white shadow-md border border-gray-200 rounded-md p-1 flex gap-1 z-20 pointer-events-auto">
+              <button
+                type="button"
+                className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                title="Align Left"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectedImage.style.display = "inline";
+                  selectedImage.style.float = "left";
+                  selectedImage.style.margin = "0 1em 1em 0";
+                  emitChange();
+                  setTimeout(updateImageRect, 50);
+                }}
+              >
+                <AlignLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                title="Align Center"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectedImage.style.display = "block";
+                  selectedImage.style.float = "none";
+                  selectedImage.style.margin = "1em auto";
+                  emitChange();
+                  setTimeout(updateImageRect, 50);
+                }}
+              >
+                <AlignCenter className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                title="Align Right"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectedImage.style.display = "inline";
+                  selectedImage.style.float = "right";
+                  selectedImage.style.margin = "0 0 1em 1em";
+                  emitChange();
+                  setTimeout(updateImageRect, 50);
+                }}
+              >
+                <AlignRight className="w-4 h-4" />
+              </button>
+              <div className="w-px bg-gray-300 mx-1 py-1"></div>
+              <button
+                type="button"
+                className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+                title="Inline (Side-by-Side)"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectedImage.style.display = "inline-block";
+                  selectedImage.style.float = "none";
+                  selectedImage.style.margin = "5px";
+                  emitChange();
+                  setTimeout(updateImageRect, 50);
+                }}
+              >
+                <AlignJustify className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       {helperText ? (
         <p className="mt-1 text-xs text-gray-500">
