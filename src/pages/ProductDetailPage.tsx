@@ -23,9 +23,22 @@ import { useWishlist } from "@/context/WishlistContext";
 import { useCustomerAuth } from "@/context/CustomerAuthContext";
 import { toast } from "sonner";
 import Seo from "@/components/Seo";
+import SelectionTableSection from "@/components/product/SelectionTableSection";
 import { absoluteUrl, buildBreadcrumbJsonLd, priceToNumber, stripHtml, truncateText } from "@/lib/seo";
 import { formatMoneyValue, resolveSelectedVariantUnitPrice, getStandardizedDisplayPrice, getStandardizedDisplayTitle } from "@/lib/pricing";
 import { getAvailableStock } from "@/lib/stock";
+import {
+  findMatchingCombinationVariant,
+  getProductVariantMode,
+  getVariantOptionNames,
+  getVariantOptionValues,
+  isCompleteVariantSelection,
+} from "@/lib/variants";
+import {
+  getSelectionTableTabValues,
+  normalizeFrontendVariantLayout,
+  normalizeSelectionTableConfig,
+} from "@/lib/selectionTable";
 
 const formatNumber = (value: number): string => {
   const rounded = Math.round(value * 100) / 100;
@@ -35,6 +48,14 @@ const formatNumber = (value: number): string => {
 const cmToInches = (value: number): string => formatNumber(value / 2.54);
 
 const formatSpecValue = (value: unknown): string => String(value ?? "").trim();
+const formatVariantOptionLabel = (value: unknown): string => String(value ?? "").trim().replace(/([a-z])([A-Z0-9])/g, "$1 $2");
+const stripVariantLabelPrefix = (value: unknown, label: string): string => {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`^${escapedLabel}\\s*:?\\s*`, "i"), "").trim() || text;
+};
 
 const dedupeSpecEntries = (entries: Array<[string, string]>): Array<[string, string]> => {
   const seen = new Set<string>();
@@ -48,6 +69,92 @@ const dedupeSpecEntries = (entries: Array<[string, string]>): Array<[string, str
     seen.add(normalizedKey);
     return true;
   });
+};
+
+type VariantTableSection = "size" | "general" | "combination";
+
+type VariantTableColumn = {
+  key: string;
+  label: string;
+  visible: boolean;
+  frontendVisible: boolean;
+};
+
+type VariantTableColumns = Record<VariantTableSection, VariantTableColumn[]>;
+
+const DEFAULT_VARIANT_TABLE_COLUMNS: VariantTableColumns = {
+  size: [
+    { key: "price", label: "Price", visible: true, frontendVisible: false },
+    { key: "stock", label: "Stock", visible: true, frontendVisible: false },
+    { key: "shipping_weight_kg", label: "Weight (kg)", visible: true, frontendVisible: true },
+    { key: "shipping_length_cm", label: "Length (cm)", visible: true, frontendVisible: true },
+    { key: "shipping_width_cm", label: "Width (cm)", visible: true, frontendVisible: true },
+    { key: "shipping_height_cm", label: "Height (cm)", visible: true, frontendVisible: true },
+  ],
+  general: [
+    { key: "option", label: "Option", visible: true, frontendVisible: true },
+    { key: "value", label: "Value", visible: true, frontendVisible: true },
+    { key: "stock", label: "Stock", visible: true, frontendVisible: false },
+  ],
+  combination: [],
+};
+
+const SIZE_RESERVED_COLUMN_KEYS = new Set(["value", "shipping_class", "ships_separately"]);
+
+const normalizeVariantTableColumns = (value: unknown): VariantTableColumns => {
+  if (!value || typeof value !== "object") {
+    return {
+      size: DEFAULT_VARIANT_TABLE_COLUMNS.size.map((column) => ({ ...column })),
+      general: DEFAULT_VARIANT_TABLE_COLUMNS.general.map((column) => ({ ...column })),
+      combination: DEFAULT_VARIANT_TABLE_COLUMNS.combination.map((column) => ({ ...column })),
+    };
+  }
+
+  const provided = value as Partial<Record<VariantTableSection, VariantTableColumn[]>>;
+
+  const normalizeSectionColumns = (
+    section: VariantTableSection,
+    defaults: VariantTableColumn[],
+    providedColumns: VariantTableColumn[] | undefined,
+  ) => {
+    const safeProvided = Array.isArray(providedColumns) ? providedColumns : [];
+    const defaultKeys = new Set(defaults.map((column) => column.key));
+    const reservedKeys = section === "size" ? SIZE_RESERVED_COLUMN_KEYS : new Set<string>();
+
+    const normalizedDefaults = defaults.map((defaultColumn) => {
+      const candidate = safeProvided.find((column) => column?.key === defaultColumn.key);
+      return {
+        ...defaultColumn,
+        label: String(candidate?.label ?? defaultColumn.label).trim() || defaultColumn.label,
+        visible: typeof candidate?.visible === "boolean" ? candidate.visible : defaultColumn.visible,
+        frontendVisible: typeof candidate?.frontendVisible === "boolean"
+          ? candidate.frontendVisible
+          : defaultColumn.frontendVisible,
+      };
+    });
+
+    const customColumns = safeProvided
+      .filter((column) => (
+        column
+        && typeof column.key === "string"
+        && !defaultKeys.has(column.key)
+        && !reservedKeys.has(column.key)
+      ))
+      .map((column) => ({
+        key: column.key,
+        label: String(column.label ?? "").trim() || "Custom Column",
+        visible: typeof column.visible === "boolean" ? column.visible : true,
+        frontendVisible: typeof column.frontendVisible === "boolean" ? column.frontendVisible : true,
+      }));
+
+    return [...normalizedDefaults, ...customColumns];
+  };
+
+  return {
+    size: normalizeSectionColumns("size", DEFAULT_VARIANT_TABLE_COLUMNS.size, provided.size),
+    general: normalizeSectionColumns("general", DEFAULT_VARIANT_TABLE_COLUMNS.general, provided.general),
+    combination: normalizeSectionColumns("combination", DEFAULT_VARIANT_TABLE_COLUMNS.combination, provided.combination),
+  };
 };
 
 const ProductDetailPage = () => {
@@ -75,17 +182,72 @@ const ProductDetailPage = () => {
   const [canReviewStatus, setCanReviewStatus] = useState<"loading" | "allowed" | "not_purchased" | "not_delivered" | "already_reviewed" | "unauthenticated">("loading");
 
   const allImages = product ? [product.image, ...(product.gallery || [])].filter(Boolean) : [];
-  const variantOptions = Array.from(
-    new Set(
-      ((product?.variants || []) as Array<Record<string, any>>)
-        .map((variant) => String(variant?.option ?? "").trim())
-        .filter(Boolean),
-    ),
+  const variantMode = getProductVariantMode(product);
+  const isCombinationMode = variantMode === "combination";
+  const variantOptions = getVariantOptionNames(product);
+  const variantGroups = variantOptions.map((option, optionIndex) => {
+    const selectionScope = isCombinationMode
+      ? Object.fromEntries(
+        variantOptions
+          .slice(0, optionIndex)
+          .flatMap((optionName) => {
+            const selectedValue = String(selectedVariants?.[optionName]?.value ?? "").trim();
+            return selectedValue ? [[optionName, { option: optionName, value: selectedValue }]] : [];
+          }),
+      )
+      : selectedVariants;
+    const variants = getVariantOptionValues(product, option, selectionScope).map((value) => ({
+      option,
+      value,
+    }));
+
+    return {
+      option,
+      label: formatVariantOptionLabel(option),
+      variants,
+    };
+  });
+  const variantTableColumns = normalizeVariantTableColumns(product?.variant_table_columns);
+  const frontendVariantLayout = normalizeFrontendVariantLayout(product?.frontend_variant_layout);
+  const selectionTableSourceKeys = [
+    ...variantOptions,
+    ...variantTableColumns.combination.map((column) => column.key),
+  ];
+  const selectionTableConfig = normalizeSelectionTableConfig(product?.selection_table_config, variantOptions, product?.variants || [], selectionTableSourceKeys);
+  const selectionTableTabs = getSelectionTableTabValues(selectionTableConfig, product?.variants || []);
+  const isSelectionTableMode = (
+    frontendVariantLayout === "selection_table"
+    && isCombinationMode
+    && Boolean(selectionTableConfig.tab_option)
+    && selectionTableTabs.length > 0
   );
+  const generalColumnsByKey = new Map(variantTableColumns.general.map((column) => [column.key, column]));
+  const selectedVariantList = Object.values(selectedVariants) as Array<Record<string, any>>;
+  const selectedCombinationVariant = isCombinationMode
+    ? findMatchingCombinationVariant(product?.variants || [], selectedVariants, variantOptions)
+    : null;
+  const selectedSizeVariant = isCombinationMode
+    ? selectedCombinationVariant
+    : selectedVariantList.find(
+      (variant) => String(variant?.option ?? "").trim().toLowerCase() === "size",
+    ) ?? null;
+  const selectedGeneralVariants = isCombinationMode
+    ? []
+    : selectedVariantList.filter(
+      (variant) => String(variant?.option ?? "").trim().toLowerCase() !== "size",
+    );
+  const selectedShippingVariant = isCombinationMode
+    ? selectedCombinationVariant
+    : selectedSizeVariant ?? selectedGeneralVariants[0] ?? null;
+  const hasCompleteSelection = isCompleteVariantSelection(product, selectedVariants);
   const availableStock = product ? getAvailableStock({ ...product, selected_variants: selectedVariants }) : null;
-  const selectedUnitPrice = product ? resolveSelectedVariantUnitPrice(product.price, selectedVariants) : null;
+  const selectedUnitPrice = product ? resolveSelectedVariantUnitPrice(product.price, selectedVariants, product) : null;
   const isOutOfStock = availableStock !== null && availableStock <= 0;
-  const stockLabel = availableStock === null
+  const stockLabel = isSelectionTableMode && !selectedCombinationVariant
+    ? "Stock: Choose a row below"
+    : variantOptions.length > 0 && !hasCompleteSelection
+    ? "Stock: Select options"
+    : availableStock === null
     ? "Stock: Available"
     : isOutOfStock
       ? "Stock: Out of stock"
@@ -102,20 +264,124 @@ const ProductDetailPage = () => {
   const shareText = encodeURIComponent(`${product?.name || "Product"} | Midia M Metal`);
   const description = (product?.description || "").trim();
   const descriptionHasHtml = /<\/?[a-z][\s\S]*>/i.test(description);
-  const selectedVariantProfile = variantOptions.length > 0
-    ? Object.values(selectedVariants)[0] ?? null
-    : null;
-  const activeShippingWeight = Number(selectedVariantProfile?.shipping_weight_kg ?? product?.shipping_weight_kg ?? 0);
-  const activeLengthCm = Number(selectedVariantProfile?.shipping_length_cm ?? product?.shipping_length_cm ?? 0);
-  const activeWidthCm = Number(selectedVariantProfile?.shipping_width_cm ?? product?.shipping_width_cm ?? 0);
-  const activeHeightCm = Number(selectedVariantProfile?.shipping_height_cm ?? product?.shipping_height_cm ?? 0);
-  const activeShippingClass = String(selectedVariantProfile?.shipping_class ?? product?.shipping_class ?? "").trim();
-  const activeShipsSeparately = Boolean(selectedVariantProfile?.ships_separately ?? product?.ships_separately);
+  const activeShippingClass = String(selectedShippingVariant?.shipping_class ?? product?.shipping_class ?? "").trim();
+  const activeShipsSeparately = Boolean(selectedShippingVariant?.ships_separately ?? product?.ships_separately);
+  const formatVariantColumnValue = (columnKey: string, variant: Record<string, any> | null): string => {
+    if (!variant && !product) return "";
+
+    const allowProductShippingFallback = variantOptions.length === 0;
+
+    switch (columnKey) {
+      case "price":
+        return formatMoneyValue(variant?.price ?? selectedUnitPrice ?? product?.price ?? "");
+      case "stock": {
+        const stockValue = variant?.stock ?? product?.stock_quantity;
+        return stockValue === null || stockValue === undefined || stockValue === ""
+          ? ""
+          : String(stockValue);
+      }
+      case "shipping_weight_kg": {
+        const weight = Number(
+          variant?.shipping_weight_kg
+          ?? (allowProductShippingFallback ? product?.shipping_weight_kg : null)
+          ?? 0,
+        );
+        return weight > 0 ? `${formatNumber(weight)} kg` : "";
+      }
+      case "shipping_length_cm": {
+        const length = Number(
+          variant?.shipping_length_cm
+          ?? (allowProductShippingFallback ? product?.shipping_length_cm : null)
+          ?? 0,
+        );
+        return length > 0 ? `${formatNumber(length)} cm (${cmToInches(length)} in)` : "";
+      }
+      case "shipping_width_cm": {
+        const width = Number(
+          variant?.shipping_width_cm
+          ?? (allowProductShippingFallback ? product?.shipping_width_cm : null)
+          ?? 0,
+        );
+        return width > 0 ? `${formatNumber(width)} cm (${cmToInches(width)} in)` : "";
+      }
+      case "shipping_height_cm": {
+        const height = Number(
+          variant?.shipping_height_cm
+          ?? (allowProductShippingFallback ? product?.shipping_height_cm : null)
+          ?? 0,
+        );
+        return height > 0 ? `${formatNumber(height)} cm (${cmToInches(height)} in)` : "";
+      }
+      case "option":
+        return formatSpecValue(variant?.option);
+      case "value":
+        return formatSpecValue(variant?.value);
+      default: {
+        if (!columnKey.startsWith("custom:")) {
+          return "";
+        }
+
+        const customKey = columnKey.slice("custom:".length);
+        return formatSpecValue(variant?.custom_fields?.[customKey]);
+      }
+    }
+  };
+  const showGeneralSelectionOnFrontend = Boolean(generalColumnsByKey.get("option")?.frontendVisible)
+    && Boolean(generalColumnsByKey.get("value")?.frontendVisible);
   const selectedVariantSpecEntries: Array<[string, string]> = variantOptions.map((option) => {
     const selectedValue = selectedVariants[option]?.value;
-    const label = variantOptions.length === 1 ? "Size" : option;
+    const normalizedOption = String(option ?? "").trim().toLowerCase();
 
-    return [label, formatSpecValue(selectedValue || "Not selected")];
+    if (normalizedOption !== "size" && !showGeneralSelectionOnFrontend) {
+      return null;
+    }
+
+    if (!selectedValue) {
+      return null;
+    }
+
+    const label = normalizedOption === "size"
+      ? "Size"
+      : formatVariantOptionLabel(option);
+
+    return [label, formatSpecValue(selectedValue)] as [string, string];
+  }).filter((entry): entry is [string, string] => Boolean(entry));
+  const sizeFrontendSpecEntries: Array<[string, string]> = variantTableColumns.size.flatMap((column) => {
+    if (!column.frontendVisible) {
+      return [];
+    }
+
+    const sourceVariant = column.key.startsWith("custom:")
+      ? selectedSizeVariant
+      : selectedShippingVariant;
+    const value = formatVariantColumnValue(column.key, sourceVariant);
+
+    return value ? [[column.label, value] as [string, string]] : [];
+  });
+  const generalStockColumn = generalColumnsByKey.get("stock");
+  const generalFrontendCustomColumns = variantTableColumns.general.filter(
+    (column) => column.frontendVisible && column.key.startsWith("custom:"),
+  );
+  const generalFrontendSpecEntries: Array<[string, string]> = selectedGeneralVariants.flatMap((variant) => {
+    const optionLabel = String(variant?.option ?? "").trim().replace(/([a-z])([A-Z0-9])/g, "$1 $2");
+    const labelPrefix = selectedGeneralVariants.length > 1 && optionLabel ? `${optionLabel} ` : "";
+    const entries: Array<[string, string]> = [];
+
+    if (generalStockColumn?.frontendVisible) {
+      const stockValue = formatVariantColumnValue("stock", variant);
+      if (stockValue) {
+        entries.push([`${labelPrefix}${generalStockColumn.label}`, stockValue]);
+      }
+    }
+
+    generalFrontendCustomColumns.forEach((column) => {
+      const columnValue = formatVariantColumnValue(column.key, variant);
+      if (columnValue) {
+        entries.push([`${labelPrefix}${column.label}`, columnValue]);
+      }
+    });
+
+    return entries;
   });
   const productSpecs = product?.specifications || {};
   const productSpecEntries: Array<[string, string]> = Object.entries(productSpecs).map(([k, v]) => [k, String(v)] as [string, string]);
@@ -124,10 +390,8 @@ const ProductDetailPage = () => {
     ...productSpecEntries,
     ...(variantOptions.length > 0 ? [
       ...selectedVariantSpecEntries,
-      ...(activeShippingWeight > 0 ? [["Shipping Weight", `${formatNumber(activeShippingWeight)} kg`]] as Array<[string, string]> : []),
-      ...(activeLengthCm > 0 ? [["Length", `${formatNumber(activeLengthCm)} cm (${cmToInches(activeLengthCm)} in)`]] as Array<[string, string]> : []),
-      ...(activeWidthCm > 0 ? [["Width", `${formatNumber(activeWidthCm)} cm (${cmToInches(activeWidthCm)} in)`]] as Array<[string, string]> : []),
-      ...(activeHeightCm > 0 ? [["Height", `${formatNumber(activeHeightCm)} cm (${cmToInches(activeHeightCm)} in)`]] as Array<[string, string]> : []),
+      ...sizeFrontendSpecEntries,
+      ...generalFrontendSpecEntries,
       ...(activeShippingClass ? [["Shipping Class", activeShippingClass.charAt(0).toUpperCase() + activeShippingClass.slice(1)]] as Array<[string, string]> : []),
       ["Ships Separately", activeShipsSeparately ? "Yes" : "No"],
     ] : []),
@@ -150,27 +414,40 @@ const ProductDetailPage = () => {
         
         let initialVariants: Record<string, any> = {};
         if (prodRes.variants && prodRes.variants.length > 0) {
-          const validVariants = prodRes.variants.filter((v: any) => v.price !== null && v.price !== undefined && String(v.price).trim() !== "");
-          if (validVariants.length > 0) {
-            const cheapest = validVariants.reduce((min: any, curr: any) => {
-              const currPrice = parseFloat(String(curr.price).replace(/[^\d.-]/g, "")) || 0;
-              const minPrice = parseFloat(String(min.price).replace(/[^\d.-]/g, "")) || 0;
-              return currPrice < minPrice ? curr : min;
-            }, validVariants[0]);
-            
-            initialVariants[cheapest.option] = cheapest;
-            
-            const otherOptions = Array.from(new Set(prodRes.variants.map((v: any) => v.option))).filter(o => o !== cheapest.option);
-            otherOptions.forEach(opt => {
-              const firstMatch = prodRes.variants.find((v: any) => v.option === opt);
-              if (firstMatch) initialVariants[opt as string] = firstMatch;
+          if (getProductVariantMode(prodRes) === "combination") {
+            const productOptionNames = getVariantOptionNames(prodRes);
+            productOptionNames.forEach((optionName) => {
+              const values = getVariantOptionValues(prodRes, optionName, {});
+              if (values.length === 1) {
+                initialVariants[optionName] = {
+                  option: optionName,
+                  value: values[0],
+                };
+              }
             });
           } else {
-            const allOptions = Array.from(new Set(prodRes.variants.map((v: any) => v.option)));
-            allOptions.forEach(opt => {
-              const firstMatch = prodRes.variants.find((v: any) => v.option === opt);
-              if (firstMatch) initialVariants[opt as string] = firstMatch;
-            });
+            const validVariants = prodRes.variants.filter((v: any) => v.price !== null && v.price !== undefined && String(v.price).trim() !== "");
+            if (validVariants.length > 0) {
+              const cheapest = validVariants.reduce((min: any, curr: any) => {
+                const currPrice = parseFloat(String(curr.price).replace(/[^\d.-]/g, "")) || 0;
+                const minPrice = parseFloat(String(min.price).replace(/[^\d.-]/g, "")) || 0;
+                return currPrice < minPrice ? curr : min;
+              }, validVariants[0]);
+
+              initialVariants[cheapest.option] = cheapest;
+
+              const otherOptions = Array.from(new Set(prodRes.variants.map((v: any) => v.option))).filter(o => o !== cheapest.option);
+              otherOptions.forEach(opt => {
+                const firstMatch = prodRes.variants.find((v: any) => v.option === opt);
+                if (firstMatch) initialVariants[opt as string] = firstMatch;
+              });
+            } else {
+              const allOptions = Array.from(new Set(prodRes.variants.map((v: any) => v.option)));
+              allOptions.forEach(opt => {
+                const firstMatch = prodRes.variants.find((v: any) => v.option === opt);
+                if (firstMatch) initialVariants[opt as string] = firstMatch;
+              });
+            }
           }
           setSelectedVariants(initialVariants);
         } else {
@@ -242,7 +519,9 @@ const ProductDetailPage = () => {
   };
 
   const handlePurchaseAction = (mode: "add_to_basket" | "buy_now") => {
-    const missingOptions = variantOptions.filter((option) => !selectedVariants[option]?.value);
+    const missingOptions = variantOptions
+      .filter((option) => !selectedVariants[option]?.value)
+      .map((option) => formatVariantOptionLabel(option));
     if (missingOptions.length > 0) {
       toast.error(`Please select ${missingOptions.join(", ")}.`);
       return;
@@ -275,6 +554,70 @@ const ProductDetailPage = () => {
     }
 
     toast.success("Added to basket!");
+  };
+
+  const handleVariantSelectionChange = (option: string, nextValue: string) => {
+    setSelectedVariants((prev) => {
+      if (!product || !isCombinationMode) {
+        const updated = { ...prev };
+        if (!nextValue) {
+          delete updated[option];
+          return updated;
+        }
+
+        const selectedVariant = product?.variants?.find(
+          (variant: any) => variant.option === option && variant.value === nextValue,
+        );
+
+        if (selectedVariant) {
+          updated[option] = selectedVariant;
+        }
+
+        return updated;
+      }
+
+      const updated: Record<string, any> = {
+        ...prev,
+        [option]: { option, value: nextValue },
+      };
+
+      if (!nextValue) {
+        delete updated[option];
+      }
+
+      const changedOptionIndex = variantOptions.indexOf(option);
+      if (changedOptionIndex === -1) {
+        return updated;
+      }
+
+      variantOptions.slice(changedOptionIndex + 1).forEach((optionName, relativeIndex) => {
+        const optionIndex = changedOptionIndex + 1 + relativeIndex;
+        const scopedSelections = Object.fromEntries(
+          variantOptions
+            .slice(0, optionIndex)
+            .flatMap((scopedOptionName) => {
+              const scopedValue = String(updated?.[scopedOptionName]?.value ?? "").trim();
+              return scopedValue ? [[scopedOptionName, { option: scopedOptionName, value: scopedValue }]] : [];
+            }),
+        );
+
+        const availableValues = getVariantOptionValues(product, optionName, scopedSelections);
+        const currentValue = String(updated[optionName]?.value ?? "").trim();
+
+        if (currentValue && availableValues.includes(currentValue)) {
+          return;
+        }
+
+        if (availableValues.length === 1) {
+          updated[optionName] = { option: optionName, value: availableValues[0] };
+          return;
+        }
+
+        delete updated[optionName];
+      });
+
+      return updated;
+    });
   };
 
   if (loading) {
@@ -384,9 +727,26 @@ const ProductDetailPage = () => {
             )}
           </div>
 
-          <div className="pt-2">
-            <h1 className="font-sans text-[30px] md:text-[40px] leading-[1] font-semibold text-[#10275c]">{getStandardizedDisplayTitle(product, selectedVariants)}</h1>
-            <div className="flex items-baseline gap-3 mt-3 mb-7">
+          <div className="min-w-0 pt-2">
+            <div className="flex items-start justify-between gap-4">
+              <h1 className="font-sans text-[30px] md:text-[40px] leading-[1] font-semibold text-[#10275c]">{getStandardizedDisplayTitle(product, selectedVariants)}</h1>
+              <button
+                onClick={() => {
+                  if (isInWishlist(product.id)) {
+                    removeFromWishlist(product.id);
+                    toast.success("Removed from wishlist");
+                  } else {
+                    addToWishlist({ id: product.id, name: product.name, price: product.price, image: product.image });
+                    toast.success("Added to wishlist!");
+                  }
+                }}
+                className={`mt-1 shrink-0 w-[50px] h-[50px] rounded-full border transition-colors grid place-items-center ${isInWishlist(product.id) ? 'bg-red-50 border-orange text-orange' : 'border-[#d1dbe8] text-[#7f8ca5] hover:text-orange hover:border-orange'}`}
+                title={isInWishlist(product.id) ? "Remove from wishlist" : "Add to wishlist"}
+              >
+                <Heart className={`w-5 h-5 ${isInWishlist(product.id) ? 'fill-orange' : ''}`} />
+              </button>
+            </div>
+            <div className="flex items-baseline gap-3 mt-3 mb-3">
               <p className="text-orange text-[28px] md:text-[34px] leading-none font-medium">
                 {formatMoneyValue(selectedUnitPrice ?? product.price)}
               </p>
@@ -398,126 +758,122 @@ const ProductDetailPage = () => {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap mb-3">
-              <div>
-                <div className="w-[118px] h-[50px] border border-[#cad4e4] flex items-center px-5 bg-[#eaf0f3]">
-                  <span className="text-base text-primary">{qty}</span>
-                  <div className="ml-auto flex flex-col">
-                    <button
-                      onClick={() => setQty(availableStock === null ? qty + 1 : Math.min(qty + 1, availableStock))}
-                      disabled={isOutOfStock || (availableStock !== null && qty >= availableStock)}
-                      className="text-[#7f8ca5] hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <ChevronUp className="w-3 h-3" />
-                    </button>
-                    <button onClick={() => setQty(Math.max(1, qty - 1))} className="text-[#7f8ca5] hover:text-primary">
-                      <ChevronDown className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => handlePurchaseAction("add_to_basket")}
-                disabled={isOutOfStock}
-                className="h-[50px] px-8 border border-[#d1dbe8] bg-white text-primary text-sm font-semibold inline-flex items-center gap-2 hover:border-orange hover:text-orange transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                Add to basket
-              </button>
-
-              <button
-                onClick={() => handlePurchaseAction("buy_now")}
-                disabled={isOutOfStock}
-                className="h-[50px] px-10 bg-orange text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-orange-hover transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                Buy now
-              </button>
-
-              <button
-                onClick={() => {
-                  if (isInWishlist(product.id)) {
-                    removeFromWishlist(product.id);
-                    toast.success("Removed from wishlist");
-                  } else {
-                    addToWishlist({ id: product.id, name: product.name, price: product.price, image: product.image });
-                    toast.success("Added to wishlist!");
-                  }
-                }}
-                className={`w-[50px] h-[50px] rounded-full border transition-colors grid place-items-center ${isInWishlist(product.id) ? 'bg-red-50 border-orange text-orange' : 'border-[#d1dbe8] text-[#7f8ca5] hover:text-orange hover:border-orange'}`}
-                title={isInWishlist(product.id) ? "Remove from wishlist" : "Add to wishlist"}
-              >
-                <Heart className={`w-5 h-5 ${isInWishlist(product.id) ? 'fill-orange' : ''}`} />
-              </button>
-            </div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#6e7a92] mb-8">
-              {stockLabel}
-            </p>
-
-            <div className="space-y-2 text-[12px] md:text-[14px]">
-              <p>
-                <span className="font-semibold text-primary">Category:</span>{" "}
-                <span className="text-[#6e7a92]">{product.category?.name || "Uncategorized"}</span>
-              </p>
-              <p>
-                <span className="font-semibold text-primary">Tags:</span>{" "}
-                <span className="text-[#6e7a92]">{(product.tags || []).join(", ") || "None"}</span>
-              </p>
-              <p>
-                <span className="font-semibold text-primary">Product ID:</span>{" "}
-                <span className="text-[#6e7a92]">{product.id}</span>
-              </p>
-
-              {/* Variants Selection */}
-              {product.variants && product.variants.length > 0 && (() => {
-                // Group variants by option type (e.g. "Color", "Size")
-                const options = Array.from(new Set(product.variants.map((v: any) => v.option)));
-                return options.map((opt: any) => (
-                  <div key={opt} className="mt-5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                    <label className="font-semibold text-primary text-[13px] md:text-[14px] capitalize shrink-0">
-                      {String(opt).replace(/([a-z])([A-Z0-9])/g, '$1 $2')}:
-                    </label>
-                    <div className="relative flex-1 md:max-w-[420px]">
-                      <select
-                        value={selectedVariants[opt]?.value || ""}
-                        onChange={(e) => {
-                          const nextValue = e.target.value;
-                          setSelectedVariants((prev) => {
-                            const updated = { ...prev };
-                            if (!nextValue) {
-                              delete updated[opt];
-                              return updated;
-                            }
-
-                            const selectedVariant = product.variants.find(
-                              (variant: any) => variant.option === opt && variant.value === nextValue,
-                            );
-
-                            if (selectedVariant) {
-                              updated[opt] = selectedVariant;
-                            }
-
-                            return updated;
-                          });
-                        }}
-                        className="w-full h-12 appearance-none border border-[#d1dbe8] bg-[#f8fafc] px-4 pr-10 text-[13px] md:text-[14px] font-medium text-primary outline-none transition-all hover:border-[#b4c4d4] focus:border-orange focus:bg-white focus:ring-1 focus:ring-orange cursor-pointer"
-                      >
-                        <option value="">Select {String(opt).replace(/([a-z])([A-Z0-9])/g, '$1 $2')}</option>
-                        {product.variants
-                          .filter((v: any) => v.option === opt)
-                          .map((v: any, idx: number) => (
-                            <option key={idx} value={v.value}>
-                              {v.value}
-                            </option>
-                          ))}
-                      </select>
-                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a95ac] pointer-events-none" />
+              {!isSelectionTableMode && (
+                <>
+                  <div>
+                    <div className="w-[118px] h-[50px] border border-[#cad4e4] flex items-center px-5 bg-[#eaf0f3]">
+                      <span className="text-base text-primary">{qty}</span>
+                      <div className="ml-auto flex flex-col">
+                        <button
+                          onClick={() => setQty(availableStock === null ? qty + 1 : Math.min(qty + 1, availableStock))}
+                          disabled={isOutOfStock || (availableStock !== null && qty >= availableStock)}
+                          className="text-[#7f8ca5] hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => setQty(Math.max(1, qty - 1))} className="text-[#7f8ca5] hover:text-primary">
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ));
-              })()}
 
-              <div className="pt-2">
+                  <button
+                    onClick={() => handlePurchaseAction("add_to_basket")}
+                    disabled={isOutOfStock}
+                    className="h-[50px] px-8 border border-[#d1dbe8] bg-white text-primary text-sm font-semibold inline-flex items-center gap-2 hover:border-orange hover:text-orange transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    Add to basket
+                  </button>
+
+                  <button
+                    onClick={() => handlePurchaseAction("buy_now")}
+                    disabled={isOutOfStock}
+                    className="h-[50px] px-10 bg-orange text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-orange-hover transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    Buy now
+                  </button>
+                </>
+              )}
+
+            </div>
+            {!isSelectionTableMode && (
+              <p className="mb-8 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#6e7a92]">
+                {stockLabel}
+              </p>
+            )}
+
+            <div className="space-y-2 text-[12px] md:text-[14px]">
+              {!isSelectionTableMode && (
+                <>
+                  <p>
+                    <span className="font-semibold text-primary">Category:</span>{" "}
+                    <span className="text-[#6e7a92]">{product.category?.name || "Uncategorized"}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-primary">Tags:</span>{" "}
+                    <span className="text-[#6e7a92]">{(product.tags || []).join(", ") || "None"}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-primary">Product ID:</span>{" "}
+                    <span className="text-[#6e7a92]">{product.id}</span>
+                  </p>
+                </>
+              )}
+
+              {/* Variants Selection */}
+              {!isSelectionTableMode && product.variants && product.variants.length > 0 && (
+                variantGroups.map(({ option, label, variants }) => {
+                  const selectedValue = selectedVariants[option]?.value || variants[0]?.value || "";
+                  const singleValueText = stripVariantLabelPrefix(selectedValue, label);
+                  const hasSingleValue = variants.length === 1;
+
+                  return (
+                    <div key={option} className="mt-5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                      <label className="font-semibold text-primary text-[13px] md:text-[14px] capitalize shrink-0 sm:w-[120px]">
+                        {label}:
+                      </label>
+                      <div className="relative flex-1 md:max-w-[420px]">
+                        {hasSingleValue ? (
+                          <p className="text-[13px] md:text-[14px] font-medium text-primary">{singleValueText}</p>
+                        ) : (
+                          <>
+                            <select
+                              value={selectedVariants[option]?.value || ""}
+                              onChange={(e) => handleVariantSelectionChange(option, e.target.value)}
+                              className="w-full h-12 appearance-none border border-[#d1dbe8] bg-[#f8fafc] px-4 pr-10 text-[13px] md:text-[14px] font-medium text-primary outline-none transition-all hover:border-[#b4c4d4] focus:border-orange focus:bg-white focus:ring-1 focus:ring-orange cursor-pointer"
+                            >
+                              <option value="">Select {label}</option>
+                              {variants.map((variant: any, idx: number) => (
+                                <option key={idx} value={variant.value}>
+                                  {variant.value}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8a95ac] pointer-events-none" />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+
+              {isSelectionTableMode && (
+                <SelectionTableSection
+                  product={product}
+                  variantOptions={variantOptions}
+                  selectedVariants={selectedVariants}
+                  setSelectedVariants={setSelectedVariants}
+                  selectionTableConfig={selectionTableConfig}
+                  combinationColumns={variantTableColumns.combination}
+                  embedded
+                />
+              )}
+
+              <div className={isSelectionTableMode ? "pt-6" : "pt-2"}>
                 <span className="font-semibold text-primary">Share:</span>
                 <div className="mt-2 flex items-center gap-2">
                   {[
@@ -574,7 +930,7 @@ const ProductDetailPage = () => {
                 {description ? (
                   descriptionHasHtml ? (
                     <div
-                      className="prose prose-sm max-w-none text-[#6e7a92] leading-7 prose-p:my-3 prose-headings:text-primary prose-strong:text-primary prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-blockquote:border-orange prose-blockquote:text-[#5f6f8d] prose-ul:list-disc prose-ol:list-decimal"
+                      className="prose prose-sm max-w-none text-[#6e7a92] leading-7 prose-p:my-3 prose-headings:text-primary prose-strong:text-primary prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-blockquote:border-orange prose-blockquote:text-[#5f6f8d] prose-ul:list-disc prose-ol:list-decimal [&_table]:w-full [&_table]:border-separate [&_table]:[border-spacing:18px_0] [&_td]:align-top [&_td]:pr-4 [&_td]:pb-3 [&_th]:align-top [&_th]:pr-4 [&_th]:pb-3 [&_img]:max-w-full"
                       dangerouslySetInnerHTML={{ __html: description }}
                     />
                   ) : (

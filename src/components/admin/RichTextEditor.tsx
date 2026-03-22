@@ -307,8 +307,11 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
         } else {
           const escapedSrc = String(url).replace(/"/g, "&quot;");
           const escapedAlt = alt.replace(/"/g, "&quot;");
+          const defaultImageStyle = files.length === 1
+            ? "max-width:40%;height:auto;display:block;float:left;margin:0 16px 12px 0;"
+            : "max-width:100%;height:auto;display:inline-block;margin:5px;";
           insertHtmlAtSelection(
-            `<img src="${escapedSrc}" alt="${escapedAlt}" style="max-width:100%;height:auto;display:inline-block;margin:5px;" />&nbsp;`
+            `<img src="${escapedSrc}" alt="${escapedAlt}" style="${defaultImageStyle}" />&nbsp;`
           );
         }
       }
@@ -626,7 +629,7 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
             saveSelection();
             emitChange();
           }}
-          className={`min-h-[220px] max-h-[600px] overflow-y-auto p-3 focus:outline-none text-sm leading-6 text-gray-700 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:my-1 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#eb5c10] [&_blockquote]:pl-3 [&_blockquote]:italic ${isDragOver ? "bg-[#fff7f2] ring-2 ring-[#eb5c10]/40" : ""}`}
+          className={`min-h-[220px] max-h-[600px] overflow-y-auto p-3 focus:outline-none text-sm leading-6 text-gray-700 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:my-1 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#eb5c10] [&_blockquote]:pl-3 [&_blockquote]:italic [&_table]:w-full [&_table]:border-separate [&_table]:[border-spacing:18px_0] [&_td]:align-top [&_td]:pr-4 [&_td]:pb-3 [&_th]:align-top [&_th]:pr-4 [&_th]:pb-3 [&_img]:max-w-full ${isDragOver ? "bg-[#fff7f2] ring-2 ring-[#eb5c10]/40" : ""}`}
         />
 
         {selectedImage && imageRect && (

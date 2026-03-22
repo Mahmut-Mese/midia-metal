@@ -1,3 +1,5 @@
+import { findMatchingCombinationVariant, getProductVariantMode, getVariantAttributes, getVariantOptionNames } from "@/lib/variants";
+
 export const parseMoneyValue = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Math.round(value * 100) / 100;
@@ -15,8 +17,28 @@ export const formatMoneyValue = (value: unknown): string => {
 export const resolveSelectedVariantUnitPrice = (
   basePrice: unknown,
   selectedVariants?: Record<string, any> | null,
+  productOrVariants?: { variant_mode?: unknown; variant_options?: unknown; variants?: Array<Record<string, any>> | null } | Array<Record<string, any>> | null,
 ): number | null => {
   const base = parseMoneyValue(basePrice);
+  const productVariants = Array.isArray(productOrVariants)
+    ? productOrVariants
+    : Array.isArray(productOrVariants?.variants)
+      ? productOrVariants.variants
+      : [];
+
+  if (getProductVariantMode({
+    variant_mode: Array.isArray(productOrVariants) ? null : productOrVariants?.variant_mode,
+    variants: productVariants,
+  }) === "combination") {
+    const match = findMatchingCombinationVariant(
+      productVariants,
+      selectedVariants,
+      Array.isArray(productOrVariants) ? [] : getVariantOptionNames(productOrVariants),
+    );
+    const combinationPrice = parseMoneyValue(match?.price);
+    return combinationPrice !== null ? combinationPrice : base;
+  }
+
   const variants = Object.values(selectedVariants || {}).filter(Boolean);
   
   // 1. Prioritize any variant specifically named "Size" (or similar) that has a price
@@ -72,6 +94,21 @@ export const getStandardizedDisplayTitle = (product: any, activeVariantMap?: Rec
       const sizeVariant = Object.values(activeVariantMap).find((v: any) => isSizeOption(v.option));
       if (sizeVariant && sizeVariant.value) {
         appendText = ` - ${sizeVariant.value}`;
+      }
+    } else if (getProductVariantMode(product) === "combination") {
+      const sizeOption = getVariantOptionNames(product).find((option) => isSizeOption(option));
+      const pricedVariants = (product.variants || [])
+        .map((variant: any) => ({
+          variant,
+          price: parseMoneyValue(variant?.price),
+        }))
+        .filter((entry: { price: number | null }) => entry.price !== null) as Array<{ variant: any; price: number }>;
+      const cheapestVariant = pricedVariants.length > 0
+        ? pricedVariants.reduce((min, current) => current.price < min.price ? current : min, pricedVariants[0]).variant
+        : product.variants?.[0];
+      const sizeValue = sizeOption ? getVariantAttributes(cheapestVariant)[sizeOption] : "";
+      if (sizeValue) {
+        appendText = ` - ${sizeValue}`;
       }
     } else if (product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
       const sizeVariants = product.variants.filter((v: any) => isSizeOption(v.option));

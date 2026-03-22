@@ -6,6 +6,7 @@ use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\SiteSetting;
 use App\Shipping\ShippingQuoteStore;
+use App\Support\ProductVariantResolver;
 use Illuminate\Validation\ValidationException;
 
 class CheckoutCalculator
@@ -141,6 +142,52 @@ class CheckoutCalculator
             $selectedVariants = [];
         }
 
+        if (ProductVariantResolver::usesCombinationMode($product)) {
+            $requiredOptions = collect(ProductVariantResolver::optionNames($product));
+            $normalizedSelections = ProductVariantResolver::normalizeSelections($selectedVariants);
+
+            $missingOptions = $requiredOptions->filter(
+                fn (string $option) => !array_key_exists($option, $normalizedSelections) || $normalizedSelections[$option] === ''
+            )->values();
+
+            if ($missingOptions->isNotEmpty()) {
+                $label = $missingOptions->count() === 1
+                    ? $missingOptions->first()
+                    : $missingOptions->implode(', ');
+
+                throw ValidationException::withMessages([
+                    "items.$index.selected_variants" => ["Please select {$label} for {$product->name}."],
+                ]);
+            }
+
+            $matchedVariant = ProductVariantResolver::findMatchingCombinationVariant($product, $selectedVariants);
+            if (!$matchedVariant) {
+                throw ValidationException::withMessages([
+                    "items.$index.selected_variants" => ['Invalid variant selection.'],
+                ]);
+            }
+
+            $variantStock = $matchedVariant['stock'] ?? null;
+            if ($variantStock !== null && (int) $variantStock < $quantity) {
+                $selectionLabel = collect($normalizedSelections)
+                    ->map(fn ($value, $option) => "{$option}: {$value}")
+                    ->implode(', ');
+
+                throw ValidationException::withMessages([
+                    "items.$index.quantity" => ["Only {$variantStock} unit(s) are available for {$product->name} ({$selectionLabel})."],
+                ]);
+            }
+
+            return $requiredOptions
+                ->mapWithKeys(fn (string $option) => [
+                    $option => [
+                        'option' => $option,
+                        'value' => $normalizedSelections[$option] ?? '',
+                    ],
+                ])
+                ->all();
+        }
+
         $requiredOptions = $available
             ->pluck('option')
             ->map(fn ($option) => trim((string) $option))
@@ -214,6 +261,13 @@ class CheckoutCalculator
 
         if (!$variantDetails || count($variantDetails) === 0) {
             return $basePrice;
+        }
+
+        if (ProductVariantResolver::usesCombinationMode($product)) {
+            $matchedVariant = ProductVariantResolver::findMatchingCombinationVariant($product, $variantDetails);
+            $matchedPrice = $this->parseMoney($matchedVariant['price'] ?? null);
+
+            return $matchedPrice > 0 ? round($matchedPrice, 2) : $basePrice;
         }
 
         $variantPrices = collect($variantDetails)

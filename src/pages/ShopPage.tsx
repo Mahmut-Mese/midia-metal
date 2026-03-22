@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/api";
 import Seo from "@/components/Seo";
 import { absoluteUrl, buildBreadcrumbJsonLd, truncateText } from "@/lib/seo";
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from "@/lib/pricing";
+import { getVariantAttributes, getProductVariantMode } from "@/lib/variants";
 
 type VariantFilters = Record<string, string[]>;
 type VariantFacet = {
@@ -51,6 +52,17 @@ const buildVariantFacets = (items: any[]): VariantFacet[] => {
   items.forEach((product) => {
     const variants = Array.isArray(product?.variants) ? product.variants : [];
     variants.forEach((variant: any) => {
+      if (getProductVariantMode(product) === "combination") {
+        Object.entries(getVariantAttributes(variant)).forEach(([option, value]) => {
+          const optionKey = normalizeVariantKey(option);
+          if (!optionKey || !value) return;
+          if (!optionMap.has(optionKey)) optionMap.set(optionKey, { label: option.toUpperCase(), values: new Map() });
+          const entry = optionMap.get(optionKey)!;
+          entry.values.set(value, (entry.values.get(value) || 0) + 1);
+        });
+        return;
+      }
+
       const option = String(variant?.option ?? "").trim();
       const value = String(variant?.value ?? "").trim();
       const optionKey = normalizeVariantKey(option);
@@ -74,6 +86,19 @@ const buildVariantFacets = (items: any[]): VariantFacet[] => {
 
 const matchesVariantFilters = (product: any, filters: VariantFilters): boolean => {
   const variants = Array.isArray(product?.variants) ? product.variants : [];
+
+  if (getProductVariantMode(product) === "combination") {
+    return Object.entries(filters).every(([optionKey, selectedValues]) => {
+      if (selectedValues.length === 0) return true;
+
+      return variants.some((variant: any) => {
+        const attributes = getVariantAttributes(variant);
+        const productValue = Object.entries(attributes).find(([option]) => normalizeVariantKey(option) === optionKey)?.[1];
+        return productValue ? selectedValues.includes(productValue) : false;
+      });
+    });
+  }
+
   return Object.entries(filters).every(([optionKey, selectedValues]) => {
     if (selectedValues.length === 0) return true;
     const productValues = variants

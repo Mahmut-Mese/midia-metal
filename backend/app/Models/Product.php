@@ -10,6 +10,10 @@ class Product extends Model
         'name',
         'show_variant_in_title',
         'slug',
+        'variant_mode',
+        'variant_options',
+        'frontend_variant_layout',
+        'selection_table_config',
         'price',
         'old_price',
         'image',
@@ -30,10 +34,13 @@ class Product extends Model
         'shipping_class',
         'ships_separately',
         'specifications',
-        'variants'
+        'variants',
+        'variant_table_columns',
     ];
     protected $casts = [
         'show_variant_in_title' => 'boolean',
+        'variant_options' => 'array',
+        'selection_table_config' => 'array',
         'gallery' => 'array',
         'tags' => 'array',
         'featured' => 'boolean',
@@ -45,7 +52,8 @@ class Product extends Model
         'shipping_height_cm' => 'float',
         'ships_separately' => 'boolean',
         'specifications' => 'array',
-        'variants' => 'array'
+        'variants' => 'array',
+        'variant_table_columns' => 'array',
     ];
 
     public function category()

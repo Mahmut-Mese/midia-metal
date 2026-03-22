@@ -4,6 +4,7 @@ namespace App\Shipping;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Support\ProductVariantResolver;
 use RuntimeException;
 
 class ParcelBuilder
@@ -323,21 +324,26 @@ class ParcelBuilder
             ];
         }
 
-        $resolvedSelections = collect($selectedVariants)->map(function ($selection, $option) use ($product) {
-            if (is_array($selection) && array_key_exists('shipping_weight_kg', $selection)) {
-                return $selection;
-            }
+        if (ProductVariantResolver::usesCombinationMode($product)) {
+            $matchedVariant = ProductVariantResolver::findMatchingCombinationVariant($product, $selectedVariants);
+            $resolvedSelections = collect($matchedVariant ? [$matchedVariant] : [])->values();
+        } else {
+            $resolvedSelections = collect($selectedVariants)->map(function ($selection, $option) use ($product) {
+                if (is_array($selection) && array_key_exists('shipping_weight_kg', $selection)) {
+                    return $selection;
+                }
 
-            $value = is_array($selection) ? ($selection['value'] ?? null) : null;
-            if ($value === null) {
-                return null;
-            }
+                $value = is_array($selection) ? ($selection['value'] ?? null) : null;
+                if ($value === null) {
+                    return null;
+                }
 
-            return collect($product->variants ?? [])->first(function ($variant) use ($option, $value) {
-                return (string) ($variant['option'] ?? '') === (string) $option
-                    && (string) ($variant['value'] ?? '') === (string) $value;
-            });
-        })->filter(fn ($selection) => is_array($selection))->values();
+                return collect($product->variants ?? [])->first(function ($variant) use ($option, $value) {
+                    return (string) ($variant['option'] ?? '') === (string) $option
+                        && (string) ($variant['value'] ?? '') === (string) $value;
+                });
+            })->filter(fn ($selection) => is_array($selection))->values();
+        }
 
         if ($resolvedSelections->isEmpty()) {
             return [

@@ -1,3 +1,5 @@
+import { findMatchingCombinationVariant, getProductVariantMode } from "@/lib/variants";
+
 export const parseStockValue = (value: unknown): number | null => {
   if (value === null || value === undefined || value === "") return null;
 
@@ -18,6 +20,10 @@ export const getVariantStockLimit = (
     return null;
   }
 
+  if (getProductVariantMode({ variants }) === "combination") {
+    return parseStockValue(findMatchingCombinationVariant(variants, selectedVariants)?.stock);
+  }
+
   const limits = Object.entries(selectedVariants).map(([option, selected]) => {
     const match = variants.find((variant) => (
       String(variant?.option ?? "") === String(option)
@@ -33,6 +39,8 @@ export const getVariantStockLimit = (
 export const getAvailableStock = (product: {
   track_stock?: boolean | null;
   stock_quantity?: unknown;
+  variant_mode?: unknown;
+  variant_options?: unknown;
   variants?: Array<Record<string, any>> | null;
   selected_variants?: Record<string, any> | null;
   available_stock?: unknown;
@@ -43,7 +51,9 @@ export const getAvailableStock = (product: {
   }
 
   const baseStock = product.track_stock ? parseStockValue(product.stock_quantity) : null;
-  const variantStock = getVariantStockLimit(product.variants, product.selected_variants);
+  const variantStock = getProductVariantMode(product) === "combination"
+    ? parseStockValue(findMatchingCombinationVariant(product.variants, product.selected_variants, [])?.stock)
+    : getVariantStockLimit(product.variants, product.selected_variants);
 
   return minNullable([baseStock, variantStock]);
 };

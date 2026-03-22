@@ -17,18 +17,77 @@ class HtmlSanitizer
         $content = preg_replace('/\s+on[a-z]+\s*=\s*"[^"]*"/i', '', $content) ?? '';
         $content = preg_replace("/\s+on[a-z]+\s*=\s*'[^']*'/i", '', $content) ?? '';
         $content = preg_replace('/\s+on[a-z]+\s*=\s*[^\s>]+/i', '', $content) ?? '';
-        // Preserve img-row divs; convert all other divs to <p>
-        $content = preg_replace_callback('/<(\/?)(div\b[^>]*)>/i', function ($matches) {
+        $sanitizeStyle = static function (string $rawStyle, array $allowedProps): string {
+            $safeStyles = [];
+
+            foreach ($allowedProps as $prop) {
+                if (!preg_match('/(?:^|;)\s*' . preg_quote($prop, '/') . '\s*:\s*([^;]+)/i', $rawStyle, $match)) {
+                    continue;
+                }
+
+                $value = trim($match[1]);
+                if (!preg_match('/^[a-zA-Z0-9\s%.,#()_-]+$/', $value)) {
+                    continue;
+                }
+
+                $safeStyles[] = $prop . ':' . $value;
+            }
+
+            return $safeStyles ? implode('; ', $safeStyles) . ';' : '';
+        };
+
+        $extractStyle = static function (string $attributes) use ($sanitizeStyle): string {
+            if (
+                !preg_match('/style\s*=\s*"([^"]*)"/i', $attributes, $styleMatch) &&
+                !preg_match("/style\s*=\s*'([^']*)'/i", $attributes, $styleMatch)
+            ) {
+                return '';
+            }
+
+            return $sanitizeStyle($styleMatch[1] ?? '', [
+                'text-align',
+                'width',
+                'min-width',
+                'max-width',
+                'display',
+                'vertical-align',
+                'float',
+                'clear',
+                'gap',
+                'column-gap',
+                'row-gap',
+                'justify-content',
+                'align-items',
+                'flex-wrap',
+                'flex-direction',
+                'margin',
+                'margin-top',
+                'margin-bottom',
+                'margin-left',
+                'margin-right',
+                'padding',
+                'padding-top',
+                'padding-bottom',
+                'padding-left',
+                'padding-right',
+                'border-collapse',
+                'border-spacing',
+            ]);
+        };
+
+        // Preserve img-row divs; keep other divs with safe inline layout styles.
+        $content = preg_replace_callback('/<(\/?)(div\b[^>]*)>/i', function ($matches) use ($extractStyle) {
             $isClose = $matches[1] === '/';
             if ($isClose) {
-                // Closing tag — check if it was an img-row (we can't easily track here, so allow </div> only as-is for allowed divs)
                 return '</div>';
             }
             $attrs = $matches[2] ?? '';
             if (preg_match('/class\s*=\s*\'img-row\'/i', $attrs) || preg_match('/class\s*=\s*"img-row"/i', $attrs)) {
                 return '<div class="img-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin:8px 0;">';
             }
-            return '<p>';
+
+            $style = $extractStyle($attrs);
+            return $style ? '<div style="' . e($style) . '">' : '<div>';
         }, $content) ?? '';
 
         $content = preg_replace_callback('/<font\b([^>]*)>/i', function ($matches) {
@@ -46,17 +105,26 @@ class HtmlSanitizer
 
         $content = strip_tags(
             $content,
-            '<p><br><strong><b><em><i><u><ul><ol><li><h1><h2><h3><h4><blockquote><a><span><img><div>'
+            '<p><br><strong><b><em><i><u><ul><ol><li><h1><h2><h3><h4><blockquote><a><span><img><div><table><thead><tbody><tr><td><th>'
         );
 
         // Strip any <div> that wasn't converted to an img-row (safety pass)
-        $content = preg_replace_callback('/<div\b([^>]*)>/i', function ($matches) {
+        $content = preg_replace_callback('/<div\b([^>]*)>/i', function ($matches) use ($extractStyle) {
             $attrs = $matches[1] ?? '';
             if (strpos($attrs, 'img-row') !== false) {
                 return '<div class="img-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin:8px 0;">';
             }
-            return '<p>';
+
+            $style = $extractStyle($attrs);
+            return $style ? '<div style="' . e($style) . '">' : '<div>';
         }, $content) ?? '';
+
+        foreach (['p', 'h1', 'h2', 'h3', 'h4', 'table', 'thead', 'tbody', 'tr', 'td', 'th'] as $tagName) {
+            $content = preg_replace_callback('/<' . $tagName . '\b([^>]*)>/i', function ($matches) use ($tagName, $extractStyle) {
+                $style = $extractStyle($matches[1] ?? '');
+                return $style ? '<' . $tagName . ' style="' . e($style) . '">' : '<' . $tagName . '>';
+            }, $content) ?? '';
+        }
 
         $content = preg_replace_callback('/<a\b([^>]*)>/i', function ($matches) {
             $attributes = $matches[1] ?? '';
@@ -98,7 +166,7 @@ class HtmlSanitizer
             return '<span style="color:' . e($color) . '">';
         }, $content) ?? '';
 
-        $content = preg_replace_callback('/<img\b([^>]*)>/i', function ($matches) {
+        $content = preg_replace_callback('/<img\b([^>]*)>/i', function ($matches) use ($sanitizeStyle) {
             $attributes = $matches[1] ?? '';
 
             if (!preg_match('/src\s*=\s*"([^"]+)"/i', $attributes, $srcMatch) &&
@@ -127,19 +195,19 @@ class HtmlSanitizer
             if (preg_match('/style\s*=\s*"([^"]*)"/i', $attributes, $styleMatch) ||
                 preg_match("/style\s*=\s*'([^']*)'/i", $attributes, $styleMatch)) {
                 $rawStyle = trim($styleMatch[1]);
-                $safeStyles = [];
-                $allowedProps = ['width', 'height', 'max-width', 'display', 'float', 'margin', 'margin-left', 'margin-right'];
-                foreach ($allowedProps as $prop) {
-                    if (preg_match('/(?:^|;)\s*' . preg_quote($prop, '/') . '\s*:\s*([^;]+)/i', $rawStyle, $vMatch)) {
-                        $val = trim($vMatch[1]);
-                        if (preg_match('/^[a-zA-Z0-9\s%.,-]+$/', $val)) {
-                            $safeStyles[] = "$prop: $val";
-                        }
-                    }
-                }
-                if (count($safeStyles) > 0) {
-                    $style = implode('; ', $safeStyles) . ';';
-                }
+                $style = $sanitizeStyle($rawStyle, [
+                    'width',
+                    'height',
+                    'min-width',
+                    'max-width',
+                    'display',
+                    'float',
+                    'margin',
+                    'margin-top',
+                    'margin-bottom',
+                    'margin-left',
+                    'margin-right',
+                ]);
             }
 
             if (!$style) {

@@ -11,8 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('orders', function (Blueprint $table) {
-            $table->string('stripe_receipt_url')->nullable()->after('stripe_payment_method_id');
+        $afterColumn = null;
+
+        if (Schema::getConnection()->getDriverName() !== 'sqlite') {
+            $afterColumn = Schema::hasColumn('orders', 'stripe_payment_method_id')
+                ? 'stripe_payment_method_id'
+                : (Schema::hasColumn('orders', 'stripe_payment_intent_id') ? 'stripe_payment_intent_id' : null);
+        }
+
+        Schema::table('orders', function (Blueprint $table) use ($afterColumn) {
+            $column = $table->string('stripe_receipt_url')->nullable();
+
+            if ($afterColumn !== null) {
+                $column->after($afterColumn);
+            }
         });
     }
 

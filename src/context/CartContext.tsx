@@ -162,7 +162,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (existing) {
                 const requestedQty = itemQty(existing) + quantity;
                 const nextQty = clampQuantityToStock(requestedQty, availableStock);
-                const resolvedPrice = formatMoneyValue(resolveSelectedVariantUnitPrice(product.price, product.selected_variants) ?? product.price);
+                const resolvedPrice = formatMoneyValue(resolveSelectedVariantUnitPrice(product.price, product.selected_variants, product) ?? product.price);
 
                 if (availableStock !== null && nextQty < requestedQty) {
                     toastMessage = `Only ${availableStock} unit(s) of ${product.name} are in stock.`;
@@ -193,7 +193,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     id: uniqueId,
                     product_id: product.id,
                     name: product.name,
-                    price: formatMoneyValue(resolveSelectedVariantUnitPrice(product.price, product.selected_variants) ?? product.price),
+                    price: formatMoneyValue(resolveSelectedVariantUnitPrice(product.price, product.selected_variants, product) ?? product.price),
                     image: product.image,
                     qty: nextQty,
                     selected_variants: product.selected_variants,
