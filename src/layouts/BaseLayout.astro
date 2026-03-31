@@ -1,0 +1,88 @@
+---
+/**
+ * BaseLayout.astro — Main layout for all public Astro pages.
+ * Replaces the Header + Footer wrapping from React pages.
+ *
+ * Usage in an Astro page:
+ *   ---
+ *   import BaseLayout from '@/layouts/BaseLayout.astro';
+ *   ---
+ *   <BaseLayout title="About Us" description="..." image="/images/hero.jpg">
+ *     <main>...page content...</main>
+ *   </BaseLayout>
+ */
+import HeaderIsland from '@/islands/HeaderIsland';
+import FooterIsland from '@/islands/FooterIsland';
+import CookieBannerIsland from '@/islands/CookieBannerIsland';
+import '@/index.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  canonicalPath?: string;
+  noindex?: boolean;
+  structuredData?: object[];
+}
+
+const {
+  title = 'Midia M Metal | Commercial Kitchen Ventilation & Fabrication',
+  description = 'Midia M Metal supplies commercial kitchen ventilation, stainless steel fabrication, canopy systems, grease filters, and custom metalwork across the UK.',
+  image = '/logo.png',
+  canonicalPath,
+  noindex = false,
+  structuredData = [],
+} = Astro.props;
+
+const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const fullTitle = title.includes('Midia') ? title : `${title} | Midia M Metal`;
+const canonicalUrl = canonicalPath ? `${siteUrl}${canonicalPath}` : undefined;
+const ogImage = image.startsWith('http') ? image : `${siteUrl}${image}`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content="Midia M Metal" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Midia M Metal" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@midiametal" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Structured Data -->
+    {structuredData.map((data) => (
+      <script type="application/ld+json" set:html={JSON.stringify(data)} />
+    ))}
+  </head>
+  <body class="bg-background text-foreground font-sans">
+    <HeaderIsland client:load />
+    <slot />
+    <FooterIsland client:visible />
+    <CookieBannerIsland client:idle />
+  </body>
+</html>

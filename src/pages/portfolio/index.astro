@@ -1,0 +1,73 @@
+---
+/**
+ * portfolio/index.astro — Portfolio list page (PURE ASTRO + PortfolioFilter island)
+ *
+ * Pattern:
+ *   1. Fetch portfolio categories, projects, and settings in frontmatter
+ *   2. Render CTA banner as pure Astro HTML
+ *   3. Mount PortfolioFilter island for interactive category filtering + project grid
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PortfolioFilter from '@/islands/PortfolioFilter';
+import { buildBreadcrumbJsonLd } from '@/lib/seo';
+
+const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const API_BASE = 'http://127.0.0.1:8000/api';
+
+// --- Data Fetching (runs at build time) ---
+let categories: any[] = [];
+let projects: any[] = [];
+let settings: Record<string, string> = {};
+
+try {
+  const [catsRes, projRes, settingsRes] = await Promise.all([
+    fetch(`${API_BASE}/v1/portfolio/categories`).then(r => r.ok ? r.json() : []),
+    fetch(`${API_BASE}/v1/portfolio`).then(r => r.ok ? r.json() : []),
+    fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []),
+  ]);
+  categories = catsRes || [];
+  projects = projRes || [];
+  const settingsMap: Record<string, string> = {};
+  (settingsRes || []).forEach((s: any) => {
+    settingsMap[s.key] = s.value;
+  });
+  settings = settingsMap;
+} catch (err) {
+  console.error('Failed to load portfolio data at build time:', err);
+}
+
+const t = (key: string, def: string) => settings[key] || def;
+---
+
+<BaseLayout
+  title="Portfolio"
+  description="View recent commercial kitchen ventilation, stainless steel fabrication, canopy installation, and custom metalwork projects completed by Midia M Metal."
+  canonicalPath="/portfolio"
+  structuredData={[buildBreadcrumbJsonLd([
+    { name: 'Home', url: `${siteUrl}/` },
+    { name: 'Portfolio', url: `${siteUrl}/portfolio` },
+  ])]}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <!-- Portfolio Filter + Project Grid (React island — needs filter state) -->
+    <PortfolioFilter categories={categories} projects={projects} client:load />
+
+    <!-- CTA Banner (pure static) -->
+    <section class="container mx-auto px-4 lg:px-8 pb-20 md:pb-24">
+      <div class="bg-gradient-to-r from-[#0c63a4] to-[#1296df] p-8 md:p-10 flex flex-col md:flex-row gap-6 md:items-center md:justify-between">
+        <div>
+          <p class="text-[10px] uppercase tracking-[0.24em] text-white/75 font-semibold mb-2">{t("portfolio_cta_label", "Ready to start")}</p>
+          <h2 class="font-sans text-[34px] md:text-[46px] leading-[0.95] font-semibold text-white whitespace-pre-line">
+            {t("portfolio_cta_title", "Have a project in mind?")}
+          </h2>
+        </div>
+        <a
+          href="/get-a-quote"
+          class="inline-flex items-center justify-center h-11 px-8 bg-white text-[#10275c] text-[13px] font-semibold hover:bg-[#e9eff6] transition-colors"
+        >
+          Request a Quote
+        </a>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

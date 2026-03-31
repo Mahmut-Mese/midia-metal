@@ -62,23 +62,23 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
   };
 
   useEffect(() => {
-    if (selectedImage) {
-      updateImageRect();
-      const observer = new ResizeObserver(updateImageRect);
-      observer.observe(selectedImage);
-      
-      const handleScroll = () => updateImageRect();
-      editorRef.current?.addEventListener("scroll", handleScroll);
-      window.addEventListener("scroll", handleScroll, true);
-      
-      return () => {
-        observer.disconnect();
-        editorRef.current?.removeEventListener("scroll", handleScroll);
-        window.removeEventListener("scroll", handleScroll, true);
-      };
-    } else {
+    if (!selectedImage) {
       setImageRect(null);
+      return undefined;
     }
+    updateImageRect();
+    const observer = new ResizeObserver(updateImageRect);
+    observer.observe(selectedImage);
+    
+    const handleScroll = () => updateImageRect();
+    editorRef.current?.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, true);
+    
+    return () => {
+      observer.disconnect();
+      editorRef.current?.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
   }, [selectedImage]);
 
   useEffect(() => {

@@ -1,0 +1,73 @@
+---
+/**
+ * Admin catch-all route — mounts the entire admin SPA as a single React island.
+ * 
+ * Uses client:only="react" because:
+ * - Admin doesn't need SEO (no server rendering)
+ * - Full React lifecycle needed (React Router, lazy loading, etc.)
+ * - All /admin/* sub-routes handled by React Router inside AdminApp
+ *
+ * This page does NOT use BaseLayout because the admin has its own layout
+ * (AdminLayout with sidebar, header, etc.)
+ *
+ * getStaticPaths() generates all known admin sub-routes at build time.
+ * React Router still handles navigation client-side — these paths just
+ * ensure that direct URL access / page refresh works for each admin route.
+ */
+import AdminApp from '@/islands/AdminApp';
+import '@/index.css';
+
+export function getStaticPaths() {
+  // Generate a static page for each known admin sub-route.
+  // React Router handles client-side navigation between them.
+  const adminRoutes = [
+    // Root/index — /admin
+    undefined,
+    // Auth
+    'login',
+    'forgot-password',
+    'reset-password',
+    // Dashboard (alias — index route is at /admin, but users may type /admin/dashboard)
+    'dashboard',
+    // Dashboard & content management
+    'products',
+    'product-categories',
+    'blog',
+    'portfolio',
+    'portfolio-categories',
+    'orders',
+    'quotes',
+    'coupons',
+    'messages',
+    'product-reviews',
+    'customers',
+    'faq',
+    'services',
+    'settings',
+  ];
+
+  return adminRoutes.map((route) => ({
+    params: { path: route },
+  }));
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin | Midia M Metal</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <!-- Google Fonts (same as BaseLayout) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-background text-foreground font-sans">
+    <AdminApp client:only="react" />
+  </body>
+</html>

@@ -1,0 +1,118 @@
+---
+/**
+ * shop/category/[slug].astro — Category page (PURE ASTRO)
+ *
+ * Converted from React island: src/islands/CategoryIsland.tsx (99 lines)
+ *
+ * Pattern:
+ *   1. getStaticPaths() fetches all categories, then for each fetches products
+ *   2. Full category + products data passed as props (no client-side fetch)
+ *   3. All HTML is pure Astro template — zero client-side JavaScript
+ *   4. Uses getStandardizedDisplayPrice/Title for consistent product display
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
+
+export async function getStaticPaths() {
+  try {
+    const catRes = await fetch('http://127.0.0.1:8000/api/v1/product-categories');
+    if (!catRes.ok) return [];
+    const categories = await catRes.json();
+    const items = Array.isArray(categories) ? categories : categories.data || [];
+
+    const paths = await Promise.all(
+      items.map(async (cat: any) => {
+        let products: any[] = [];
+        try {
+          const prodRes = await fetch(`http://127.0.0.1:8000/api/v1/products?category=${cat.slug}`);
+          if (prodRes.ok) {
+            const prodData = await prodRes.json();
+            products = prodData.data || [];
+          }
+        } catch {}
+        return {
+          params: { slug: cat.slug },
+          props: { category: cat, products },
+        };
+      })
+    );
+    return paths;
+  } catch {
+    return [];
+  }
+}
+
+const { slug } = Astro.params;
+const { category, products } = Astro.props;
+
+const pageTitle = category?.name || 'Category';
+const pageDescription = category?.description || `Browse ${pageTitle} products from Midia M Metal.`;
+---
+
+<BaseLayout
+  title={pageTitle}
+  description={pageDescription}
+  canonicalPath={`/shop/category/${slug}`}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <!-- Hero section with category overview -->
+    <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-16 md:pb-20">
+      <!-- Breadcrumb -->
+      <div class="mb-6">
+        <nav class="flex items-center gap-2 text-sm text-[#6e7a92]">
+          <a href="/shop" class="hover:text-orange transition-colors">Shop</a>
+          <span>/</span>
+          <span class="text-primary">{category.name}</span>
+        </nav>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-8 md:gap-10 items-center">
+        <div class="bg-[#f4f5f7]">
+          <img
+            src={category.image}
+            alt={category.name}
+            class="w-full h-[280px] md:h-[420px] object-cover"
+          />
+        </div>
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-[#10275c] mb-4">Category Overview</p>
+          <h1 class="font-sans text-[34px] md:text-[48px] leading-[0.96] font-semibold text-[#10275c] mb-5">
+            {category.name}
+          </h1>
+          <p class="text-[15px] leading-8 text-[#6f7c95]">{category.description}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Products grid -->
+    <section class="container mx-auto px-4 lg:px-8 pb-20 md:pb-24">
+      <h3 class="font-sans text-[34px] md:text-[46px] leading-none font-semibold text-[#10275c] mb-8">Products</h3>
+
+      {products.length > 0 ? (
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 md:gap-x-8 gap-y-10">
+          {products.map((product: any) => (
+            <a href={`/shop/${product.slug || product.id}`} class="group">
+              <div class="bg-[#f7f8fa] mb-4">
+                <img
+                  src={product.image}
+                  alt={product.name}
+                  class="w-full aspect-square object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                />
+              </div>
+              <h4 class="font-sans text-[18px] md:text-[20px] leading-tight font-semibold text-primary group-hover:text-orange transition-colors">
+                {getStandardizedDisplayTitle(product)}
+              </h4>
+              <p class="text-[16px] md:text-[20px] text-[#5e6e8c] mt-2">
+                {getStandardizedDisplayPrice(product)}
+              </p>
+            </a>
+          ))}
+        </div>
+      ) : (
+        <div class="py-12 px-6 border border-[#cfd8e6] bg-[#f4f5f7] text-[#6f7c95]">
+          No products found for this category.
+        </div>
+      )}
+    </section>
+  </div>
+</BaseLayout>

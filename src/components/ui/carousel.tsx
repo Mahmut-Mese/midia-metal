@@ -82,7 +82,7 @@ const Carousel = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEl
 
     React.useEffect(() => {
       if (!api || !setApi) {
-        return;
+        return undefined;
       }
 
       setApi(api);
@@ -90,7 +90,7 @@ const Carousel = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEl
 
     React.useEffect(() => {
       if (!api) {
-        return;
+        return undefined;
       }
 
       onSelect(api);

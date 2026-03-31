@@ -1,0 +1,27 @@
+---
+/**
+ * cart.astro — Reference conversion: INTERACTIVE ISLAND PAGE (full interactivity)
+ *
+ * Pattern: Astro page wrapping a React island that uses nanostores for state.
+ * This is the most complex conversion type — the island has cart state,
+ * coupon logic, quantity controls, and links to checkout.
+ *
+ * Original: src/pages-react/CartPage.tsx
+ *
+ * The island-builder agent should follow this pattern for similar pages:
+ * checkout, payment, login, register, account, wishlist, etc.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import CartIsland from '@/islands/CartIsland';
+---
+
+<BaseLayout
+  title="Basket"
+  description="Review the products in your basket before checkout."
+  canonicalPath="/cart"
+  noindex
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <CartIsland client:load />
+  </div>
+</BaseLayout>

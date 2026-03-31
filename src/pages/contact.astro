@@ -1,0 +1,101 @@
+---
+/**
+ * contact.astro — Contact page (PURE ASTRO + ContactForm island)
+ *
+ * Pattern:
+ *   1. Fetch settings in frontmatter
+ *   2. Render static contact info (address, phone, email) as pure Astro
+ *   3. Mount ContactForm island for the interactive form
+ *   4. Render Google Maps iframe as static HTML
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ContactForm from '@/islands/ContactForm';
+import { buildBreadcrumbJsonLd } from '@/lib/seo';
+
+const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const API_BASE = 'http://127.0.0.1:8000/api';
+
+// --- Data Fetching (runs at build time) ---
+let settings: Record<string, string> = {};
+
+try {
+  const settingsRes = await fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []);
+  const settingsMap: Record<string, string> = {};
+  (settingsRes || []).forEach((s: any) => {
+    settingsMap[s.key] = s.value;
+  });
+  settings = settingsMap;
+} catch (err) {
+  console.error('Failed to load settings at build time:', err);
+}
+
+const t = (key: string, def: string) => settings[key] || def;
+---
+
+<BaseLayout
+  title="Contact"
+  description="Get in touch with Midia M Metal for custom stainless steel fabrication and commercial kitchen ventilation enquiries."
+  canonicalPath="/contact"
+  structuredData={[buildBreadcrumbJsonLd([
+    { name: 'Home', url: `${siteUrl}/` },
+    { name: 'Contact', url: `${siteUrl}/contact` },
+  ])]}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-14 md:pb-20">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 md:gap-16">
+        <!-- Static Contact Info -->
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-[#10275c] mb-5">{t("contact_hero_label", "CONTACT US")}</p>
+          <h2 class="font-sans text-[42px] md:text-[52px] leading-[0.94] font-semibold text-[#10275c] mb-6 whitespace-pre-line">
+            {t("contact_hero_title", "Have Questions?\nGet in Touch!")}
+          </h2>
+          <p class="text-[#6f7c95] text-[16px] leading-8 max-w-[560px] mb-10">
+            {t("contact_welcome", "Get in touch with us for Any custom stainless steel fabrication or ventilation system inquiries.")}
+          </p>
+
+          <div class="space-y-5 text-[#6f7c95] text-[16px]">
+            <div class="flex items-start gap-4">
+              <!-- MapPin icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#2f9cea] mt-1 flex-shrink-0"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              <p>{t("contact_address", "785 15th Street, Office 478 Boston")}</p>
+            </div>
+            <div class="flex items-start gap-4">
+              <!-- Phone icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#2f9cea] mt-1 flex-shrink-0"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <p class="text-[#10275c] text-[28px] md:text-[39px] leading-none font-medium">{t("contact_phone", "+1 800 555 25 69")}</p>
+            </div>
+            <div class="flex items-start gap-4">
+              <!-- Mail icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#2f9cea] mt-1 flex-shrink-0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              <a href={`mailto:${t("contact_email", "info@email.com")}`} class="hover:text-orange transition-colors">{t("contact_email", "info@email.com")}</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contact Form Island -->
+        <div>
+          <ContactForm
+            client:load
+            messagePlaceholder={t("contact_form_message_placeholder", "How can we help you? Feel free to get in touch!")}
+            buttonLabel={t("contact_form_button_label", "Get in Touch")}
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- Google Maps -->
+    <section class="w-full h-[460px] md:h-[620px]">
+      <iframe
+        src={t("contact_map_url", "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d158858.18237282!2d-0.24168049!3d51.52855825!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x47d8a00baf21de75%3A0x52963a5addd52a99!2sLondon%2C%20UK!5e0!3m2!1sen!2sus!4v1709000000000!5m2!1sen!2sus")}
+        width="100%"
+        height="100%"
+        style="border: 0;"
+        allowfullscreen
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"
+        title="Location Map"
+      ></iframe>
+    </section>
+  </div>
+</BaseLayout>

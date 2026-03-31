@@ -1,0 +1,77 @@
+---
+/**
+ * shop/[slug].astro — Product detail page
+ *
+ * Enhancement: getStaticPaths() now fetches full product + related data
+ * and passes them as props to ProductDetailIsland, eliminating the
+ * loading spinner on initial render and enabling SEO-friendly page titles.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ProductDetailIsland from '@/islands/ProductDetailIsland';
+import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
+import { stripHtml, truncateText } from '@/lib/seo';
+
+export async function getStaticPaths() {
+  try {
+    const res = await fetch('http://127.0.0.1:8000/api/v1/products');
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items = Array.isArray(data) ? data : data.data || [];
+
+    const paths = await Promise.all(
+      items.map(async (item: any) => {
+        let product = item;
+        let related: any[] = [];
+        try {
+          // Fetch full product detail (includes variants, reviews, specs, gallery)
+          const detailRes = await fetch(`http://127.0.0.1:8000/api/v1/products/${item.slug}`);
+          if (detailRes.ok) {
+            product = await detailRes.json();
+          }
+        } catch {}
+        try {
+          const relRes = await fetch(`http://127.0.0.1:8000/api/v1/products/${item.slug}/related`);
+          if (relRes.ok) {
+            const relData = await relRes.json();
+            related = (Array.isArray(relData) ? relData : []).slice(0, 3);
+          }
+        } catch {}
+        return {
+          params: { slug: String(item.slug) },
+          props: { product, related },
+        };
+      })
+    );
+    return paths;
+  } catch {
+    return [];
+  }
+}
+
+const { slug } = Astro.params;
+const { product, related } = Astro.props;
+
+// Dynamic SEO from product data
+const productName = product?.name || 'Product';
+const productPrice = product ? getStandardizedDisplayPrice(product) : '';
+const pageTitle = productPrice ? `${productName} - ${productPrice}` : productName;
+const rawDescription = product?.description || '';
+const pageDescription = rawDescription
+  ? truncateText(stripHtml(rawDescription), 155)
+  : `View ${productName} details from Midia M Metal.`;
+---
+
+<BaseLayout
+  title={pageTitle}
+  description={pageDescription}
+  canonicalPath={`/shop/${slug}`}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <ProductDetailIsland
+      id={slug!}
+      initialProduct={product}
+      initialRelated={related}
+      client:load
+    />
+  </div>
+</BaseLayout>

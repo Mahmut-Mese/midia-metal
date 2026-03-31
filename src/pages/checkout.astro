@@ -1,0 +1,15 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import CheckoutIsland from '@/islands/CheckoutIsland';
+---
+
+<BaseLayout
+  title="Checkout"
+  description="Complete your checkout securely."
+  canonicalPath="/checkout"
+  noindex
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <CheckoutIsland client:load />
+  </div>
+</BaseLayout>

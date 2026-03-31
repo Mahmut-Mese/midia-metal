@@ -1,0 +1,74 @@
+---
+/**
+ * terms-of-service.astro — Terms & Conditions page (PURE ASTRO)
+ *
+ * Converted from React island (LegalIsland.tsx) to pure Astro.
+ * All data fetching happens at build time via frontmatter.
+ * Zero client-side JavaScript for page content.
+ *
+ * Original: src/islands/LegalIsland.tsx
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buildBreadcrumbJsonLd } from '@/lib/seo';
+
+const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const API_BASE = 'http://127.0.0.1:8000/api';
+
+// --- Data Fetching (runs at build time) ---
+let settings: Record<string, string> = {};
+
+try {
+  const settingsRes = await fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []);
+  const settingsMap: Record<string, string> = {};
+  (settingsRes || []).forEach((s: any) => {
+    settingsMap[s.key] = s.value;
+  });
+  settings = settingsMap;
+} catch (err) {
+  console.error('Failed to load terms of service data at build time:', err);
+}
+
+const title = settings['terms_conditions_title'] || 'Terms & Conditions';
+const fallbackContent = `<h2>1. Acceptance</h2>
+<p>By accessing our website or placing an order with Midia M Metal, you agree to these terms. If you do not agree, please do not use our site.</p>
+<h2>2. Services &amp; Products</h2>
+<p>We provide custom metal fabrication services and sell fabricated products online. All products and services are subject to availability.</p>
+<h2>3. Orders &amp; Pricing</h2>
+<p>All prices are displayed in GBP and are inclusive of VAT where applicable. We reserve the right to refuse or cancel any order at our discretion.</p>
+<h2>4. Payment</h2>
+<p>Payment must be made in full before dispatch unless otherwise agreed for custom work.</p>
+<h2>5. Delivery</h2>
+<p>Delivery times are estimates only and are not guaranteed. We are not responsible for delays caused by third-party couriers.</p>
+<h2>6. Custom Fabrication</h2>
+<p>Custom-fabricated items are made to order based on your specifications and cannot usually be cancelled once production has started.</p>
+<h2>7. Liability</h2>
+<p>To the maximum extent permitted by law, Midia M Metal shall not be liable for indirect, incidental, or consequential damages.</p>
+<h2>8. Governing Law</h2>
+<p>These terms are governed by the laws of England and Wales.</p>
+<h2>9. Contact</h2>
+<p>For questions about these terms, contact <a href="mailto:info@midiametal.co.uk">info@midiametal.co.uk</a>.</p>`;
+const content = settings['terms_conditions_content'] || fallbackContent;
+---
+
+<BaseLayout
+  title="Terms & Conditions"
+  description="Terms and conditions for using the Midia M Metal website and services."
+  canonicalPath="/terms-of-service"
+  structuredData={[
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: `${siteUrl}/` },
+      { name: 'Terms & Conditions', url: `${siteUrl}/terms-of-service` },
+    ]),
+  ]}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-28 max-w-3xl">
+      <div class="bg-white border border-[#cad4e4] p-8 md:p-12 prose prose-slate max-w-none prose-headings:text-[#10275c] prose-a:text-orange prose-a:no-underline hover:prose-a:underline">
+        <h1 class="font-sans text-[32px] md:text-[42px] leading-tight font-semibold text-orange mb-8">
+          {title}
+        </h1>
+        <div set:html={content} />
+      </div>
+    </section>
+  </div>
+</BaseLayout>

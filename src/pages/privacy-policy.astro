@@ -1,0 +1,78 @@
+---
+/**
+ * privacy-policy.astro — Privacy Policy page (PURE ASTRO)
+ *
+ * Converted from React island (LegalIsland.tsx) to pure Astro.
+ * All data fetching happens at build time via frontmatter.
+ * Zero client-side JavaScript for page content.
+ *
+ * Original: src/islands/LegalIsland.tsx
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buildBreadcrumbJsonLd } from '@/lib/seo';
+
+const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const API_BASE = 'http://127.0.0.1:8000/api';
+
+// --- Data Fetching (runs at build time) ---
+let settings: Record<string, string> = {};
+
+try {
+  const settingsRes = await fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []);
+  const settingsMap: Record<string, string> = {};
+  (settingsRes || []).forEach((s: any) => {
+    settingsMap[s.key] = s.value;
+  });
+  settings = settingsMap;
+} catch (err) {
+  console.error('Failed to load privacy policy data at build time:', err);
+}
+
+const title = settings['privacy_policy_title'] || 'Privacy Policy';
+const fallbackContent = `<h2>1. Who We Are</h2>
+<p>Midia M Metal ("we", "our", "us") is committed to protecting and respecting your privacy. This policy explains how we collect, use, and store your personal data when you use our website or contact us regarding our fabrication services.</p>
+<h2>2. Data We Collect</h2>
+<p>We may collect the following information:</p>
+<ul>
+  <li>Name, email address, phone number when you submit a contact or quote form</li>
+  <li>Billing and shipping address when you place an order</li>
+  <li>Payment information (processed securely; we do not store card details)</li>
+  <li>Browser type, IP address, and pages visited via cookies</li>
+</ul>
+<h2>3. How We Use Your Data</h2>
+<p>We use your data to process and fulfil orders, respond to enquiries and quote requests, improve our website and services, and comply with legal obligations.</p>
+<h2>4. Cookies</h2>
+<p>We use cookies to enhance your browsing experience and to remember your cart. Essential cookies required for site functionality cannot be disabled.</p>
+<h2>5. Data Sharing</h2>
+<p>We do not sell, trade, or rent your personal data to third parties. We may share data with trusted service providers only to fulfil your orders.</p>
+<h2>6. Data Retention</h2>
+<p>We retain personal data only as long as necessary to provide our services and comply with legal obligations.</p>
+<h2>7. Your Rights</h2>
+<p>You may request access, correction, deletion, objection, or portability of your personal data. Contact us at <a href="mailto:info@midiametal.co.uk">info@midiametal.co.uk</a>.</p>
+<h2>8. Contact</h2>
+<p>For privacy-related questions, contact <a href="mailto:info@midiametal.co.uk">info@midiametal.co.uk</a>.</p>`;
+const content = settings['privacy_policy_content'] || fallbackContent;
+---
+
+<BaseLayout
+  title="Privacy Policy"
+  description="Read about how Midia M Metal collects, uses and protects your personal data."
+  canonicalPath="/privacy-policy"
+  structuredData={[
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: `${siteUrl}/` },
+      { name: 'Privacy Policy', url: `${siteUrl}/privacy-policy` },
+    ]),
+  ]}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-28 max-w-3xl">
+      <div class="bg-white border border-[#cad4e4] p-8 md:p-12 prose prose-slate max-w-none prose-headings:text-[#10275c] prose-a:text-orange prose-a:no-underline hover:prose-a:underline">
+        <h1 class="font-sans text-[32px] md:text-[42px] leading-tight font-semibold text-orange mb-8">
+          {title}
+        </h1>
+        <div set:html={content} />
+      </div>
+    </section>
+  </div>
+</BaseLayout>

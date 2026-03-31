@@ -1,6 +1,5 @@
 {
-  "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  "extends": "astro/tsconfigs/strictest",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
@@ -11,6 +10,8 @@
     "skipLibCheck": true,
     "allowJs": true,
     "noUnusedLocals": false,
-    "strictNullChecks": false
-  }
+    "strictNullChecks": false,
+    "jsx": "react-jsx"
+  },
+  "include": ["src/**/*.astro", "src/**/*.ts", "src/**/*.tsx", "astro.config.mjs"]
 }

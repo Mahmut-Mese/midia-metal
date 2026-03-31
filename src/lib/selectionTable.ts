@@ -158,9 +158,9 @@ export const normalizeSelectionTableConfig = (
   const tabs = uniqueStrings([
     ...normalizedTabs.map((entry) => entry.value),
     ...availableTabs,
-  ]).map((tabValue) => normalizedTabs.find((entry) => entry.value.toLowerCase() === tabValue.toLowerCase()) || ({
+  ]).map((tabValue): SelectionTableTabConfig => normalizedTabs.find((entry) => entry.value.toLowerCase() === tabValue.toLowerCase()) || ({
     value: tabValue,
-    mode: quoteTabValues.some((entry) => entry.toLowerCase() === tabValue.toLowerCase()) ? "quote" : "table",
+    mode: quoteTabValues.some((entry) => entry.toLowerCase() === tabValue.toLowerCase()) ? "quote" as const : "table" as const,
     heading: "",
     intro_text: "",
   }));

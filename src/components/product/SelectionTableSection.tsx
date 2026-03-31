@@ -1,9 +1,10 @@
 import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useMemo, useState } from "react";
+import { useStore } from "@nanostores/react";
 import { ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
-import { useCart } from "@/context/CartContext";
-import { useCustomerAuth } from "@/context/CustomerAuthContext";
+import { addToCart } from "@/stores/cart";
+import { $customer } from "@/stores/auth";
 import { clampQuantityToStock, getAvailableStock } from "@/lib/stock";
 import { formatMoneyValue } from "@/lib/pricing";
 import {
@@ -79,8 +80,7 @@ export default function SelectionTableSection({
   combinationColumns,
   embedded = false,
 }: Props) {
-  const { addToCart } = useCart();
-  const { customer } = useCustomerAuth();
+  const customer = useStore($customer);
   const [activeTab, setActiveTab] = useState("");
   const [rowQuantities, setRowQuantities] = useState<Record<string, number>>({});
   const [siteSettings, setSiteSettings] = useState<Record<string, string>>({});

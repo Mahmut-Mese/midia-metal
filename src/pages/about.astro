@@ -1,0 +1,180 @@
+---
+/**
+ * about.astro — About page (PURE ASTRO)
+ *
+ * Converted from React island (AboutIsland.tsx) to pure Astro.
+ * All data fetching happens at build time via frontmatter.
+ * Zero client-side JavaScript for page content.
+ *
+ * Original: src/islands/AboutIsland.tsx
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buildBreadcrumbJsonLd, buildOrganizationJsonLd } from '@/lib/seo';
+
+const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const API_BASE = 'http://127.0.0.1:8000/api';
+
+// --- Data Fetching (runs at build time) ---
+let settings: Record<string, string> = {};
+
+try {
+  const settingsRes = await fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []);
+  const settingsMap: Record<string, string> = {};
+  (settingsRes || []).forEach((s: any) => {
+    settingsMap[s.key] = s.value;
+  });
+  settings = settingsMap;
+} catch (err) {
+  console.error('Failed to load about data at build time:', err);
+}
+
+// Helper: get setting with fallback
+const t = (key: string, def: string) => settings[key] || def;
+
+// Highlights data
+const highlights = [
+  { value: t('about_exp_value', '15+'), label: t('about_exp_label', 'Years of Experience') },
+  { value: t('about_proj_value', '1,200+'), label: t('about_proj_label', 'Projects Completed') },
+  { value: t('about_satisfaction_value', '98%'), label: t('about_satisfaction_label', 'Client Satisfaction') },
+  { value: t('about_support_value', '24/7'), label: t('about_support_label', 'Support Availability') },
+];
+
+// Core values data
+const values = [
+  {
+    title: t('about_value_1_title', 'Quality First'),
+    text: t('about_value_1_desc', 'Every product is fabricated with strict quality control and practical attention to detail.'),
+  },
+  {
+    title: t('about_value_2_title', 'Expert Craftsmanship'),
+    text: t('about_value_2_desc', 'Our team combines technical skill and field experience to deliver reliable metal solutions.'),
+  },
+  {
+    title: t('about_value_3_title', 'Custom Fabrication'),
+    text: t('about_value_3_desc', 'We build tailored stainless steel systems for kitchens, commercial sites, and industrial spaces.'),
+  },
+  {
+    title: t('about_value_4_title', 'On-Time Delivery'),
+    text: t('about_value_4_desc', 'Clear planning and efficient production keep your project timeline on track from start to finish.'),
+  },
+];
+---
+
+<BaseLayout
+  title="About Us"
+  description="Midia M Metal specializes in stainless steel fabrication and ventilation systems for commercial kitchens across the UK."
+  image="/images/workshop.jpg"
+  canonicalPath="/about"
+  structuredData={[
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: `${siteUrl}/` },
+      { name: 'About Us', url: `${siteUrl}/about` },
+    ]),
+    buildOrganizationJsonLd({
+      name: 'Midia M Metal',
+      url: `${siteUrl}/`,
+      logo: `${siteUrl}/logo.png`,
+      email: 'info@midiammetal.com',
+      telephone: '07545888522',
+    }),
+  ]}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <!-- Hero Section -->
+    <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-16 md:pb-24">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 md:gap-14 items-center">
+        <div>
+          <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-[#10275c] mb-4">
+            {t('about_who_label', 'Who We Are')}
+          </p>
+          <h2 class="font-sans text-[46px] md:text-[62px] leading-[0.95] font-semibold text-[#10275c] mb-6 whitespace-pre-wrap">
+            {t('about_title', 'Precision Metal Solutions for Modern Spaces')}
+          </h2>
+          <p class="text-[#6f7c95] text-[15px] leading-8 mb-5 whitespace-pre-wrap">
+            {t('about_content_1', 'Midia M Metal specializes in stainless steel fabrication, kitchen ventilation systems, and tailored installation services.')}
+          </p>
+          <p class="text-[#6f7c95] text-[15px] leading-8 mb-8 whitespace-pre-wrap">
+            {t('about_content_2', 'From initial consultation to final handover, we focus on quality workmanship, reliable timelines, and clear communication.')}
+          </p>
+          <a
+            href="/contact"
+            class="inline-flex items-center justify-center h-12 px-8 bg-orange text-white text-[14px] font-semibold hover:bg-orange-hover transition-colors"
+          >
+            Start Your Project
+          </a>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <img src={t('about_image_1', '/images/workshop.jpg')} alt="Workshop" class="w-full h-[220px] md:h-[280px] object-cover" />
+          <img src={t('about_image_2', '/images/welding.jpg')} alt="Welding process" class="w-full h-[220px] md:h-[280px] object-cover" />
+          <img src={t('about_image_3', '/images/hero-kitchen.jpg')} alt="Kitchen setup" class="w-full h-[220px] md:h-[280px] object-cover" />
+          <img src={t('about_image_4', '/images/canopy.jpg')} alt="Canopy fabrication" class="w-full h-[220px] md:h-[280px] object-cover" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Highlights -->
+    <section class="container mx-auto px-4 lg:px-8 pb-16 md:pb-24">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {highlights.map((item) => (
+          <div class="bg-[#f4f5f7] border border-[#d7dfeb] p-6 md:p-8 text-center">
+            <p class="font-sans text-[40px] md:text-[56px] leading-none font-semibold text-[#10275c]">{item.value}</p>
+            <p class="text-[#6f7c95] text-[13px] md:text-[14px] mt-3">{item.label}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Core Values -->
+    <section class="container mx-auto px-4 lg:px-8 pb-16 md:pb-24">
+      <p class="text-center text-[10px] font-bold tracking-[0.24em] text-muted-foreground uppercase mb-3">
+        {t('about_values_label', 'Our Core Values')}
+      </p>
+      <h2 class="text-center font-sans text-[44px] md:text-[62px] leading-[0.95] font-semibold text-[#10275c] mb-12 md:mb-14">
+        {t('about_values_title', 'Built on Quality and Trust')}
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <!-- Value 1: ShieldCheck -->
+        <div class="bg-[#f4f5f7] border border-[#d7dfeb] p-7">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-orange mb-5"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+          <h3 class="font-sans text-[28px] leading-[1.05] font-semibold text-[#10275c] mb-3">{values[0].title}</h3>
+          <p class="text-[#6f7c95] text-[14px] leading-7">{values[0].text}</p>
+        </div>
+        <!-- Value 2: Wrench -->
+        <div class="bg-[#f4f5f7] border border-[#d7dfeb] p-7">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-orange mb-5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          <h3 class="font-sans text-[28px] leading-[1.05] font-semibold text-[#10275c] mb-3">{values[1].title}</h3>
+          <p class="text-[#6f7c95] text-[14px] leading-7">{values[1].text}</p>
+        </div>
+        <!-- Value 3: Factory -->
+        <div class="bg-[#f4f5f7] border border-[#d7dfeb] p-7">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-orange mb-5"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></svg>
+          <h3 class="font-sans text-[28px] leading-[1.05] font-semibold text-[#10275c] mb-3">{values[2].title}</h3>
+          <p class="text-[#6f7c95] text-[14px] leading-7">{values[2].text}</p>
+        </div>
+        <!-- Value 4: Clock3 -->
+        <div class="bg-[#f4f5f7] border border-[#d7dfeb] p-7">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-orange mb-5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16.5 12"/></svg>
+          <h3 class="font-sans text-[28px] leading-[1.05] font-semibold text-[#10275c] mb-3">{values[3].title}</h3>
+          <p class="text-[#6f7c95] text-[14px] leading-7">{values[3].text}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Banner -->
+    <section class="bg-gradient-to-r from-[#0c63a4] to-[#1296df]">
+      <div class="container mx-auto px-4 lg:px-8 py-9 md:py-11 flex flex-col md:flex-row items-center justify-between gap-6">
+        <h3 class="font-sans text-[34px] md:text-[44px] leading-[1.02] font-semibold text-white whitespace-pre-line">
+          {t('about_cta_title', 'Need a custom metal solution\nfor your business?')}
+        </h3>
+        <a
+          href="/contact"
+          class="inline-flex items-center justify-center px-8 h-12 bg-white text-[#10275c] text-sm font-semibold hover:bg-[#edf3f9] transition-colors"
+        >
+          Contact Us
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 ml-2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

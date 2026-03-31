@@ -1,0 +1,286 @@
+---
+/**
+ * blog/[slug].astro — Blog detail page (PURE ASTRO)
+ *
+ * Original: src/pages-react/BlogDetailPage.tsx
+ * React island: src/islands/BlogDetailIsland.tsx (219 lines, 4 API calls)
+ * Converted: Pure Astro with getStaticPaths passing full post data as props.
+ *
+ * Pattern:
+ *   1. getStaticPaths() fetches all blog posts + categories + recent posts at build time
+ *   2. For each post, also fetches the individual post detail
+ *   3. Frontmatter uses props passed from getStaticPaths
+ *   4. Breadcrumb inlined with inline SVGs (replaces lucide-react Home/ChevronRight)
+ *   5. set:html used for rich content (replaces dangerouslySetInnerHTML)
+ *   6. All JSX inlined as pure Astro template — no React, no client-side JS
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buildBreadcrumbJsonLd } from '@/lib/seo';
+
+const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+
+// --- getStaticPaths — fetches all blog posts at build time ---
+export async function getStaticPaths() {
+  try {
+    const [postsRes, categoriesRes, recentRes] = await Promise.all([
+      fetch('http://127.0.0.1:8000/api/v1/blog').then(r => r.ok ? r.json() : { data: [] }),
+      fetch('http://127.0.0.1:8000/api/v1/blog/categories').then(r => r.ok ? r.json() : []),
+      fetch('http://127.0.0.1:8000/api/v1/blog/recent').then(r => r.ok ? r.json() : []),
+    ]);
+    const posts = postsRes.data || postsRes || [];
+    const categories = categoriesRes || [];
+    const recentPosts = recentRes || [];
+
+    return await Promise.all(posts.map(async (post: any) => {
+      const detail = await fetch(`http://127.0.0.1:8000/api/v1/blog/${post.slug}`).then(r => r.ok ? r.json() : post);
+      return {
+        params: { slug: post.slug },
+        props: { post: detail, allPosts: posts, categories, recentPosts },
+      };
+    }));
+  } catch (e) {
+    console.warn('Could not fetch blog posts for static paths, using fallback');
+  }
+  return [];
+}
+
+const { slug } = Astro.params;
+const { post, allPosts = [], categories = [], recentPosts = [] } = Astro.props;
+
+// Handle missing post
+const pageTitle = post?.title || 'Blog Post';
+const pageDescription = post?.excerpt || `${pageTitle} - Read this article from Midia M Metal's blog.`;
+
+// Compute prev/next navigation
+const currentIndex = allPosts.findIndex((item: any) => item.slug === post?.slug || String(item.id) === String(post?.id));
+const prevPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
+const nextPost = currentIndex >= 0 && currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
+const publishedDate = post?.published_at || post?.created_at;
+---
+
+<BaseLayout
+  title={pageTitle}
+  description={pageDescription}
+  canonicalPath={`/blog/${slug}`}
+  structuredData={[buildBreadcrumbJsonLd([
+    { name: 'Home', url: `${siteUrl}/` },
+    { name: 'Blog', url: `${siteUrl}/blog` },
+    { name: pageTitle, url: `${siteUrl}/blog/${slug}` },
+  ])]}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-24">
+      <!-- Breadcrumb -->
+      <nav aria-label="Breadcrumb" class="w-full mb-6">
+        <ol
+          class="flex flex-wrap items-center gap-1 text-[12px] text-[#7f8ca5]"
+          itemscope
+          itemtype="https://schema.org/BreadcrumbList"
+        >
+          <!-- Home -->
+          <li
+            class="flex items-center gap-1"
+            itemprop="itemListElement"
+            itemscope
+            itemtype="https://schema.org/ListItem"
+          >
+            <a
+              href="/"
+              class="flex items-center gap-1 hover:text-orange transition-colors"
+              itemprop="item"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span itemprop="name">Home</span>
+            </a>
+            <meta itemprop="position" content="1" />
+          </li>
+
+          <!-- Blog link -->
+          <li
+            class="flex items-center gap-1"
+            itemprop="itemListElement"
+            itemscope
+            itemtype="https://schema.org/ListItem"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#b0bac9] flex-shrink-0"><path d="m9 18 6-6-6-6"/></svg>
+            <a
+              href="/blog"
+              class="hover:text-orange transition-colors truncate max-w-[200px]"
+              itemprop="item"
+            >
+              <span itemprop="name">Blog</span>
+            </a>
+            <meta itemprop="position" content="2" />
+          </li>
+
+          <!-- Current page (no link) -->
+          <li
+            class="flex items-center gap-1"
+            itemprop="itemListElement"
+            itemscope
+            itemtype="https://schema.org/ListItem"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#b0bac9] flex-shrink-0"><path d="m9 18 6-6-6-6"/></svg>
+            <span
+              class="text-[#10275c] font-medium truncate max-w-[200px]"
+              itemprop="name"
+            >
+              {pageTitle}
+            </span>
+            <meta itemprop="position" content="3" />
+          </li>
+        </ol>
+      </nav>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px] gap-8 lg:gap-10 xl:gap-12 items-start">
+        <!-- Main Content -->
+        <article>
+          {post?.image && (
+            <img src={post.image} alt={post.title} class="w-full h-[260px] md:h-[360px] lg:h-[420px] object-cover" />
+          )}
+
+          <div class="mt-7 flex flex-wrap items-center gap-5 text-[13px] text-[#6f7c95]">
+            {post?.category && (
+              <span class="inline-flex items-center h-8 px-3 bg-orange text-white text-[11px] font-semibold uppercase tracking-wide">
+                {post.category}
+              </span>
+            )}
+            <span class="inline-flex items-center gap-2">
+              <!-- Calendar icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#2f9cea]"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+              {publishedDate ? new Date(publishedDate).toLocaleDateString() : ''}
+            </span>
+            <span class="inline-flex items-center gap-2">
+              <!-- User icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#2f9cea]"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              {post?.author || 'Admin'}
+            </span>
+          </div>
+
+          <h1 class="font-sans text-[38px] md:text-[56px] leading-[0.96] font-semibold text-orange mt-5 mb-6">
+            {post?.title}
+          </h1>
+
+          {post?.excerpt && (
+            <p class="text-[18px] leading-8 text-[#6f7c95] mb-7">{post.excerpt}</p>
+          )}
+
+          {post?.content && (
+            <div
+              class="prose prose-slate max-w-none text-[15px] leading-8 prose-headings:text-[#10275c] prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-blockquote:border-orange prose-strong:text-[#10275c] prose-ul:list-disc prose-ol:list-decimal prose-li:my-1"
+              set:html={post.content}
+            />
+          )}
+
+          {post?.tags?.length && (
+            <div class="mt-10 border-t border-[#d4dce8] pt-7 flex flex-wrap items-center gap-3">
+              <span class="inline-flex items-center gap-2 text-[13px] font-semibold text-[#10275c]">
+                <!-- Tag icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#2f9cea]"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+                Tags:
+              </span>
+              {post.tags.map((tag: string) => (
+                <span
+                  class="inline-flex h-8 items-center border border-[#cfd7e4] px-3 text-[12px] font-medium text-[#6f7c95] bg-white"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <!-- Prev/Next Navigation -->
+          <div class="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {prevPost ? (
+              <a
+                href={`/blog/${prevPost.slug}`}
+                class="group border border-[#cfd7e4] bg-white px-5 py-5 transition-colors hover:bg-[#f4f5f7]"
+              >
+                <p class="text-[11px] uppercase tracking-[0.18em] text-[#6f7c95] mb-2 inline-flex items-center gap-2">
+                  <!-- ArrowLeft icon -->
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                  Previous Post
+                </p>
+                <h3 class="text-[18px] font-semibold leading-snug text-orange group-hover:text-orange/80 transition-colors">
+                  {prevPost.title}
+                </h3>
+              </a>
+            ) : (
+              <div />
+            )}
+
+            {nextPost ? (
+              <a
+                href={`/blog/${nextPost.slug}`}
+                class="group border border-[#cfd7e4] bg-white px-5 py-5 transition-colors hover:bg-[#f4f5f7]"
+              >
+                <p class="text-[11px] uppercase tracking-[0.18em] text-[#6f7c95] mb-2 inline-flex items-center gap-2">
+                  Next Post
+                  <!-- ArrowRight icon -->
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </p>
+                <h3 class="text-[18px] font-semibold leading-snug text-orange group-hover:text-orange/80 transition-colors">
+                  {nextPost.title}
+                </h3>
+              </a>
+            ) : (
+              <div />
+            )}
+          </div>
+        </article>
+
+        <!-- Sidebar -->
+        <aside class="bg-[#f4f5f7] p-8 lg:sticky lg:top-28 h-fit space-y-8">
+          <div>
+            <h3 class="font-sans text-[28px] leading-none font-semibold text-[#10275c] mb-5">Search</h3>
+            <div class="relative">
+              <!-- Search icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a95ac]"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input
+                type="text"
+                placeholder="Search for article..."
+                class="w-full h-12 border border-[#d1dbe8] bg-transparent pl-12 pr-4 text-[14px] text-primary placeholder:text-[#9aa6bc] outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h3 class="font-sans text-[28px] leading-none font-semibold text-[#10275c] mb-5">Categories</h3>
+            <ul class="space-y-2">
+              {categories.map((category: any) => (
+                <li>
+                  <span class="text-[15px] inline-flex items-center gap-2 text-primary">
+                    <span class="text-[8px]">•</span>
+                    {category.category} ({category.count})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 class="font-sans text-[28px] leading-none font-semibold text-[#10275c] mb-5">Recent Posts</h3>
+            <ul class="space-y-4">
+              {recentPosts
+                .filter((item: any) => item.slug !== post?.slug)
+                .slice(0, 3)
+                .map((item: any) => (
+                  <li class="flex gap-3">
+                    <img src={item.image} alt={item.title} class="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
+                    <div>
+                      <a href={`/blog/${item.slug}`} class="text-[15px] font-semibold text-orange hover:text-orange/80 transition-colors leading-snug">
+                        {item.title}
+                      </a>
+                      <p class="text-[12px] text-[#7f8aa2] mt-2">
+                        {new Date(item.published_at || item.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

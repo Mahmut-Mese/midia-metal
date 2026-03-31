@@ -1,73 +1,253 @@
-# Midia Metal Solutions
+# Midia Metal
 
-## Project info
+Commercial kitchen equipment, ventilation systems, and stainless steel products — e-commerce platform with admin panel.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Astro 6 + React Islands + TypeScript |
+| Styling | Tailwind CSS + shadcn/ui |
+| State | Nanostores (cross-island shared state) |
+| Backend | Laravel 12 (PHP 8.2+) |
+| Database | MySQL 8 |
+| Payments | Stripe (Elements + PaymentIntents) |
+| Admin | React SPA (React Router) mounted via Astro catch-all route |
 
-There are several ways of editing your application.
+## Prerequisites
 
-**Use Lovable**
+- **Node.js** >= 18 (tested with v22)
+- **npm** >= 9
+- **PHP** >= 8.2 with extensions: `pdo_mysql`, `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, `json`, `bcmath`
+- **Composer** >= 2
+- **MySQL** >= 8.0
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Project Structure
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+midia-metal/
+├── src/
+│   ├── pages/              # 29 Astro file-based routes (→ 86 generated pages)
+│   ├── islands/            # 28 React island components
+│   ├── layouts/            # BaseLayout.astro (header, footer, SEO, cookie banner)
+│   ├── stores/             # Nanostores (cart, auth, wishlist)
+│   ├── components/         # Shared React components + shadcn/ui (48 files)
+│   ├── lib/                # Utilities (api, pricing, variants, stock, seo, etc.)
+│   ├── hooks/              # Custom React hooks
+│   ├── context/            # React Contexts (kept for reference, unused by islands)
+│   └── pages-react/admin/  # 19 admin pages (React Router SPA)
+├── backend/                # Laravel 12 API
+├── public/                 # Static assets (images, fonts, logo)
+├── astro.config.mjs        # Astro configuration
+├── tailwind.config.ts      # Tailwind configuration
+└── package.json
 ```
 
-**Edit a file directly in GitHub**
+## Getting Started (Local Development)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### 1. Clone and install frontend dependencies
 
-**Use GitHub Codespaces**
+```bash
+git clone <REPO_URL>
+cd midia-metal
+npm install
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 2. Set up the database
 
-## What technologies are used for this project?
+```bash
+# Start MySQL (macOS with Homebrew)
+brew services start mysql
 
-This project is built with:
+# Create database and user
+mysql -u root -e "
+  CREATE DATABASE IF NOT EXISTS midia_metal_local;
+  CREATE USER IF NOT EXISTS 'midia_metal_local'@'localhost' IDENTIFIED BY 'your_password';
+  GRANT ALL PRIVILEGES ON midia_metal_local.* TO 'midia_metal_local'@'localhost';
+  FLUSH PRIVILEGES;
+"
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### 3. Set up the backend
 
-## How can I deploy this project?
+```bash
+cd backend
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan db:seed     # if seeders exist
+php artisan storage:link
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+**Backend `.env`** — key variables:
 
-## Can I connect a custom domain to my Lovable project?
+```env
+APP_URL=http://127.0.0.1:8000
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=midia_metal_local
+DB_USERNAME=midia_metal_local
+DB_PASSWORD=your_password
+SESSION_DRIVER=database
+STRIPE_KEY=pk_test_...
+STRIPE_SECRET=sk_test_...
+SANCTUM_STATEFUL_DOMAINS=localhost:4321,127.0.0.1:4321
+SESSION_DOMAIN=localhost
+```
 
-Yes, you can!
+### 4. Set up the frontend environment
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Create `.env` in the project root:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```env
+PUBLIC_STRIPE_KEY=pk_test_your_stripe_publishable_key
+```
+
+### 5. Start both servers
+
+```bash
+# Terminal 1: Backend
+cd backend && php artisan serve
+# → http://127.0.0.1:8000
+
+# Terminal 2: Frontend
+npm run dev
+# → http://localhost:4321
+```
+
+The Astro dev server proxies `/api`, `/sanctum`, and `/storage` to the Laravel backend.
+
+### 6. Open in browser
+
+- **Public site**: http://localhost:4321
+- **Admin panel**: http://localhost:4321/admin/dashboard
+
+## Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Astro dev server with HMR (port 4321) |
+| `npm run build` | Production build — generates 86 static HTML pages |
+| `npm run preview` | Preview production build locally |
+| `npm run check` | Run Astro type checking (0 errors expected) |
+| `npm run lint` | Run ESLint |
+| `npm run test` | Run Vitest tests |
+
+## Architecture
+
+### Astro + React Islands
+
+The site uses Astro's **static output mode** with **React islands** for interactivity:
+
+- **Astro pages** (`.astro` files) handle routing, SEO meta, and page layout
+- **React islands** handle all client-side interactivity (forms, cart, checkout, etc.)
+- **BaseLayout.astro** provides the shared shell: `<head>`, HeaderIsland, FooterIsland, CookieBannerIsland
+- **Admin panel** is a standalone React SPA mounted at `/admin/[...path].astro`
+
+### Hydration Strategy
+
+| Directive | Usage |
+|-----------|-------|
+| `client:load` | Most islands — SSR renders HTML, hydrates on page load |
+| `client:only="react"` | ShopIsland, PaymentIsland, ResetPasswordIsland, AdminApp — skip SSR |
+| `client:visible` | FooterIsland — hydrates when scrolled into view |
+| `client:idle` | CookieBannerIsland — hydrates when browser is idle |
+
+### State Management with Nanostores
+
+All cross-island state uses **nanostores** (`src/stores/`):
+
+| Store | Purpose |
+|-------|---------|
+| `cart.ts` | Cart items, totals, VAT, coupons, business mode |
+| `auth.ts` | Customer profile, authentication state |
+| `wishlist.ts` | Wishlist items (localStorage-persisted) |
+
+Islands import directly from stores:
+```tsx
+import { useStore } from "@nanostores/react";
+import { $cart, addToCart } from "@/stores/cart";
+
+function MyIsland() {
+  const cart = useStore($cart);
+  // ...
+}
+```
+
+### Error Boundaries
+
+Critical islands (ProductDetail, Cart, Checkout, Payment, Account) are wrapped with `withErrorBoundary` HOC. If an island crashes, users see a retry button instead of a blank section.
+
+## Deployment
+
+### Build
+
+```bash
+npm run build
+# Output: dist/ (86 HTML pages + assets)
+```
+
+### Static Hosting
+
+Deploy the `dist/` folder to any static host:
+- **Vercel**: `npx vercel --prod`
+- **Netlify**: Build command `npm run build`, publish `dist`
+- **Cloudflare Pages**: Same as Netlify
+- **S3 + CloudFront**: Upload `dist/` contents
+
+### Production Environment Variables
+
+**Frontend** (set at build time):
+```env
+PUBLIC_API_URL=https://api.yourdomain.com/api
+PUBLIC_STRIPE_KEY=pk_live_...
+```
+
+**Backend** (`backend/.env`):
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://api.yourdomain.com
+SANCTUM_STATEFUL_DOMAINS=yourdomain.com,www.yourdomain.com
+SESSION_DOMAIN=.yourdomain.com
+```
+
+### Reverse Proxy (Production)
+
+The Vite dev proxy only works locally. In production, configure your web server:
+
+```nginx
+location /api/ {
+    proxy_pass http://backend:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+location /sanctum/ { proxy_pass http://backend:8000; }
+location /storage/ { proxy_pass http://backend:8000; }
+```
+
+## Admin Panel
+
+React SPA at `/admin/*` with React Router navigation. Uses cookie-based auth (Sanctum).
+
+Routes: dashboard, products, orders, customers, blog, services, portfolio, categories, coupons, quotes, reviews, FAQ, messages, settings.
+
+## Troubleshooting
+
+### Vite cache issues (blank pages, 504 errors)
+```bash
+rm -rf node_modules/.vite && npm run dev
+```
+
+### API calls fail
+- Verify backend is running (`php artisan serve`)
+- Check Astro proxy config in `astro.config.mjs`
+- For production, ensure `PUBLIC_API_URL` is set
+
+### Build fails
+```bash
+npm run check    # Type errors
+npm run build    # Full build — should produce 86 pages, 0 errors
+```

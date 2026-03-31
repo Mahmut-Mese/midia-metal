@@ -1,0 +1,70 @@
+---
+/**
+ * returns-policy.astro — Returns & Refunds page (PURE ASTRO)
+ *
+ * Converted from React island (LegalIsland.tsx) to pure Astro.
+ * All data fetching happens at build time via frontmatter.
+ * Zero client-side JavaScript for page content.
+ *
+ * Original: src/islands/LegalIsland.tsx
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buildBreadcrumbJsonLd } from '@/lib/seo';
+
+const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const API_BASE = 'http://127.0.0.1:8000/api';
+
+// --- Data Fetching (runs at build time) ---
+let settings: Record<string, string> = {};
+
+try {
+  const settingsRes = await fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []);
+  const settingsMap: Record<string, string> = {};
+  (settingsRes || []).forEach((s: any) => {
+    settingsMap[s.key] = s.value;
+  });
+  settings = settingsMap;
+} catch (err) {
+  console.error('Failed to load returns policy data at build time:', err);
+}
+
+const title = settings['returns_refunds_title'] || 'Returns & Refunds';
+const fallbackContent = `<h2>1. Standard Products</h2>
+<p>We accept returns of standard non-custom products within <strong>14 days</strong> of delivery, provided they are unused and in original condition.</p>
+<h2>2. Custom Fabricated Items</h2>
+<p>Custom-fabricated items are made to your specific requirements and are non-returnable unless defective or not as agreed.</p>
+<h2>3. Damaged or Defective Items</h2>
+<p>If an item arrives damaged, contact us within <strong>48 hours</strong> with photographs and order details.</p>
+<h2>4. Return Shipping</h2>
+<p>For standard returns, customers are responsible for return shipping unless the item was defective or incorrectly sent.</p>
+<h2>5. Refunds</h2>
+<p>Approved refunds are processed within <strong>5 to 10 business days</strong> to the original payment method.</p>
+<h2>6. Exceptions</h2>
+<p>We cannot accept returns on installed, used, altered, or special-order items unless faulty.</p>
+<h2>7. Contact Us</h2>
+<p>To begin a return or refund request, contact <a href="mailto:info@midiametal.co.uk">info@midiametal.co.uk</a>.</p>`;
+const content = settings['returns_refunds_content'] || fallbackContent;
+---
+
+<BaseLayout
+  title="Returns & Refunds"
+  description="Our returns and refunds policy for standard and custom fabricated products."
+  canonicalPath="/returns-policy"
+  structuredData={[
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: `${siteUrl}/` },
+      { name: 'Returns & Refunds', url: `${siteUrl}/returns-policy` },
+    ]),
+  ]}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-28 max-w-3xl">
+      <div class="bg-white border border-[#cad4e4] p-8 md:p-12 prose prose-slate max-w-none prose-headings:text-[#10275c] prose-a:text-orange prose-a:no-underline hover:prose-a:underline">
+        <h1 class="font-sans text-[32px] md:text-[42px] leading-tight font-semibold text-orange mb-8">
+          {title}
+        </h1>
+        <div set:html={content} />
+      </div>
+    </section>
+  </div>
+</BaseLayout>

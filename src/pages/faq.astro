@@ -1,0 +1,84 @@
+---
+/**
+ * faq.astro — FAQ page (PURE ASTRO)
+ *
+ * Converted from React island: src/islands/FaqIsland.tsx
+ * Uses native <details>/<summary> for accordion — zero client-side JS.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { buildBreadcrumbJsonLd } from '@/lib/seo';
+
+const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const API_BASE = 'http://127.0.0.1:8000/api';
+
+// --- Data Fetching (runs at build time) ---
+let faqs: any[] = [];
+
+try {
+  const res = await fetch(`${API_BASE}/v1/faqs`);
+  faqs = res.ok ? await res.json() : [];
+} catch (err) {
+  console.error('Failed to load FAQs at build time:', err);
+}
+---
+
+<BaseLayout
+  title="Frequently Asked Questions"
+  description="Frequently Asked Questions about Midia M Metal's products, services, delivery, and returns."
+  canonicalPath="/faq"
+  structuredData={[buildBreadcrumbJsonLd([
+    { name: 'Home', url: `${siteUrl}/` },
+    { name: 'FAQ', url: `${siteUrl}/faq` },
+  ])]}
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-28 max-w-4xl">
+      <div class="bg-white border border-[#cad4e4] p-8 md:p-12">
+        <h1 class="font-sans text-[32px] md:text-[42px] leading-tight font-semibold text-orange mb-10">
+          Frequently Asked Questions
+        </h1>
+
+        <div class="space-y-10">
+          {faqs.length === 0 ? (
+            <p class="text-center text-[#6e7a92]">No FAQs found.</p>
+          ) : (
+            <div class="border border-[#cad4e4]">
+              {faqs.map((item: any, itemIndex: number) => (
+                <details class="border-b border-[#cad4e4] last:border-b-0" open={itemIndex === 0}>
+                  <summary class="px-5 md:px-6 py-5 text-left font-sans text-[16px] md:text-[18px] font-semibold text-[#10275c] cursor-pointer list-none">
+                    {item.question}
+                  </summary>
+                  <div class="px-5 md:px-6 pb-5">
+                    <div class="prose prose-sm max-w-none text-[#6e7a92] prose-p:my-0 prose-strong:text-[#10275c] prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-ul:list-disc prose-ol:list-decimal" set:html={item.answer} />
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  details summary::after {
+    content: '';
+    display: inline-block;
+    width: 0.5em;
+    height: 0.5em;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.2s;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  details[open] summary::after {
+    transform: rotate(-135deg);
+  }
+  details summary {
+    display: flex;
+    align-items: center;
+  }
+</style>

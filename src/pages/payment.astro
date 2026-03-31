@@ -1,0 +1,15 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PaymentIsland from '@/islands/PaymentIsland';
+---
+
+<BaseLayout
+  title="Payment"
+  description="Secure payment page."
+  canonicalPath="/payment"
+  noindex
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <PaymentIsland client:only="react" />
+  </div>
+</BaseLayout>

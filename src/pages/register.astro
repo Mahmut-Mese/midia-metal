@@ -1,0 +1,20 @@
+---
+/**
+ * register.astro — Customer registration page.
+ *
+ * Original: src/pages-react/CustomerRegister.tsx
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import RegisterIsland from '@/islands/RegisterIsland';
+---
+
+<BaseLayout
+  title="Create Account"
+  description="Register for a Midia M Metal customer account."
+  canonicalPath="/register"
+  noindex
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <RegisterIsland client:load />
+  </div>
+</BaseLayout>

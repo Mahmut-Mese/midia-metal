@@ -1,0 +1,42 @@
+---
+/**
+ * shop/index.astro — Shop page
+ *
+ * Enhancement: Pre-fetches categories and tags at build time and passes
+ * them as props to ShopIsland, so filters render immediately without
+ * a separate API call on the client.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ShopIsland from '@/islands/ShopIsland';
+
+// Pre-fetch categories and tags at build time
+let categories: any[] = [];
+let tags: string[] = [];
+try {
+  const [catsRes, tagsRes] = await Promise.all([
+    fetch('http://127.0.0.1:8000/api/v1/product-categories'),
+    fetch('http://127.0.0.1:8000/api/v1/products/tags'),
+  ]);
+  if (catsRes.ok) {
+    const catsData = await catsRes.json();
+    categories = Array.isArray(catsData) ? catsData : catsData.data || [];
+  }
+  if (tagsRes.ok) {
+    tags = await tagsRes.json();
+  }
+} catch {}
+---
+
+<BaseLayout
+  title="Shop"
+  description="Browse our range of commercial kitchen equipment, ventilation systems, and stainless steel products."
+  canonicalPath="/shop"
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <ShopIsland
+      initialCategories={categories}
+      initialTags={tags}
+      client:only="react"
+    />
+  </div>
+</BaseLayout>

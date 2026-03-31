@@ -1,0 +1,20 @@
+---
+/**
+ * login.astro — Customer login page.
+ *
+ * Original: src/pages-react/CustomerLogin.tsx
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import LoginIsland from '@/islands/LoginIsland';
+---
+
+<BaseLayout
+  title="Login"
+  description="Sign in to your Midia M Metal customer account."
+  canonicalPath="/login"
+  noindex
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <LoginIsland client:load />
+  </div>
+</BaseLayout>

@@ -1,0 +1,15 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import AccountIsland from '@/islands/AccountIsland';
+---
+
+<BaseLayout
+  title="My Account"
+  description="Manage your orders, quotes, and saved details."
+  canonicalPath="/account"
+  noindex
+>
+  <div class="min-h-screen bg-[#eaf0f3]">
+    <AccountIsland client:load />
+  </div>
+</BaseLayout>
