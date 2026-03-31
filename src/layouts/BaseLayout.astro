@@ -3,13 +3,13 @@
  * BaseLayout.astro — Main layout for all public Astro pages.
  *
  * Features:
- *   - ClientRouter for SPA-like page transitions (no full reload)
+ *   - ViewTransitions for SPA-like page transitions (no full reload)
  *   - transition:persist on Header/Footer to keep islands alive across navigations
  *   - Prefetching enabled via astro.config.mjs
  *   - SEO: Open Graph, Twitter Cards, structured data, canonical URLs
  *   - Optimized font loading (preconnect + swap, no render-blocking @import)
  */
-import { ClientRouter } from 'astro:transitions';
+import { ViewTransitions } from 'astro:transitions';
 import HeaderIsland from '@/islands/HeaderIsland';
 import FooterIsland from '@/islands/FooterIsland';
 import CookieBannerIsland from '@/islands/CookieBannerIsland';
@@ -82,7 +82,7 @@ const ogImage = image.startsWith('http') ? image : `${siteUrl}${image}`;
     />
 
     <!-- View Transitions: SPA-like navigation without full page reloads -->
-    <ClientRouter />
+    <ViewTransitions />
 
     <!-- Structured Data -->
     {structuredData.map((data) => (

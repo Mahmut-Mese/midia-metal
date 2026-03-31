@@ -8,7 +8,7 @@ export default defineConfig({
   // Canonical site URL — sets import.meta.env.SITE globally
   site: 'https://midiammetal.com',
 
-  // Astro 6: 'static' = prerender all by default
+  // Astro 5: 'static' = prerender all by default (absorbed 'hybrid')
   output: 'static',
 
   // Prefetch links on hover for SPA-like speed
