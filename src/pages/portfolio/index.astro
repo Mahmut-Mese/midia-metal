@@ -11,7 +11,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import PortfolioFilter from '@/islands/PortfolioFilter';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
 
-const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
@@ -50,7 +50,7 @@ const t = (key: string, def: string) => settings[key] || def;
 >
   <div class="min-h-screen bg-[#eaf0f3]">
     <!-- Portfolio Filter + Project Grid (React island — needs filter state) -->
-    <PortfolioFilter categories={categories} projects={projects} client:load />
+    <PortfolioFilter categories={categories} projects={projects} client:visible />
 
     <!-- CTA Banner (pure static) -->
     <section class="container mx-auto px-4 lg:px-8 pb-20 md:pb-24">

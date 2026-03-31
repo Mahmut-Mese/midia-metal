@@ -17,7 +17,7 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
 
-const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const siteUrl = import.meta.env.SITE;
 
 // --- getStaticPaths — fetches all blog posts at build time ---
 export async function getStaticPaths() {
@@ -136,7 +136,7 @@ const publishedDate = post?.published_at || post?.created_at;
         <!-- Main Content -->
         <article>
           {post?.image && (
-            <img src={post.image} alt={post.title} class="w-full h-[260px] md:h-[360px] lg:h-[420px] object-cover" />
+            <img src={post.image} alt={post.title} loading="lazy" decoding="async" class="w-full h-[260px] md:h-[360px] lg:h-[420px] object-cover" />
           )}
 
           <div class="mt-7 flex flex-wrap items-center gap-5 text-[13px] text-[#6f7c95]">
@@ -266,7 +266,7 @@ const publishedDate = post?.published_at || post?.created_at;
                 .slice(0, 3)
                 .map((item: any) => (
                   <li class="flex gap-3">
-                    <img src={item.image} alt={item.title} class="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
+                    <img src={item.image} alt={item.title} loading="lazy" decoding="async" class="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
                     <div>
                       <a href={`/blog/${item.slug}`} class="text-[15px] font-semibold text-orange hover:text-orange/80 transition-colors leading-snug">
                         {item.title}

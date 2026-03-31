@@ -15,7 +15,7 @@ import HeroCarousel from '@/islands/HeroCarousel';
 import { buildOrganizationJsonLd, buildBreadcrumbJsonLd, stripHtml, truncateText } from '@/lib/seo';
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
 
-const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
@@ -174,6 +174,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
           <img
             src={weldingPrimaryImage}
             alt={t("home_welding_image_alt", "Metal welding and fabrication work")}
+            loading="eager" decoding="async"
             class="absolute inset-0 w-full h-full object-cover"
           />
           <div class="absolute inset-0 bg-gradient-to-r from-[#10275c]/18 via-[#10275c]/6 to-[#10275c]/35" />
@@ -183,6 +184,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
               <img
                 src={weldingSecondaryImage}
                 alt={t("home_welding_secondary_image_alt", "Workshop fabrication")}
+                loading="lazy" decoding="async"
                 class="w-full h-full object-cover"
               />
             </div>
@@ -216,7 +218,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
             href={`/shop/category/${cat.slug}`}
             class="relative block overflow-hidden group"
           >
-            <img src={cat.image} alt={cat.name} class="w-full h-[124px] sm:h-[150px] md:h-[260px] object-cover transition-transform duration-500 group-hover:scale-105" />
+            <img src={cat.image} alt={cat.name} loading="lazy" decoding="async" class="w-full h-[124px] sm:h-[150px] md:h-[260px] object-cover transition-transform duration-500 group-hover:scale-105" />
             <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent flex items-end p-3 md:p-5">
               <p class="text-white text-[13px] sm:text-[16px] md:text-[22px] leading-tight font-semibold">{cat.name}</p>
             </div>
@@ -238,7 +240,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
                   {item.badge}
                 </span>
               )}
-              <img src={item.image} alt={item.name} class="w-full aspect-square object-cover" />
+              <img src={item.image} alt={item.name} loading="lazy" decoding="async" class="w-full aspect-square object-cover" />
             </div>
             <h3 class="font-sans text-[16px] md:text-[20px] leading-tight md:leading-7 font-semibold text-orange">{getStandardizedDisplayTitle(item)}</h3>
             <div class="flex items-center gap-2 mt-1 flex-wrap">
@@ -278,7 +280,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
             </a>
           </div>
           <div class="w-[32%] h-full flex-shrink-0 hidden md:block">
-            <img src={t("home_comfort_image", "/images/air-conditioner.jpg")} alt="Our products" class="w-full h-full object-cover" />
+            <img src={t("home_comfort_image", "/images/air-conditioner.jpg")} alt="Our products" loading="lazy" decoding="async" class="w-full h-full object-cover" />
           </div>
         </div>
       </div>
@@ -314,9 +316,9 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
         t("home_gallery_4", "/images/installation-service.jpg"),
         t("home_gallery_5", "/images/workshop.jpg"),
         t("home_gallery_6", "/images/mesh-filter.jpg"),
-      ].map((img, i) => (
+      ].map((img) => (
         <div class="overflow-hidden h-28 md:h-56">
-          <img src={img} alt="" class="w-full h-full object-cover" />
+          <img src={img} alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
         </div>
       ))}
     </section>

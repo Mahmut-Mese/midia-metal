@@ -20,7 +20,7 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
 
-const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
@@ -89,10 +89,10 @@ const t = (key: string, def: string) => settings[key] || def;
         </div>
         <div class="relative h-[360px] md:h-[520px]">
           <div class="absolute right-0 top-0 w-[58%] h-[74%] overflow-hidden">
-            <img src={t("services_hero_image_1", "/images/hero-kitchen.jpg")} alt="" class="w-full h-full object-cover" />
+            <img src={t("services_hero_image_1", "/images/hero-kitchen.jpg")} alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
           </div>
           <div class="absolute left-0 bottom-0 w-[68%] h-[84%] overflow-hidden">
-            <img src={t("services_hero_image_2", "/images/welding.jpg")} alt="Stainless steel welding" class="w-full h-full object-cover" />
+            <img src={t("services_hero_image_2", "/images/welding.jpg")} alt="Stainless steel welding" loading="lazy" decoding="async" class="w-full h-full object-cover" />
           </div>
         </div>
       </div>
@@ -110,7 +110,7 @@ const t = (key: string, def: string) => settings[key] || def;
             <div class="text-center">
               <a href={`/services/${s.slug}`} class="block">
                 <div class="w-44 h-44 mx-auto rounded-full overflow-hidden mb-7 border-8 border-[#eaf0f3] shadow-sm">
-                  <img src={s.image} alt={s.title} class="w-full h-full object-cover" />
+                  <img src={s.image} alt={s.title} loading="lazy" decoding="async" class="w-full h-full object-cover" />
                 </div>
               </a>
               <p class="text-xs text-muted-foreground mb-1">Best service</p>
@@ -153,8 +153,8 @@ const t = (key: string, def: string) => settings[key] || def;
     <section class="container mx-auto px-4 lg:px-8 py-16 md:py-24">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         <div class="flex gap-4">
-          <img src={t("services_modern_image_1", "/images/workshop.jpg")} alt="" class="w-1/2 h-56 md:h-72 object-cover" />
-          <img src={t("services_modern_image_2", "/images/hero-kitchen.jpg")} alt="" class="w-1/2 h-56 md:h-72 object-cover" />
+          <img src={t("services_modern_image_1", "/images/workshop.jpg")} alt="" loading="lazy" decoding="async" class="w-1/2 h-56 md:h-72 object-cover" />
+          <img src={t("services_modern_image_2", "/images/hero-kitchen.jpg")} alt="" loading="lazy" decoding="async" class="w-1/2 h-56 md:h-72 object-cover" />
         </div>
         <div class="max-w-xl">
           <p class="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground mb-3">{t("services_modern_label", "MODERN SOLUTIONS")}</p>
@@ -221,7 +221,7 @@ const t = (key: string, def: string) => settings[key] || def;
               {testimonials.map((item: any) => (
                 <div class="w-full max-w-[420px] bg-[#f4f5f7] p-8">
                   <div class="flex gap-1 mb-4">
-                    {Array.from({ length: item.rating || 0 }).map((_: any, j: number) => (
+                    {Array.from({ length: item.rating || 0 }).map(() => (
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                     ))}
                   </div>

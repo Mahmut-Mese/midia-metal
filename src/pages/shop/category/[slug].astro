@@ -71,6 +71,7 @@ const pageDescription = category?.description || `Browse ${pageTitle} products f
           <img
             src={category.image}
             alt={category.name}
+            loading="lazy" decoding="async"
             class="w-full h-[280px] md:h-[420px] object-cover"
           />
         </div>
@@ -96,6 +97,7 @@ const pageDescription = category?.description || `Browse ${pageTitle} products f
                 <img
                   src={product.image}
                   alt={product.name}
+                  loading="lazy" decoding="async"
                   class="w-full aspect-square object-contain transition-transform duration-300 group-hover:scale-[1.02]"
                 />
               </div>

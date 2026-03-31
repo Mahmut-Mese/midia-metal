@@ -12,7 +12,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import ContactForm from '@/islands/ContactForm';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
 
-const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
@@ -76,7 +76,7 @@ const t = (key: string, def: string) => settings[key] || def;
         <!-- Contact Form Island -->
         <div>
           <ContactForm
-            client:load
+            client:visible
             messagePlaceholder={t("contact_form_message_placeholder", "How can we help you? Feel free to get in touch!")}
             buttonLabel={t("contact_form_button_label", "Get in Touch")}
           />

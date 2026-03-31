@@ -11,7 +11,7 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd, buildOrganizationJsonLd } from '@/lib/seo';
 
-const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
@@ -105,10 +105,10 @@ const values = [
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-          <img src={t('about_image_1', '/images/workshop.jpg')} alt="Workshop" class="w-full h-[220px] md:h-[280px] object-cover" />
-          <img src={t('about_image_2', '/images/welding.jpg')} alt="Welding process" class="w-full h-[220px] md:h-[280px] object-cover" />
-          <img src={t('about_image_3', '/images/hero-kitchen.jpg')} alt="Kitchen setup" class="w-full h-[220px] md:h-[280px] object-cover" />
-          <img src={t('about_image_4', '/images/canopy.jpg')} alt="Canopy fabrication" class="w-full h-[220px] md:h-[280px] object-cover" />
+          <img src={t('about_image_1', '/images/workshop.jpg')} alt="Workshop" loading="lazy" decoding="async" class="w-full h-[220px] md:h-[280px] object-cover" />
+          <img src={t('about_image_2', '/images/welding.jpg')} alt="Welding process" loading="lazy" decoding="async" class="w-full h-[220px] md:h-[280px] object-cover" />
+          <img src={t('about_image_3', '/images/hero-kitchen.jpg')} alt="Kitchen setup" loading="lazy" decoding="async" class="w-full h-[220px] md:h-[280px] object-cover" />
+          <img src={t('about_image_4', '/images/canopy.jpg')} alt="Canopy fabrication" loading="lazy" decoding="async" class="w-full h-[220px] md:h-[280px] object-cover" />
         </div>
       </div>
     </section>

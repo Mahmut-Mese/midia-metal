@@ -16,7 +16,7 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
 
-const siteUrl = import.meta.env.SITE || 'https://midiammetal.com';
+const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
@@ -70,6 +70,7 @@ const t = (key: string, def: string) => settings[key] || def;
                     <img
                       src={post.image}
                       alt={post.title}
+                      loading="lazy" decoding="async"
                       class="w-full h-[260px] md:h-[360px] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                     />
                     {post.category && (
@@ -148,7 +149,7 @@ const t = (key: string, def: string) => settings[key] || def;
             <ul class="space-y-4">
               {recentPosts.map((post) => (
                 <li class="flex gap-3">
-                  <img src={post.image} alt={post.title} class="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
+                  <img src={post.image} alt={post.title} loading="lazy" decoding="async" class="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
                   <div>
                     <a href={`/blog/${post.slug}`} class="text-[15px] font-semibold text-orange hover:text-orange/80 transition-colors leading-snug">
                       {post.title}

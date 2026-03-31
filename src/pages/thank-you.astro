@@ -137,7 +137,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 
         const itemsEl = document.getElementById('order-items');
         if (itemsEl && data.items && data.items.length > 0) {
-          itemsEl.innerHTML = data.items.map(function(item) {
+          itemsEl.innerHTML = data.items.map(function(item: any) {
             return '<span>' + item.name + ' x ' + item.qty + '</span>';
           }).join('');
         }
