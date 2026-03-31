@@ -78,10 +78,19 @@ export default function HeaderIsland() {
     }
   };
 
-  // Defer path computation to client-side only to avoid SSR hydration mismatch
+  // Defer path computation to client-side only to avoid SSR hydration mismatch.
+  // Listen for Astro View Transitions so the active nav updates after page swaps
+  // (this island uses transition:persist, so it survives navigations).
   const [currentPath, setCurrentPath] = useState('');
   useEffect(() => {
-    setCurrentPath(window.location.pathname);
+    const updatePath = () => {
+      setCurrentPath(window.location.pathname);
+      setMobileOpen(false);
+      setIsSearchOpen(false);
+    };
+    updatePath();
+    document.addEventListener('astro:after-swap', updatePath);
+    return () => document.removeEventListener('astro:after-swap', updatePath);
   }, []);
 
   const isPathActive = (path: string) => {
