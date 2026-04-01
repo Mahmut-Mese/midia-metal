@@ -50,6 +50,7 @@ export default function AdminLogin() {
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="block w-full rounded-md border-0 py-2.5 pl-10 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-[#22a3e6] sm:text-sm sm:leading-6"
                                 placeholder="admin@midiaematal.com"
+                                autoComplete="username"
                             />
                         </div>
                     </div>
@@ -69,7 +70,8 @@ export default function AdminLogin() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="block w-full rounded-md border-0 py-2.5 pl-10 pr-10 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-[#22a3e6] sm:text-sm sm:leading-6"
-                                placeholder="••••••••"
+                                placeholder="password"
+                                autoComplete="current-password"
                             />
                             <button
                                 type="button"
