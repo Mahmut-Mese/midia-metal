@@ -22,7 +22,6 @@ import { $customer } from "@/stores/auth";
 import { toast } from "sonner";
 import Breadcrumb from "@/components/Breadcrumb";
 import SelectionTableSection from "@/components/product/SelectionTableSection";
-import { absoluteUrl, buildBreadcrumbJsonLd, priceToNumber, stripHtml, truncateText } from "@/lib/seo";
 import { formatMoneyValue, resolveSelectedVariantUnitPrice, getStandardizedDisplayPrice, getStandardizedDisplayTitle } from "@/lib/pricing";
 import { getAvailableStock } from "@/lib/stock";
 import {
@@ -158,7 +157,13 @@ const normalizeVariantTableColumns = (value: unknown): VariantTableColumns => {
 function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: string; initialProduct?: any; initialRelated?: any[] }) {
   const wishlist = useStore($wishlist);
   const customer = useStore($customer);
-  const isInWishlist = (productId: number | string) => wishlist.some((w) => w.id === productId);
+  
+  // Track hydration to avoid SSR mismatch for wishlist heart icon
+  const [isHydrated, setIsHydrated] = useState(false);
+  useEffect(() => { setIsHydrated(true); }, []);
+  
+  // Only check wishlist after hydration to avoid server/client mismatch
+  const isInWishlist = (productId: number | string) => isHydrated && wishlist.some((w) => w.id === productId);
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState<"description" | "reviews">("description");
 
@@ -746,13 +751,22 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
                       <span className="text-base text-primary">{qty}</span>
                       <div className="ml-auto flex flex-col">
                         <button
-                          onClick={() => setQty(availableStock === null ? qty + 1 : Math.min(qty + 1, availableStock))}
+                          type="button"
+                          onClick={() => setQty((currentQty) => (
+                            availableStock === null
+                              ? currentQty + 1
+                              : Math.min(currentQty + 1, availableStock)
+                          ))}
                           disabled={isOutOfStock || (availableStock !== null && qty >= availableStock)}
                           className="text-[#7f8ca5] hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <ChevronUp className="w-3 h-3" />
                         </button>
-                        <button onClick={() => setQty(Math.max(1, qty - 1))} className="text-[#7f8ca5] hover:text-primary">
+                        <button
+                          type="button"
+                          onClick={() => setQty((currentQty) => Math.max(1, currentQty - 1))}
+                          className="text-[#7f8ca5] hover:text-primary"
+                        >
                           <ChevronDown className="w-3 h-3" />
                         </button>
                       </div>

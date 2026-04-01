@@ -8,7 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useStore } from '@nanostores/react';
-import { $cart, $cartCount, loadVatSettings, hydrateCartStock } from '@/stores/cart';
+import { $cartCount, loadVatSettings, hydrateCartStock } from '@/stores/cart';
 import { fetchCurrentCustomer } from '@/stores/auth';
 
 // Re-export the existing Header but with nanostores context
@@ -21,6 +21,9 @@ import { apiFetch } from '@/lib/api';
 
 export default function HeaderIsland() {
   const cartCount = useStore($cartCount);
+  
+  // Track hydration to avoid SSR mismatch for cart badge
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -29,8 +32,9 @@ export default function HeaderIsland() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const searchInputRef = { current: null as HTMLInputElement | null };
 
-  // Initialize stores on first mount
+  // Initialize stores on first mount and mark as hydrated
   useEffect(() => {
+    setIsHydrated(true);
     loadVatSettings();
     hydrateCartStock();
     fetchCurrentCustomer();
@@ -142,7 +146,7 @@ export default function HeaderIsland() {
         <div className="flex items-center gap-3 md:gap-5">
           <a href="/cart" className="relative group">
             <ShoppingCart className="w-[18px] h-[18px] text-primary group-hover:text-orange transition-colors" />
-            {cartCount > 0 && (
+            {isHydrated && cartCount > 0 && (
               <span className="absolute -top-2 -right-2 w-4 h-4 bg-orange text-accent-foreground text-[10px] flex items-center justify-center rounded-full font-bold">
                 {cartCount}
               </span>

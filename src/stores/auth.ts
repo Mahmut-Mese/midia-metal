@@ -44,8 +44,23 @@ export function updateCustomer(customerData: Customer) {
 /**
  * Fetch current customer from API on app load.
  * Call this once from a React island or Astro client script.
+ * 
+ * Note: 401 responses are expected when user is not logged in.
+ * We suppress these errors to keep the console clean.
  */
 export async function fetchCurrentCustomer() {
+  // Check for auth-specific cookie (not just XSRF-TOKEN which is always present)
+  // Laravel typically sets 'laravel_session' for authenticated sessions
+  // But we also need to handle cases where user might have stale cookies
+  const hasAuthCookie = document.cookie.includes('laravel_session');
+  
+  if (!hasAuthCookie) {
+    // No auth session cookie, user is definitely not logged in
+    $customer.set(null);
+    $isAuthLoading.set(false);
+    return;
+  }
+
   try {
     const response = await fetch(`${API_URL}/v1/customer/me`, {
       credentials: 'include',
@@ -56,10 +71,11 @@ export async function fetchCurrentCustomer() {
       const data = await response.json();
       $customer.set(data);
     } else {
+      // 401/403 means not authenticated - this is expected, not an error
       $customer.set(null);
     }
   } catch (error) {
-    console.error('Failed to fetch customer profile', error);
+    // Network error - silently fail, user is not authenticated
     $customer.set(null);
   } finally {
     $isAuthLoading.set(false);

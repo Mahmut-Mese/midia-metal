@@ -11,8 +11,9 @@
  *   - Replaced useCart() context with nanostores ($cart, $subtotal, etc.)
  *   - Replaced <Link to="..."> with <a href="...">
  *   - Standalone component (no react-router dependency)
+ *   - Added isHydrated to prevent SSR mismatch with localStorage cart
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
 import { X, Minus, Plus, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import {
@@ -23,7 +24,6 @@ import {
   $vatRate,
   $coupon,
   $total,
-  $isBusiness,
   removeFromCart,
   updateQuantity,
   applyCoupon,
@@ -106,10 +106,16 @@ function CartIsland() {
   const vatRate = useStore($vatRate);
   const coupon = useStore($coupon);
   const total = useStore($total);
-  const isBusiness = useStore($isBusiness);
 
   const [couponInput, setCouponInput] = useState(coupon?.code ?? '');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  
+  // Hydration fix: defer cart rendering until client-side to avoid SSR mismatch
+  // Server renders empty cart, but localStorage may have items on client
+  const [isHydrated, setIsHydrated] = useState(false);
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) return;
@@ -125,9 +131,9 @@ function CartIsland() {
       </section>
 
       <section className="container mx-auto px-4 lg:px-8 pb-20 md:pb-28">
-        {/* Mobile cart cards */}
+        {/* Mobile cart cards - use isHydrated to prevent SSR mismatch */}
         <div className="space-y-4 md:hidden mb-10">
-          {cart.map((item) => (
+          {(isHydrated ? cart : []).map((item) => (
             <div key={item.id} className="border border-[#cad4e4] bg-[#f0f3f7] p-4">
               <div className="flex items-start gap-3">
                 <img src={item.image} alt={item.name} className="w-16 h-16 object-cover" />
@@ -185,7 +191,7 @@ function CartIsland() {
           ))}
         </div>
 
-        {/* Desktop table */}
+        {/* Desktop table - use isHydrated to prevent SSR mismatch */}
         <div className="hidden md:block mb-10">
           <div className="grid grid-cols-5 gap-6 px-6 py-5 bg-[#f4f5f7] text-sm md:text-base leading-none font-semibold text-primary">
             <span>Product</span>
@@ -194,7 +200,7 @@ function CartIsland() {
             <span>Subtotal</span>
             <span>Remove</span>
           </div>
-          {cart.length === 0 ? (
+          {(!isHydrated || cart.length === 0) ? (
             <div className="px-6 py-12 border-b border-[#cad4e4] text-[24px] text-muted-foreground">Your cart is empty.</div>
           ) : (
             cart.map((item) => (
@@ -296,16 +302,16 @@ function CartIsland() {
           </div>
         </div>
 
-        {/* Cart Totals */}
+        {/* Cart Totals - use isHydrated to show correct values */}
         <div className="w-full max-w-[640px] ml-auto">
           <h3 className="font-sans font-semibold text-[28px] md:text-[40px] leading-none text-primary mb-6">Cart totals</h3>
           <div className="border border-[#cad4e4] overflow-hidden">
             <div className="grid grid-cols-[38%_62%] border-b border-[#cad4e4]">
               <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Subtotal</span>
-              <span className="text-sm md:text-lg text-primary p-4 md:p-6">£{subtotal.toFixed(2)}</span>
+              <span className="text-sm md:text-lg text-primary p-4 md:p-6">£{(isHydrated ? subtotal : 0).toFixed(2)}</span>
             </div>
 
-            {coupon && (
+            {isHydrated && coupon && (
               <div className="grid grid-cols-[38%_62%] border-b border-[#cad4e4]">
                 <span className="font-semibold text-sm md:text-lg text-green-700 bg-[#f4f5f7] p-4 md:p-6">
                   Discount ({coupon.code})
@@ -316,7 +322,7 @@ function CartIsland() {
               </div>
             )}
 
-            {vatEnabled && vatAmount > 0 && (
+            {isHydrated && vatEnabled && vatAmount > 0 && (
               <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                 <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">
                   VAT ({vatRate}%)
@@ -336,7 +342,7 @@ function CartIsland() {
             </div>
             <div className="grid grid-cols-[38%_62%]">
               <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Total</span>
-              <span className="font-semibold text-base md:text-2xl text-primary p-4 md:p-6">£{total.toFixed(2)}</span>
+              <span className="font-semibold text-base md:text-2xl text-primary p-4 md:p-6">£{(isHydrated ? total : 0).toFixed(2)}</span>
             </div>
           </div>
           <a

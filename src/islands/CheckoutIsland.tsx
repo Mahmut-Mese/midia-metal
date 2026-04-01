@@ -113,6 +113,14 @@ function CheckoutIsland() {
   const coupon = useStore($coupon);
   const isBusiness = useStore($isBusiness);
   const customer = useStore($customer);
+  
+  // Hydration fix: defer cart-dependent rendering until client-side
+  // Server renders empty cart, but localStorage may have items on client
+  const [isHydrated, setIsHydrated] = useState(false);
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+  
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -144,7 +152,7 @@ function CheckoutIsland() {
 
   useEffect(() => {
     if (customer) {
-      const parts = customer.name.split(" ");
+      const parts = (customer.name || "").split(" ");
       const cust = customer as any;
       const billingAddress = cust.billing_address || cust.address || "";
       const billingCity = cust.billing_city || cust.city || "";
@@ -551,7 +559,8 @@ function CheckoutIsland() {
 
             <div>
               <h3 className="font-sans font-semibold text-[28px] md:text-[40px] leading-none text-primary mb-6">Your order</h3>
-              {cart.length > 0 ? (
+              {/* Use isHydrated to prevent SSR mismatch - server renders empty cart */}
+              {(isHydrated && cart.length > 0) ? (
                 <div className="border border-[#cad4e4] overflow-hidden">
                   <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                     <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Product</span>
@@ -575,14 +584,14 @@ function CheckoutIsland() {
                     <span className="text-sm md:text-base text-primary p-4 md:p-6">£{subtotalRaw.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
 
-                  {coupon && (
+                  {isHydrated && coupon && (
                     <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                       <span className="font-semibold text-sm md:text-lg text-green-700 bg-[#f4f5f7] p-4 md:p-6">Discount ({coupon.code})</span>
                       <span className="text-sm md:text-base text-green-700 p-4 md:p-6">−£{coupon.discount.toFixed(2)}</span>
                     </div>
                   )}
 
-                  {vatEnabled && vatAmountForOrder > 0 && (
+                  {isHydrated && vatEnabled && vatAmountForOrder > 0 && (
                     <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
                       <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">VAT ({vatRate}%)</span>
                       <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmountForOrder.toFixed(2)}</span>
@@ -613,7 +622,7 @@ function CheckoutIsland() {
                   </div>
                   <div className="grid grid-cols-[42%_58%]">
                     <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Total</span>
-                    <span className="font-semibold text-base md:text-2xl text-primary p-4 md:p-6">£{totalForOrder.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="font-semibold text-base md:text-2xl text-primary p-4 md:p-6">£{(isHydrated ? totalForOrder : 0).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               ) : (
@@ -622,7 +631,7 @@ function CheckoutIsland() {
 
               <button
                 type="submit"
-                disabled={isSubmitting || cart.length === 0 || (form.fulfillmentMethod === "delivery" && !form.shippingOptionToken)}
+                disabled={isSubmitting || !isHydrated || cart.length === 0 || (form.fulfillmentMethod === "delivery" && !form.shippingOptionToken)}
                 className="w-full mt-8 h-16 bg-orange text-white inline-flex items-center justify-center text-sm font-semibold hover:bg-[#d4500b] disabled:opacity-50 transition-colors"
                 aria-label="Proceed to payment"
               >
