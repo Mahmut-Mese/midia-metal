@@ -9,7 +9,7 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import PortfolioFilter from '@/islands/PortfolioFilter';
-import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
@@ -33,16 +33,33 @@ try {
 }
 
 const t = (key: string, def: string) => settings[key] || def;
+
+// ItemList JSON-LD for portfolio listing
+const portfolioUrl = `${siteUrl}/portfolio`;
+const itemListJsonLd = projects.length > 0
+  ? buildItemListJsonLd({
+      name: 'Portfolio',
+      description: 'Recent commercial kitchen and fabrication projects by Midia M Metal.',
+      url: portfolioUrl,
+      items: projects.map((p: any) => ({
+        url: `${siteUrl}/portfolio/${p.slug}`,
+        name: p.title,
+      })),
+    })
+  : null;
 ---
 
 <BaseLayout
   title={getPageTitle(settings, undefined, 'Portfolio')}
   description={getPageDescription(settings, undefined, 'View recent commercial kitchen ventilation, stainless steel fabrication, canopy installation, and custom metalwork projects completed by Midia M Metal.')}
   canonicalPath="/portfolio"
-  structuredData={[buildBreadcrumbJsonLd([
-    { name: 'Home', url: `${siteUrl}/` },
-    { name: 'Portfolio', url: `${siteUrl}/portfolio` },
-  ])]}
+  structuredData={[
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: `${siteUrl}/` },
+      { name: 'Portfolio', url: portfolioUrl },
+    ]),
+    ...(itemListJsonLd ? [itemListJsonLd] : []),
+  ]}
 >
   <div class="min-h-screen bg-[#eaf0f3]">
     <!-- Portfolio Filter + Project Grid (React island — needs filter state) -->

@@ -18,7 +18,7 @@
  * Converted: Pure Astro (0 client-side JS for this page content)
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
@@ -43,6 +43,20 @@ try {
 
 // Helper: get setting
 const t = (key: string) => settings[key] || '';
+
+// ItemList JSON-LD for services listing
+const servicesUrl = `${siteUrl}/services`;
+const itemListJsonLd = services.length > 0
+  ? buildItemListJsonLd({
+      name: 'Services',
+      description: 'Commercial kitchen ventilation and fabrication services by Midia M Metal.',
+      url: servicesUrl,
+      items: services.map((s: any) => ({
+        url: `${siteUrl}/services/${s.slug}`,
+        name: s.title,
+      })),
+    })
+  : null;
 ---
 
 <BaseLayout
@@ -52,8 +66,9 @@ const t = (key: string) => settings[key] || '';
   structuredData={[
     buildBreadcrumbJsonLd([
       { name: 'Home', url: `${siteUrl}/` },
-      { name: 'Services', url: `${siteUrl}/services` },
+      { name: 'Services', url: servicesUrl },
     ]),
+    ...(itemListJsonLd ? [itemListJsonLd] : []),
   ]}
 >
   <div class="min-h-screen bg-[#eaf0f3]">

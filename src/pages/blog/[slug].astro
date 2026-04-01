@@ -1,51 +1,49 @@
 ---
+export const prerender = false;
 /**
- * blog/[slug].astro — Blog detail page (PURE ASTRO)
+ * blog/[slug].astro — Blog detail page (PURE ASTRO, SSR)
  *
- * Original: src/pages-react/BlogDetailPage.tsx
- * React island: src/islands/BlogDetailIsland.tsx (219 lines, 4 API calls)
- * Converted: Pure Astro with getStaticPaths passing full post data as props.
+ * Server-rendered: fetches fresh blog data on every request.
+ * No getStaticPaths — the slug comes from the URL at request time.
  *
- * Pattern:
- *   1. getStaticPaths() fetches all blog posts + categories + recent posts at build time
- *   2. For each post, also fetches the individual post detail
- *   3. Frontmatter uses props passed from getStaticPaths
- *   4. Breadcrumb inlined with inline SVGs (replaces lucide-react Home/ChevronRight)
- *   5. set:html used for rich content (replaces dangerouslySetInnerHTML)
- *   6. All JSX inlined as pure Astro template — no React, no client-side JS
+ * SEO: BlogPosting JSON-LD + breadcrumbs for rich results.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { buildBreadcrumbJsonLd, buildBlogPostingJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-
-// --- getStaticPaths — fetches all blog posts at build time ---
-export async function getStaticPaths() {
-  try {
-    const [postsRes, categoriesRes, recentRes] = await Promise.all([
-      fetch('http://127.0.0.1:8000/api/v1/blog').then(r => r.ok ? r.json() : { data: [] }),
-      fetch('http://127.0.0.1:8000/api/v1/blog/categories').then(r => r.ok ? r.json() : []),
-      fetch('http://127.0.0.1:8000/api/v1/blog/recent').then(r => r.ok ? r.json() : []),
-    ]);
-    const posts = postsRes.data || postsRes || [];
-    const categories = categoriesRes || [];
-    const recentPosts = recentRes || [];
-
-    return await Promise.all(posts.map(async (post: any) => {
-      const detail = await fetch(`http://127.0.0.1:8000/api/v1/blog/${post.slug}`).then(r => r.ok ? r.json() : post);
-      return {
-        params: { slug: post.slug },
-        props: { post: detail, allPosts: posts, categories, recentPosts },
-      };
-    }));
-  } catch (e) {
-    console.warn('Could not fetch blog posts for static paths, using fallback');
-  }
-  return [];
-}
+const API = 'http://127.0.0.1:8000/api/v1';
 
 const { slug } = Astro.params;
-const { post, allPosts = [], categories = [], recentPosts = [] } = Astro.props;
+
+// Cache headers: CDN caches for 10 min (blog content changes less often)
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+
+// Fetch post detail + sidebar data in parallel at request time
+let post: any = null;
+let allPosts: any[] = [];
+let categories: any[] = [];
+let recentPosts: any[] = [];
+
+try {
+  const [postRes, postsRes, categoriesRes, recentRes] = await Promise.all([
+    fetch(`${API}/blog/${slug}`).then(r => r.ok ? r.json() : null),
+    fetch(`${API}/blog`).then(r => r.ok ? r.json() : { data: [] }),
+    fetch(`${API}/blog/categories`).then(r => r.ok ? r.json() : []),
+    fetch(`${API}/blog/recent`).then(r => r.ok ? r.json() : []),
+  ]);
+  post = postRes;
+  allPosts = postsRes.data || postsRes || [];
+  categories = categoriesRes || [];
+  recentPosts = recentRes || [];
+} catch (e) {
+  console.error('Failed to fetch blog data:', e);
+}
+
+// 404 if post not found
+if (!post) {
+  return Astro.redirect('/404');
+}
 
 // Handle missing post
 const pageTitle = post?.title || 'Blog Post';
@@ -56,17 +54,34 @@ const currentIndex = allPosts.findIndex((item: any) => item.slug === post?.slug 
 const prevPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
 const nextPost = currentIndex >= 0 && currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
 const publishedDate = post?.published_at || post?.created_at;
+
+// BlogPosting JSON-LD for rich results
+const postUrl = `${siteUrl}/blog/${slug}`;
+const blogPostingJsonLd = buildBlogPostingJsonLd({
+  headline: pageTitle,
+  description: post?.excerpt,
+  image: post?.image,
+  datePublished: publishedDate,
+  dateModified: post?.updated_at || publishedDate,
+  authorName: post?.author || 'Admin',
+  url: postUrl,
+  publisherLogo: `${siteUrl}/logo.png`,
+});
 ---
 
 <BaseLayout
   title={pageTitle}
   description={pageDescription}
+  image={post?.image}
   canonicalPath={`/blog/${slug}`}
-  structuredData={[buildBreadcrumbJsonLd([
-    { name: 'Home', url: `${siteUrl}/` },
-    { name: 'Blog', url: `${siteUrl}/blog` },
-    { name: pageTitle, url: `${siteUrl}/blog/${slug}` },
-  ])]}
+  structuredData={[
+    blogPostingJsonLd,
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: `${siteUrl}/` },
+      { name: 'Blog', url: `${siteUrl}/blog` },
+      { name: pageTitle, url: postUrl },
+    ]),
+  ]}
 >
   <div class="min-h-screen bg-[#eaf0f3]">
     <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-24">

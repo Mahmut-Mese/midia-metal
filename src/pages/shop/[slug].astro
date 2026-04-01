@@ -1,55 +1,44 @@
 ---
+export const prerender = false;
 /**
- * shop/[slug].astro — Product detail page
+ * shop/[slug].astro — Product detail page (SSR)
  *
- * Enhancement: getStaticPaths() now fetches full product + related data
- * and passes them as props to ProductDetailIsland, eliminating the
- * loading spinner on initial render and enabling SEO-friendly page titles.
+ * Server-rendered: fetches fresh product + related data on every request.
+ * This ensures prices, stock, and reviews are always current.
+ *
+ * SEO: Product JSON-LD for rich snippets + breadcrumbs.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ProductDetailIsland from '@/islands/ProductDetailIsland';
-import { getStandardizedDisplayPrice } from '@/lib/pricing';
-import { stripHtml, truncateText } from '@/lib/seo';
+import { getStandardizedDisplayPrice, parseMoneyValue } from '@/lib/pricing';
+import { stripHtml, truncateText, buildBreadcrumbJsonLd, buildProductJsonLd } from '@/lib/seo';
 
-export async function getStaticPaths() {
-  try {
-    const res = await fetch('http://127.0.0.1:8000/api/v1/products');
-    if (!res.ok) return [];
-    const data = await res.json();
-    const items = Array.isArray(data) ? data : data.data || [];
+const siteUrl = import.meta.env.SITE;
+const API = 'http://127.0.0.1:8000/api/v1';
+const { slug } = Astro.params;
 
-    const paths = await Promise.all(
-      items.map(async (item: any) => {
-        let product = item;
-        let related: any[] = [];
-        try {
-          // Fetch full product detail (includes variants, reviews, specs, gallery)
-          const detailRes = await fetch(`http://127.0.0.1:8000/api/v1/products/${item.slug}`);
-          if (detailRes.ok) {
-            product = await detailRes.json();
-          }
-        } catch {}
-        try {
-          const relRes = await fetch(`http://127.0.0.1:8000/api/v1/products/${item.slug}/related`);
-          if (relRes.ok) {
-            const relData = await relRes.json();
-            related = (Array.isArray(relData) ? relData : []).slice(0, 3);
-          }
-        } catch {}
-        return {
-          params: { slug: String(item.slug) },
-          props: { product, related },
-        };
-      })
-    );
-    return paths;
-  } catch {
-    return [];
-  }
+// Cache headers: CDN caches for 5 min, serves stale while revalidating for 1 hour
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
+
+// Fetch product detail + related products in parallel at request time
+let product: any = null;
+let related: any[] = [];
+
+try {
+  const [productRes, relatedRes] = await Promise.all([
+    fetch(`${API}/products/${slug}`).then(r => r.ok ? r.json() : null),
+    fetch(`${API}/products/${slug}/related`).then(r => r.ok ? r.json() : []),
+  ]);
+  product = productRes;
+  related = (Array.isArray(relatedRes) ? relatedRes : []).slice(0, 3);
+} catch (e) {
+  console.error('Failed to fetch product data:', e);
 }
 
-const { slug } = Astro.params;
-const { product, related } = Astro.props;
+// 404 if product not found
+if (!product) {
+  return Astro.redirect('/404');
+}
 
 // Dynamic SEO from product data
 const productName = product?.name || 'Product';
@@ -59,19 +48,45 @@ const rawDescription = product?.description || '';
 const pageDescription = rawDescription
   ? truncateText(stripHtml(rawDescription), 155)
   : `View ${productName} details from Midia M Metal.`;
+
+// Product JSON-LD for rich snippets in Google Search
+const productUrl = `${siteUrl}/shop/${slug}`;
+const numericPrice = parseMoneyValue(productPrice.replace('£', '')) ?? 0;
+const productJsonLd = buildProductJsonLd({
+  name: productName,
+  description: rawDescription,
+  image: product?.image,
+  sku: product?.sku || String(product?.id || ''),
+  url: productUrl,
+  price: numericPrice,
+  availability: product?.stock > 0 || product?.in_stock !== false
+    ? 'https://schema.org/InStock'
+    : 'https://schema.org/OutOfStock',
+  ratingValue: product?.average_rating,
+  reviewCount: product?.review_count,
+});
+
+const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: 'Home', url: `${siteUrl}/` },
+  { name: 'Shop', url: `${siteUrl}/shop` },
+  ...(product?.category ? [{ name: product.category.name || product.category, url: `${siteUrl}/shop/category/${product.category.slug || ''}` }] : []),
+  { name: productName, url: productUrl },
+]);
 ---
 
 <BaseLayout
   title={pageTitle}
   description={pageDescription}
+  image={product?.image}
   canonicalPath={`/shop/${slug}`}
+  structuredData={[productJsonLd, breadcrumbJsonLd]}
 >
   <div class="min-h-screen bg-[#eaf0f3]">
     <ProductDetailIsland
       id={slug!}
       initialProduct={product}
       initialRelated={related}
-      client:visible
+      client:load
     />
   </div>
 </BaseLayout>

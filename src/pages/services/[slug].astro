@@ -1,74 +1,71 @@
 ---
+export const prerender = false;
 /**
- * services/[slug].astro — Service detail page (PURE ASTRO)
+ * services/[slug].astro — Service detail page (PURE ASTRO, SSR)
  *
- * Original: src/pages-react/ServiceDetailPage.tsx
- * React island: src/islands/ServiceDetailIsland.tsx (153 lines)
- * Converted: Pure Astro with getStaticPaths passing full service data as props.
- *
- * Pattern:
- *   1. getStaticPaths() fetches all services and passes full service object as props
- *   2. Frontmatter fetches settings for contact sidebar
- *   3. All JSX inlined as pure Astro template — no React, no client-side JS
- *   4. Breadcrumb inlined with inline SVGs (replaces lucide-react Home/ChevronRight)
- *   5. set:html used for rich content (replaces dangerouslySetInnerHTML)
+ * Server-rendered: fetches fresh service + settings data on every request.
+ * No getStaticPaths — the slug comes from the URL at request time.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { buildBreadcrumbJsonLd, buildServiceJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = 'http://127.0.0.1:8000/api';
-
-// --- getStaticPaths — fetches all services at build time ---
-export async function getStaticPaths() {
-  try {
-    const response = await fetch('http://127.0.0.1:8000/api/v1/services');
-    if (response.ok) {
-      const services = await response.json();
-      return services.map((service: any) => ({
-        params: { slug: service.slug },
-        props: { service },
-      }));
-    }
-  } catch (e) {
-    console.warn('Could not fetch services for static paths, using fallback');
-  }
-  return [];
-}
+const API = 'http://127.0.0.1:8000/api/v1';
 
 const { slug } = Astro.params;
-const { service } = Astro.props as { service: { title?: string; excerpt?: string; content?: string; image?: string; features?: string[]; slug?: string } | null };
 
-// --- Fetch settings for contact sidebar ---
+// Fetch service detail + settings in parallel at request time
+let service: any = null;
 let settings: Record<string, string> = {};
+
 try {
-  const settingsRes = await fetch(`${API_BASE}/v1/settings`);
-  if (settingsRes.ok) {
-    const settingsArray = await settingsRes.json();
-    (settingsArray || []).forEach((s: any) => {
-      settings[s.key] = s.value;
-    });
-  }
+  const [serviceRes, settingsRes] = await Promise.all([
+    fetch(`${API}/services/${slug}`).then(r => r.ok ? r.json() : null),
+    fetch(`${API}/settings`).then(r => r.ok ? r.json() : []),
+  ]);
+  service = serviceRes;
+  (settingsRes || []).forEach((s: any) => {
+    settings[s.key] = s.value;
+  });
 } catch (err) {
-  console.error('Failed to load settings at build time:', err);
+  console.error('Failed to fetch service data:', err);
+}
+
+// 404 if service not found
+if (!service) {
+  return Astro.redirect('/404');
 }
 
 const t = (key: string, def: string) => settings[key] || def;
 
-// Handle missing service (shouldn't happen with getStaticPaths, but be safe)
+// Handle missing service (shouldn't happen with SSR redirect above, but be safe)
 const pageTitle = service?.title || 'Service';
 const pageDescription = service?.excerpt || `${pageTitle} service from Midia M Metal - commercial kitchen ventilation and stainless steel fabrication.`;
+
+// Cache headers: CDN caches for 10 min
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+
+// Service JSON-LD
+const serviceUrl = `${siteUrl}/services/${slug}`;
+const serviceJsonLd = buildServiceJsonLd({
+  name: pageTitle,
+  description: service?.excerpt || service?.content,
+  image: service?.image,
+  url: serviceUrl,
+});
 ---
 
 <BaseLayout
   title={pageTitle}
   description={pageDescription}
+  image={service?.image}
   canonicalPath={`/services/${slug}`}
   structuredData={[
+    serviceJsonLd,
     buildBreadcrumbJsonLd([
       { name: 'Home', url: `${siteUrl}/` },
       { name: 'Services', url: `${siteUrl}/services` },
-      { name: pageTitle, url: `${siteUrl}/services/${slug}` },
+      { name: pageTitle, url: serviceUrl },
     ]),
   ]}
 >

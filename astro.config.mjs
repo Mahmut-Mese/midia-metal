@@ -2,14 +2,19 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
 import sitemap from '@astrojs/sitemap';
+import node from '@astrojs/node';
 
 // https://astro.build/config
 export default defineConfig({
   // Canonical site URL — sets import.meta.env.SITE globally
   site: 'https://midiammetal.com',
 
-  // Astro 5: 'static' = prerender all by default (absorbed 'hybrid')
-  output: 'static',
+  // SSR mode: pages are server-rendered by default (fresh API data on every request).
+  // Static pages opt in with `export const prerender = true`.
+  output: 'server',
+
+  // Node.js adapter for Hostinger Cloud deployment
+  adapter: node({ mode: 'standalone' }),
 
   // Prefetch links on hover for SPA-like speed
   prefetch: {

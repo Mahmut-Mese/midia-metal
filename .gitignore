@@ -25,3 +25,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OpenCode dev tooling
+.opencode/
+opencode.json
+
+# Temp/debug artifacts
+cookies.txt
+*.xlsx
+tests/login-debug.png
+
+# Playwright
+test-results/
+playwright-report/

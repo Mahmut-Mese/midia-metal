@@ -46,21 +46,10 @@ export function updateCustomer(customerData: Customer) {
  * Call this once from a React island or Astro client script.
  * 
  * Note: 401 responses are expected when user is not logged in.
- * We suppress these errors to keep the console clean.
+ * The HttpOnly session cookies cannot be read by JavaScript, so we must
+ * always make the API call to check auth status. 401 is handled gracefully.
  */
 export async function fetchCurrentCustomer() {
-  // Check for auth-specific cookie (not just XSRF-TOKEN which is always present)
-  // Laravel typically sets 'laravel_session' for authenticated sessions
-  // But we also need to handle cases where user might have stale cookies
-  const hasAuthCookie = document.cookie.includes('laravel_session');
-  
-  if (!hasAuthCookie) {
-    // No auth session cookie, user is definitely not logged in
-    $customer.set(null);
-    $isAuthLoading.set(false);
-    return;
-  }
-
   try {
     const response = await fetch(`${API_URL}/v1/customer/me`, {
       credentials: 'include',

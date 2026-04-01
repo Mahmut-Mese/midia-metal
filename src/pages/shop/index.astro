@@ -1,47 +1,93 @@
 ---
 /**
- * shop/index.astro — Shop page
+ * shop/index.astro — Shop page (SSR)
  *
- * Enhancement: Pre-fetches categories and tags at build time and passes
- * them as props to ShopIsland, so filters render immediately without
- * a separate API call on the client.
+ * Server-rendered: fetches fresh products, categories, and tags on every request.
+ * Products appear instantly in the HTML — no waiting for JS bundle + API call.
+ * ShopIsland hydrates over the server-rendered content for interactive filters.
+ *
+ * Query params are read from the URL server-side and passed to the island.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ShopIsland from '@/islands/ShopIsland';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
+import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
+
+const siteUrl = import.meta.env.SITE;
+const API = 'http://127.0.0.1:8000/api/v1';
 
 const settings = await fetchSettings();
 const pageTitle = getPageTitle(settings, undefined, 'Shop');
 const pageDescription = getPageDescription(settings, undefined, 'Browse our range of commercial kitchen equipment, ventilation systems, and stainless steel products.');
 
-// Pre-fetch categories and tags at build time
+// Pre-fetch products, categories and tags at request time (SSR)
+let products: any[] = [];
 let categories: any[] = [];
 let tags: string[] = [];
+
+// Read search params from the request URL
+const searchParam = Astro.url.searchParams.get('search') || '';
+const categoryParam = Astro.url.searchParams.get('category') || '';
+
 try {
-  const [catsRes, tagsRes] = await Promise.all([
-    fetch('http://127.0.0.1:8000/api/v1/product-categories'),
-    fetch('http://127.0.0.1:8000/api/v1/products/tags'),
+  // Build products API query
+  const query = new URLSearchParams();
+  if (searchParam) query.set('search', searchParam);
+  if (categoryParam) query.set('category', categoryParam);
+  const queryStr = query.toString();
+
+  const [productsRes, catsRes, tagsRes] = await Promise.all([
+    fetch(`${API}/products${queryStr ? `?${queryStr}` : ''}`).then(r => r.ok ? r.json() : { data: [] }),
+    fetch(`${API}/product-categories`).then(r => r.ok ? r.json() : []),
+    fetch(`${API}/products/tags`).then(r => r.ok ? r.json() : []),
   ]);
-  if (catsRes.ok) {
-    const catsData = await catsRes.json();
-    categories = Array.isArray(catsData) ? catsData : catsData.data || [];
-  }
-  if (tagsRes.ok) {
-    tags = await tagsRes.json();
-  }
-} catch {}
+
+  products = productsRes.data || [];
+  categories = Array.isArray(catsRes) ? catsRes : catsRes.data || [];
+  tags = tagsRes || [];
+} catch (e) {
+  console.error('Failed to fetch shop data:', e);
+}
+
+// Pass the initial search params string to the island
+const initialSearchParams = Astro.url.search || '';
+
+// Cache headers: CDN caches for 5 min
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
+
+// ItemList JSON-LD for the product listing
+const shopUrl = `${siteUrl}/shop`;
+const itemListJsonLd = products.length > 0
+  ? buildItemListJsonLd({
+      name: 'Shop',
+      description: pageDescription,
+      url: shopUrl,
+      items: products.slice(0, 50).map((p: any) => ({
+        url: `${siteUrl}/shop/${p.slug || p.id}`,
+        name: p.name,
+      })),
+    })
+  : null;
+
+const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: 'Home', url: `${siteUrl}/` },
+  { name: 'Shop', url: shopUrl },
+]);
 ---
 
 <BaseLayout
   title={pageTitle}
   description={pageDescription}
   canonicalPath="/shop"
+  structuredData={[breadcrumbJsonLd, ...(itemListJsonLd ? [itemListJsonLd] : [])]}
 >
   <div class="min-h-screen bg-[#eaf0f3]">
     <ShopIsland
+      initialProducts={products}
       initialCategories={categories}
       initialTags={tags}
-      client:only="react"
+      initialSearchParams={initialSearchParams}
+      client:load
     />
   </div>
 </BaseLayout>

@@ -94,3 +94,189 @@ export function priceToNumber(price: string | number | null | undefined): number
   const numeric = parseFloat(price.replace(/[^\d.]/g, ""));
   return Number.isFinite(numeric) ? numeric : null;
 }
+
+// --- Structured Data Builders for SEO ---
+
+/**
+ * Build Product JSON-LD schema for product detail pages.
+ * Required for Google rich product snippets and Merchant Center.
+ */
+export function buildProductJsonLd({
+  name,
+  description,
+  image,
+  sku,
+  url,
+  price,
+  priceCurrency = "GBP",
+  availability = "https://schema.org/InStock",
+  brand = "Midia M Metal",
+  ratingValue,
+  reviewCount,
+}: {
+  name: string;
+  description?: string;
+  image?: string;
+  sku?: string;
+  url: string;
+  price: string | number;
+  priceCurrency?: string;
+  availability?: string;
+  brand?: string;
+  ratingValue?: number;
+  reviewCount?: number;
+}) {
+  const numericPrice = priceToNumber(price);
+  const jsonLd: Record<string, any> = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name,
+    ...(description ? { description: truncateText(stripHtml(description), 5000) } : {}),
+    ...(image ? { image } : {}),
+    ...(sku ? { sku } : {}),
+    brand: { "@type": "Brand", name: brand },
+    offers: {
+      "@type": "Offer",
+      url,
+      priceCurrency,
+      price: numericPrice !== null ? numericPrice.toFixed(2) : "0.00",
+      availability,
+      seller: { "@type": "Organization", name: DEFAULT_SITE_NAME },
+    },
+  };
+
+  if (ratingValue && reviewCount && reviewCount > 0) {
+    jsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue,
+      reviewCount,
+    };
+  }
+
+  return jsonLd;
+}
+
+/**
+ * Build BlogPosting JSON-LD schema for blog detail pages.
+ * Enables rich results with date, author, and image in search.
+ */
+export function buildBlogPostingJsonLd({
+  headline,
+  description,
+  image,
+  datePublished,
+  dateModified,
+  authorName = "Admin",
+  url,
+  publisherName = DEFAULT_SITE_NAME,
+  publisherLogo,
+}: {
+  headline: string;
+  description?: string;
+  image?: string;
+  datePublished?: string;
+  dateModified?: string;
+  authorName?: string;
+  url: string;
+  publisherName?: string;
+  publisherLogo?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline,
+    ...(description ? { description: truncateText(stripHtml(description), 300) } : {}),
+    ...(image ? { image } : {}),
+    ...(datePublished ? { datePublished } : {}),
+    ...(dateModified ? { dateModified } : { ...(datePublished ? { dateModified: datePublished } : {}) }),
+    author: { "@type": "Person", name: authorName },
+    url,
+    publisher: {
+      "@type": "Organization",
+      name: publisherName,
+      ...(publisherLogo ? { logo: { "@type": "ImageObject", url: publisherLogo } } : {}),
+    },
+  };
+}
+
+/**
+ * Build ItemList JSON-LD schema for list/collection pages.
+ * Helps Google understand page structure for blog lists, product lists, portfolio lists.
+ */
+export function buildItemListJsonLd({
+  name,
+  description,
+  url,
+  items,
+}: {
+  name?: string;
+  description?: string;
+  url?: string;
+  items: Array<{ url: string; name?: string }>;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    ...(name ? { name } : {}),
+    ...(description ? { description } : {}),
+    ...(url ? { url } : {}),
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: items.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: item.url,
+        ...(item.name ? { name: item.name } : {}),
+      })),
+    },
+  };
+}
+
+/**
+ * Build FAQPage JSON-LD schema for FAQ pages.
+ * Enables FAQ rich results in Google Search.
+ */
+export function buildFaqPageJsonLd(faqs: Array<{ question: string; answer: string }>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: stripHtml(faq.answer),
+      },
+    })),
+  };
+}
+
+/**
+ * Build Service JSON-LD schema for service detail pages.
+ */
+export function buildServiceJsonLd({
+  name,
+  description,
+  image,
+  url,
+  providerName = DEFAULT_SITE_NAME,
+  areaServed = "United Kingdom",
+}: {
+  name: string;
+  description?: string;
+  image?: string;
+  url: string;
+  providerName?: string;
+  areaServed?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name,
+    ...(description ? { description: truncateText(stripHtml(description), 300) } : {}),
+    ...(image ? { image } : {}),
+    url,
+    provider: { "@type": "Organization", name: providerName },
+    areaServed: { "@type": "Country", name: areaServed },
+  };
+}

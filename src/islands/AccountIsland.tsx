@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { useStore } from "@nanostores/react";
 import { toast } from "sonner";
 import {
-    ChevronDown, Package, FileText, User, LogOut, Heart,
+    Package, FileText, User, LogOut, Heart,
     MessageSquare, Lock, ChevronRight, ChevronUp, ShoppingCart,
-    Trash2, RotateCcw, CheckCircle2, Clock, Truck, CheckCheck, Eye, MapPin, CreditCard
+    Trash2, RotateCcw, Clock, Truck, CheckCheck, MapPin, CreditCard
 } from "lucide-react";
 import { $customer, $isAuthLoading, logoutCustomer, updateCustomer } from "@/stores/auth";
 import { $wishlist, removeFromWishlist } from "@/stores/wishlist";

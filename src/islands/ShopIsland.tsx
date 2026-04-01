@@ -102,8 +102,22 @@ const matchesVariantFilters = (product: any, filters: VariantFilters): boolean =
   });
 };
 
-export default function ShopIsland({ initialCategories, initialTags }: { initialCategories?: any[]; initialTags?: string[] } = {}) {
-  const [searchParams, setSearchParams] = useState(() => new URLSearchParams(window.location.search));
+export default function ShopIsland({
+  initialProducts,
+  initialCategories,
+  initialTags,
+  initialSearchParams: initialSearchParamsStr = '',
+}: {
+  initialProducts?: any[];
+  initialCategories?: any[];
+  initialTags?: string[];
+  initialSearchParams?: string;
+} = {}) {
+  // Parse search params from server-provided string (no window dependency at init)
+  const [searchParams, setSearchParams] = useState(() => {
+    const src = typeof window !== 'undefined' ? window.location.search : initialSearchParamsStr;
+    return new URLSearchParams(src);
+  });
   const [sortBy, setSortBy] = useState("latest");
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(searchParams.get("category"));
@@ -112,11 +126,13 @@ export default function ShopIsland({ initialCategories, initialTags }: { initial
   const [inStockOnly, setInStockOnly] = useState(searchParams.get("stock") === "1");
   const [selectedVariantFilters, setSelectedVariantFilters] = useState<VariantFilters>(parseVariantFiltersFromParams(searchParams));
 
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>(initialProducts || []);
   const [categories, setCategories] = useState<any[]>(initialCategories || []);
   const [tags, setTags] = useState<string[]>(initialTags || []);
-  const [variantFacets, setVariantFacets] = useState<VariantFacet[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [variantFacets, setVariantFacets] = useState<VariantFacet[]>(() => buildVariantFacets(initialProducts || []));
+  const [loading, setLoading] = useState(!initialProducts || initialProducts.length === 0);
+  // Track whether this is the initial mount — skip redundant loadProducts on first render if we have SSR data
+  const [isInitialMount, setIsInitialMount] = useState(true);
 
   useEffect(() => {
     // Skip initial data fetch if already provided via props
@@ -139,6 +155,11 @@ export default function ShopIsland({ initialCategories, initialTags }: { initial
   };
 
   useEffect(() => {
+    // On initial mount with SSR data, skip the redundant API call
+    if (isInitialMount) {
+      setIsInitialMount(false);
+      if (initialProducts && initialProducts.length > 0) return;
+    }
     loadProducts();
   }, [searchQuery, selectedCategory, selectedTags, sortBy, priceRange, inStockOnly, selectedVariantFilters]);
 

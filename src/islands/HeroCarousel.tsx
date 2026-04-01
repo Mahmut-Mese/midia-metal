@@ -2,19 +2,30 @@ import { useState, useEffect } from "react";
 
 type Slide = { id: number; image: string; alt?: string };
 
-export default function HeroCarousel({ slides }: { slides: Slide[] }) {
+export default function HeroCarousel({ slides = [] }: { slides: Slide[] }) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const slideCount = slides.length;
 
   useEffect(() => {
-    if (slides.length <= 1) return undefined;
+    if (slideCount <= 1) return undefined;
     const intervalId = window.setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
+      setCurrentSlide((prev) => (prev + 1) % slideCount);
     }, 5000);
     return () => window.clearInterval(intervalId);
-  }, [slides.length]);
+  }, [slideCount]);
 
-  const goToPrev = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  const goToNext = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
+  const goToPrev = () => {
+    if (slideCount === 0) return;
+    setCurrentSlide((prev) => (prev - 1 + slideCount) % slideCount);
+  };
+  const goToNext = () => {
+    if (slideCount === 0) return;
+    setCurrentSlide((prev) => (prev + 1) % slideCount);
+  };
+
+  if (slideCount === 0) {
+    return <div className="relative h-[260px] md:h-[520px] overflow-hidden bg-gray-200" />;
+  }
 
   return (
     <div className="relative h-[260px] md:h-[520px] overflow-hidden bg-gray-200">
@@ -28,7 +39,7 @@ export default function HeroCarousel({ slides }: { slides: Slide[] }) {
           }`}
         />
       ))}
-      {slides.length > 1 && (
+      {slideCount > 1 && (
         <>
           <button
             onClick={goToPrev}

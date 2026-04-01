@@ -6,7 +6,7 @@
  * Uses native <details>/<summary> for accordion — zero client-side JS.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { buildBreadcrumbJsonLd, buildFaqPageJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const settings = await fetchSettings();
@@ -31,10 +31,13 @@ try {
   title={pageTitle}
   description={pageDescription}
   canonicalPath="/faq"
-  structuredData={[buildBreadcrumbJsonLd([
-    { name: 'Home', url: `${siteUrl}/` },
-    { name: 'FAQ', url: `${siteUrl}/faq` },
-  ])]}
+  structuredData={[
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: `${siteUrl}/` },
+      { name: 'FAQ', url: `${siteUrl}/faq` },
+    ]),
+    ...(faqs.length > 0 ? [buildFaqPageJsonLd(faqs.map((f: any) => ({ question: f.question, answer: f.answer })))] : []),
+  ]}
 >
   <div class="min-h-screen bg-[#eaf0f3]">
     <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-28 max-w-4xl">

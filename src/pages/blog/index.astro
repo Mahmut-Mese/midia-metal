@@ -14,7 +14,7 @@
  *   5. Use `class` instead of `className`
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
@@ -41,16 +41,33 @@ try {
 }
 
 const t = (key: string, def: string) => settings[key] || def;
+
+// ItemList JSON-LD for blog listing
+const blogUrl = `${siteUrl}/blog`;
+const itemListJsonLd = posts.length > 0
+  ? buildItemListJsonLd({
+      name: 'Blog',
+      description: 'Articles and insights from Midia M Metal.',
+      url: blogUrl,
+      items: posts.map((p: any) => ({
+        url: `${siteUrl}/blog/${p.slug}`,
+        name: p.title,
+      })),
+    })
+  : null;
 ---
 
 <BaseLayout
   title={getPageTitle(settings, 'blog_hero_title', 'Blog')}
   description={getPageDescription(settings, undefined, 'Read insights on commercial kitchen ventilation, stainless steel fabrication, canopy systems, hygiene, and maintenance from Midia M Metal.')}
   canonicalPath="/blog"
-  structuredData={[buildBreadcrumbJsonLd([
-    { name: 'Home', url: `${siteUrl}/` },
-    { name: 'Blog', url: `${siteUrl}/blog` },
-  ])]}
+  structuredData={[
+    buildBreadcrumbJsonLd([
+      { name: 'Home', url: `${siteUrl}/` },
+      { name: 'Blog', url: blogUrl },
+    ]),
+    ...(itemListJsonLd ? [itemListJsonLd] : []),
+  ]}
 >
   <div class="min-h-screen bg-[#eaf0f3]">
     <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-20 md:pb-24">

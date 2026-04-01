@@ -62,23 +62,25 @@ const DYNAMIC_PAGES = [
   '/shop/canopy-2',           // Product detail page
 ];
 
-// Patterns to ignore (external dependencies that fail in test env)
-// NOTE: We still want to catch 401 errors to /customer/me as those indicate auth issues
+// Patterns to ignore (expected behaviors in test environment)
 const IGNORE_PATTERNS = [
   'stripe.com',               // Stripe JS - external service
-  '/api/v1/settings',         // Settings API - may not be running
-  '/api/v1/shipping',         // Shipping API - may not be running
-  'Failed to fetch',          // Network errors from APIs
+  '/api/v1/settings',         // Settings API - may not be running in test
+  '/api/v1/shipping',         // Shipping API - may not be running in test
+  'Failed to fetch',          // Network errors from APIs in test env
   'Failed to load settings',  // Wrapper error from APIs
   'Failed to load header',    // Wrapper error from APIs
-  'net::ERR_ABORTED',         // Aborted requests (usually external)
+  'net::ERR_ABORTED',         // Aborted requests (navigation, etc.)
+  '/api/v1/customer/me',      // Auth check returns 401 for guests - expected
+  'status of 401',            // 401 responses are expected for auth endpoints when not logged in
 ];
 
 // These are REAL errors we want to catch
 const NEVER_IGNORE = [
-  '/customer/me',             // Auth check - 401 here means cookie check is broken
   'Hydration',                // React hydration errors
   'did not match',            // SSR mismatch
+  'Text content does not',    // SSR text mismatch
+  'server rendered HTML',     // SSR HTML mismatch
 ];
 
 function shouldIgnore(issue: string): boolean {

@@ -1,58 +1,74 @@
 ---
+export const prerender = false;
 /**
- * shop/category/[slug].astro — Category page (PURE ASTRO)
+ * shop/category/[slug].astro — Category page (PURE ASTRO, SSR)
  *
- * Converted from React island: src/islands/CategoryIsland.tsx (99 lines)
- *
- * Pattern:
- *   1. getStaticPaths() fetches all categories, then for each fetches products
- *   2. Full category + products data passed as props (no client-side fetch)
- *   3. All HTML is pure Astro template — zero client-side JavaScript
- *   4. Uses getStandardizedDisplayPrice/Title for consistent product display
+ * Server-rendered: fetches fresh category + products data on every request.
+ * This ensures new products appear immediately after being added in admin.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
+import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 
-export async function getStaticPaths() {
-  try {
-    const catRes = await fetch('http://127.0.0.1:8000/api/v1/product-categories');
-    if (!catRes.ok) return [];
-    const categories = await catRes.json();
-    const items = Array.isArray(categories) ? categories : categories.data || [];
+const siteUrl = import.meta.env.SITE;
+const API = 'http://127.0.0.1:8000/api/v1';
+const { slug } = Astro.params;
 
-    const paths = await Promise.all(
-      items.map(async (cat: any) => {
-        let products: any[] = [];
-        try {
-          const prodRes = await fetch(`http://127.0.0.1:8000/api/v1/products?category=${cat.slug}`);
-          if (prodRes.ok) {
-            const prodData = await prodRes.json();
-            products = prodData.data || [];
-          }
-        } catch {}
-        return {
-          params: { slug: cat.slug },
-          props: { category: cat, products },
-        };
-      })
-    );
-    return paths;
-  } catch {
-    return [];
-  }
+// Fetch category info + products in parallel at request time
+let category: any = null;
+let products: any[] = [];
+
+try {
+  const [catRes, prodRes] = await Promise.all([
+    fetch(`${API}/product-categories`).then(r => r.ok ? r.json() : []),
+    fetch(`${API}/products?category=${slug}`).then(r => r.ok ? r.json() : { data: [] }),
+  ]);
+  
+  const allCategories = Array.isArray(catRes) ? catRes : catRes.data || [];
+  category = allCategories.find((c: any) => c.slug === slug) || null;
+  products = prodRes.data || [];
+} catch (e) {
+  console.error('Failed to fetch category data:', e);
 }
 
-const { slug } = Astro.params;
-const { category, products } = Astro.props;
+// 404 if category not found
+if (!category) {
+  return Astro.redirect('/404');
+}
 
 const pageTitle = category?.name || 'Category';
 const pageDescription = category?.description || `Browse ${pageTitle} products from Midia M Metal.`;
+
+// Cache headers: CDN caches for 5 min
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
+
+// CollectionPage + ItemList JSON-LD
+const categoryUrl = `${siteUrl}/shop/category/${slug}`;
+const itemListJsonLd = products.length > 0
+  ? buildItemListJsonLd({
+      name: pageTitle,
+      description: pageDescription,
+      url: categoryUrl,
+      items: products.map((p: any) => ({
+        url: `${siteUrl}/shop/${p.slug || p.id}`,
+        name: p.name,
+      })),
+    })
+  : null;
+
+const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: 'Home', url: `${siteUrl}/` },
+  { name: 'Shop', url: `${siteUrl}/shop` },
+  { name: pageTitle, url: categoryUrl },
+]);
 ---
 
 <BaseLayout
   title={pageTitle}
   description={pageDescription}
+  image={category?.image}
   canonicalPath={`/shop/category/${slug}`}
+  structuredData={[breadcrumbJsonLd, ...(itemListJsonLd ? [itemListJsonLd] : [])]}
 >
   <div class="min-h-screen bg-[#eaf0f3]">
     <!-- Hero section with category overview -->

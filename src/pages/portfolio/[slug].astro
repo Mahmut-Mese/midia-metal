@@ -1,44 +1,48 @@
 ---
+export const prerender = false;
 /**
- * portfolio/[slug].astro — Portfolio detail page (PURE ASTRO)
+ * portfolio/[slug].astro — Portfolio detail page (PURE ASTRO, SSR)
  *
- * Converted from React island: src/islands/PortfolioDetailIsland.tsx
- * All data fetched at build time via getStaticPaths.
+ * Server-rendered: fetches fresh portfolio data on every request.
+ * No getStaticPaths — the slug comes from the URL at request time.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-
-export async function getStaticPaths() {
-  try {
-    const allProjects = await fetch('http://127.0.0.1:8000/api/v1/portfolio').then(r => r.ok ? r.json() : []);
-    
-    return await Promise.all((allProjects || []).map(async (project: any) => {
-      // Fetch full project detail
-      const detail = await fetch(`http://127.0.0.1:8000/api/v1/portfolio/${project.slug}`).then(r => r.ok ? r.json() : project);
-      
-      // Fetch related projects from same category
-      const categorySlug = detail.portfolio_category?.slug;
-      let related: any[] = [];
-      if (categorySlug) {
-        const relRes = await fetch(`http://127.0.0.1:8000/api/v1/portfolio?category=${categorySlug}`).then(r => r.ok ? r.json() : []);
-        related = (relRes || []).filter((p: any) => p.slug !== project.slug).slice(0, 3);
-      }
-      
-      return {
-        params: { slug: project.slug },
-        props: { project: detail, related },
-      };
-    }));
-  } catch (e) {
-    console.warn('Could not fetch portfolio projects for static paths');
-    return [];
-  }
-}
+const API = 'http://127.0.0.1:8000/api/v1';
 
 const { slug } = Astro.params;
-const { project, related } = Astro.props;
+
+// Cache headers: CDN caches for 10 min
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=3600');
+
+// Fetch project detail at request time
+let project: any = null;
+let related: any[] = [];
+
+try {
+  const detailRes = await fetch(`${API}/portfolio/${slug}`);
+  if (detailRes.ok) {
+    project = await detailRes.json();
+  }
+
+  // Fetch related projects from same category
+  if (project?.portfolio_category?.slug) {
+    const relRes = await fetch(`${API}/portfolio?category=${project.portfolio_category.slug}`);
+    if (relRes.ok) {
+      const relData = await relRes.json();
+      related = (relData || []).filter((p: any) => p.slug !== slug).slice(0, 3);
+    }
+  }
+} catch (e) {
+  console.error('Failed to fetch portfolio data:', e);
+}
+
+// 404 if project not found
+if (!project) {
+  return Astro.redirect('/404');
+}
 ---
 
 <BaseLayout
