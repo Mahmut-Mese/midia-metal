@@ -12,14 +12,26 @@
 
 const API_BASE = 'http://127.0.0.1:8000/api';
 
+/** In-memory TTL cache for settings (avoids repeated API calls during SSR) */
+let cachedSettings: Record<string, string> | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 60_000; // 1 minute
+
 /**
  * Fetch settings from the API and return as a key-value map.
+ * Results are cached in-memory for 1 minute to avoid redundant API calls
+ * across SSR page renders within the same server process.
  * Returns an empty object on error (never throws).
  */
 export async function fetchSettings(): Promise<Record<string, string>> {
+  const now = Date.now();
+  if (cachedSettings && now - cacheTimestamp < CACHE_TTL_MS) {
+    return cachedSettings;
+  }
+
   try {
     const res = await fetch(`${API_BASE}/v1/settings`);
-    if (!res.ok) return {};
+    if (!res.ok) return cachedSettings ?? {};
     const data = await res.json();
     const items = Array.isArray(data) ? data : data?.data || [];
     const map: Record<string, string> = {};
@@ -28,10 +40,12 @@ export async function fetchSettings(): Promise<Record<string, string>> {
         map[item.key] = String(item.value);
       }
     }
+    cachedSettings = map;
+    cacheTimestamp = now;
     return map;
   } catch {
     console.error('Failed to fetch settings from API');
-    return {};
+    return cachedSettings ?? {};
   }
 }
 

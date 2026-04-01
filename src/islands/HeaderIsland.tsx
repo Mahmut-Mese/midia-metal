@@ -17,9 +17,12 @@ import { fetchCurrentCustomer } from '@/stores/auth';
 // This is a standalone version that uses <a> tags instead of <Link>.
 
 import { Search, ShoppingCart, Menu, X, LayoutGrid, Facebook, Twitter, Dribbble, Instagram, MapPin, Phone, Mail, User } from 'lucide-react';
-import { apiFetch } from '@/lib/api';
 
-export default function HeaderIsland() {
+interface HeaderIslandProps {
+  initialSettings?: Record<string, string>;
+}
+
+export default function HeaderIsland({ initialSettings }: HeaderIslandProps) {
   const cartCount = useStore($cartCount);
   
   // Track hydration to avoid SSR mismatch for cart badge
@@ -29,7 +32,7 @@ export default function HeaderIsland() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isInfoSidebarOpen, setIsInfoSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [settings, setSettings] = useState<Record<string, string>>(initialSettings ?? {});
   const searchInputRef = { current: null as HTMLInputElement | null };
 
   // Initialize stores on first mount and mark as hydrated
@@ -38,22 +41,6 @@ export default function HeaderIsland() {
     loadVatSettings();
     hydrateCartStock();
     fetchCurrentCustomer();
-  }, []);
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const res = await apiFetch('/v1/settings');
-        const settingsMap: Record<string, string> = {};
-        res.forEach((s: any) => {
-          settingsMap[s.key] = s.value;
-        });
-        setSettings(settingsMap);
-      } catch (err) {
-        console.error('Failed to load header settings', err);
-      }
-    };
-    loadSettings();
   }, []);
 
   const t = (key: string, def: string) => settings[key] || def;

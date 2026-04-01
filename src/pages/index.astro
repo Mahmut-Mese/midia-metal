@@ -1,4 +1,6 @@
 ---
+export const prerender = true;
+
 /**
  * index.astro — Home page (PURE ASTRO + HeroCarousel island)
  *
@@ -10,6 +12,7 @@
  *   5. Use inline SVGs instead of lucide-react icons
  *   6. Use `class` instead of `className`
  */
+import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import HeroCarousel from '@/islands/HeroCarousel';
 import { buildOrganizationJsonLd, buildBreadcrumbJsonLd, stripHtml, truncateText } from '@/lib/seo';
@@ -170,6 +173,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
           <img
             src={weldingPrimaryImage}
             alt={t("home_welding_image_alt", "Metal welding and fabrication work")}
+            width="1200" height="800"
             loading="eager" decoding="async"
             class="absolute inset-0 w-full h-full object-cover"
           />
@@ -180,6 +184,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
               <img
                 src={weldingSecondaryImage}
                 alt={t("home_welding_secondary_image_alt", "Workshop fabrication")}
+                width="188" height="144"
                 loading="lazy" decoding="async"
                 class="w-full h-full object-cover"
               />
@@ -214,7 +219,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
             href={`/shop/category/${cat.slug}`}
             class="relative block overflow-hidden group"
           >
-            <img src={cat.image} alt={cat.name} loading="lazy" decoding="async" class="w-full h-[124px] sm:h-[150px] md:h-[260px] object-cover transition-transform duration-500 group-hover:scale-105" />
+            <Image src={cat.image} alt={cat.name} width={400} height={300} loading="lazy" decoding="async" class="w-full h-[124px] sm:h-[150px] md:h-[260px] object-cover transition-transform duration-500 group-hover:scale-105" />
             <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent flex items-end p-3 md:p-5">
               <p class="text-white text-[13px] sm:text-[16px] md:text-[22px] leading-tight font-semibold">{cat.name}</p>
             </div>
@@ -236,7 +241,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
                   {item.badge}
                 </span>
               )}
-              <img src={item.image} alt={item.name} loading="lazy" decoding="async" class="w-full aspect-square object-cover" />
+              <Image src={item.image} alt={item.name} width={400} height={400} loading="lazy" decoding="async" class="w-full aspect-square object-cover" />
             </div>
             <h3 class="font-sans text-[16px] md:text-[20px] leading-tight md:leading-7 font-semibold text-orange">{getStandardizedDisplayTitle(item)}</h3>
             <div class="flex items-center gap-2 mt-1 flex-wrap">
@@ -276,7 +281,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
             </a>
           </div>
           <div class="w-[32%] h-full flex-shrink-0 hidden md:block">
-            <img src={t("home_comfort_image", "/images/air-conditioner.jpg")} alt="Our products" loading="lazy" decoding="async" class="w-full h-full object-cover" />
+            <img src={t("home_comfort_image", "/images/air-conditioner.jpg")} alt="Our products" width="400" height="300" loading="lazy" decoding="async" class="w-full h-full object-cover" />
           </div>
         </div>
       </div>
@@ -314,7 +319,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
         t("home_gallery_6", "/images/mesh-filter.jpg"),
       ].map((img) => (
         <div class="overflow-hidden h-28 md:h-56">
-          <img src={img} alt="" loading="lazy" decoding="async" class="w-full h-full object-cover" />
+          <img src={img} alt="" width="400" height="224" loading="lazy" decoding="async" class="w-full h-full object-cover" />
         </div>
       ))}
     </section>

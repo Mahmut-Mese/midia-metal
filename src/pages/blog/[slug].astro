@@ -8,6 +8,7 @@ export const prerender = false;
  *
  * SEO: BlogPosting JSON-LD + breadcrumbs for rich results.
  */
+import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd, buildBlogPostingJsonLd } from '@/lib/seo';
 
@@ -151,7 +152,7 @@ const blogPostingJsonLd = buildBlogPostingJsonLd({
         <!-- Main Content -->
         <article>
           {post?.image && (
-            <img src={post.image} alt={post.title} loading="lazy" decoding="async" class="w-full h-[260px] md:h-[360px] lg:h-[420px] object-cover" />
+            <Image src={post.image} alt={post.title} width={1200} height={800} loading="eager" decoding="async" class="w-full h-[260px] md:h-[360px] lg:h-[420px] object-cover" />
           )}
 
           <div class="mt-7 flex flex-wrap items-center gap-5 text-[13px] text-[#6f7c95]">
@@ -281,7 +282,7 @@ const blogPostingJsonLd = buildBlogPostingJsonLd({
                 .slice(0, 3)
                 .map((item: any) => (
                   <li class="flex gap-3">
-                    <img src={item.image} alt={item.title} loading="lazy" decoding="async" class="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
+                    <Image src={item.image} alt={item.title} width={80} height={80} loading="lazy" decoding="async" class="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
                     <div>
                       <a href={`/blog/${item.slug}`} class="text-[15px] font-semibold text-orange hover:text-orange/80 transition-colors leading-snug">
                         {item.title}

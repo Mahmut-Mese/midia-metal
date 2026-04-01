@@ -1,32 +1,22 @@
 /**
  * FooterIsland — React island wrapper for the Footer component.
- * Used in BaseLayout.astro with client:load directive.
+ * Used in BaseLayout.astro with client:visible directive.
  *
  * Standalone version that uses <a> tags instead of react-router-dom <Link>.
  * Faithfully reproduces src/components/Footer.tsx layout and behaviour.
+ *
+ * Settings are passed as props from BaseLayout (server-side fetched) to
+ * eliminate redundant client-side API calls.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Facebook, Twitter, Dribbble, Instagram, ArrowUp } from 'lucide-react';
-import { apiFetch } from '@/lib/api';
 
-export default function FooterIsland() {
-  const [settings, setSettings] = useState<Record<string, string>>({});
+interface FooterIslandProps {
+  initialSettings?: Record<string, string>;
+}
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const res = await apiFetch('/v1/settings');
-        const settingsMap: Record<string, string> = {};
-        res.forEach((s: any) => {
-          settingsMap[s.key] = s.value;
-        });
-        setSettings(settingsMap);
-      } catch (err) {
-        console.error('Failed to load footer settings', err);
-      }
-    };
-    loadSettings();
-  }, []);
+export default function FooterIsland({ initialSettings }: FooterIslandProps) {
+  const [settings] = useState<Record<string, string>>(initialSettings ?? {});
 
   const t = (key: string, def: string) => settings[key] || def;
 

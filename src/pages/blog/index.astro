@@ -1,4 +1,6 @@
 ---
+export const prerender = true;
+
 /**
  * blog/index.astro — Blog list page (PURE ASTRO)
  *
@@ -13,6 +15,7 @@
  *   4. Use inline SVGs instead of lucide-react icons
  *   5. Use `class` instead of `className`
  */
+import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
@@ -77,13 +80,16 @@ const itemListJsonLd = posts.length > 0
           <p class="text-[13px] text-[#9aa6bc] mb-8">Showing results for blog</p>
           {posts.length > 0 ? (
             <div class="space-y-10">
-              {posts.map((post) => (
+              {posts.map((post, index) => (
                 <article class="group">
                   <a href={`/blog/${post.slug}`} class="block relative overflow-hidden bg-[#f7f8fa]">
-                    <img
+                    <Image
                       src={post.image}
                       alt={post.title}
-                      loading="lazy" decoding="async"
+                      width={800}
+                      height={500}
+                      loading={index === 0 ? "eager" : "lazy"}
+                      decoding={index === 0 ? "sync" : "async"}
                       class="w-full h-[260px] md:h-[360px] object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                     />
                     {post.category && (
@@ -162,7 +168,7 @@ const itemListJsonLd = posts.length > 0
             <ul class="space-y-4">
               {recentPosts.map((post) => (
                 <li class="flex gap-3">
-                  <img src={post.image} alt={post.title} loading="lazy" decoding="async" class="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
+                  <Image src={post.image} alt={post.title} width={80} height={80} loading="lazy" decoding="async" class="w-20 h-20 object-cover flex-shrink-0 bg-[#f7f8fa]" />
                   <div>
                     <a href={`/blog/${post.slug}`} class="text-[15px] font-semibold text-orange hover:text-orange/80 transition-colors leading-snug">
                       {post.title}

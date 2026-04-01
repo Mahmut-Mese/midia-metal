@@ -7,6 +7,7 @@ export const prerender = false;
  * No getStaticPaths — the slug comes from the URL at request time.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { Image } from 'astro:assets';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
@@ -61,7 +62,7 @@ if (!project) {
         <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-14 md:pb-20">
           <div class="grid grid-cols-1 xl:grid-cols-[68%_32%] gap-8 xl:gap-10 items-start">
             <div>
-              <img src={project.image} alt={project.title} loading="lazy" decoding="async" class="w-full h-[360px] md:h-[520px] object-cover" />
+              <Image src={project.image} alt={project.title} width={800} height={600} loading="eager" decoding="async" class="w-full h-[360px] md:h-[520px] object-cover" />
 
               <p class="mt-8 text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">{project.portfolio_category?.name || "Uncategorized"}</p>
               <h2 class="font-sans text-[42px] md:text-[58px] leading-[0.95] font-semibold text-[#10275c] mt-3 mb-6">{project.title}</h2>
@@ -73,7 +74,7 @@ if (!project) {
               {project.gallery && project.gallery.length > 0 && (
                 <div class={`grid grid-cols-1 ${project.gallery.length >= 2 ? 'md:grid-cols-2' : ''} gap-4 mb-8`}>
                   {project.gallery.map((imgUrl: string) => (
-                    <img src={imgUrl} alt="" loading="lazy" decoding="async" class="w-full h-[280px] object-cover" />
+                    <Image src={imgUrl} alt="" width={600} height={400} loading="lazy" decoding="async" class="w-full h-[280px] object-cover" />
                   ))}
                 </div>
               )}
@@ -138,7 +139,7 @@ if (!project) {
               {related.map((item: any) => (
                 <a href={`/portfolio/${item.slug}`} class="group">
                   <div class="mb-4 overflow-hidden">
-                    <img src={item.image} alt={item.title} loading="lazy" decoding="async" class="w-full h-[240px] object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <Image src={item.image} alt={item.title} width={600} height={400} loading="lazy" decoding="async" class="w-full h-[240px] object-cover transition-transform duration-300 group-hover:scale-105" />
                   </div>
                   <h4 class="font-sans text-[20px] font-semibold text-orange">{item.title}</h4>
                   <p class="text-[14px] text-[#6f7c95] mt-1">{item.portfolio_category?.name || "Uncategorized"}</p>

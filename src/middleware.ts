@@ -23,5 +23,10 @@ export const onRequest = defineMiddleware(async (_context, next) => {
     );
   }
 
+  // Ensure CDN/proxies cache separate variants per cookie (auth state)
+  if (!response.headers.has('Vary')) {
+    response.headers.set('Vary', 'Cookie');
+  }
+
   return response;
 });

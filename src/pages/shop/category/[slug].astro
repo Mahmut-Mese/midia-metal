@@ -6,6 +6,7 @@ export const prerender = false;
  * Server-rendered: fetches fresh category + products data on every request.
  * This ensures new products appear immediately after being added in admin.
  */
+import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
@@ -84,10 +85,13 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
 
       <div class="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-8 md:gap-10 items-center">
         <div class="bg-[#f4f5f7]">
-          <img
+          <Image
             src={category.image}
             alt={category.name}
-            loading="lazy" decoding="async"
+            width={1200}
+            height={400}
+            loading="eager"
+            decoding="async"
             class="w-full h-[280px] md:h-[420px] object-cover"
           />
         </div>
@@ -110,10 +114,13 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
           {products.map((product: any) => (
             <a href={`/shop/${product.slug || product.id}`} class="group">
               <div class="bg-[#f7f8fa] mb-4">
-                <img
+                <Image
                   src={product.image}
                   alt={product.name}
-                  loading="lazy" decoding="async"
+                  width={400}
+                  height={400}
+                  loading="lazy"
+                  decoding="async"
                   class="w-full aspect-square object-contain transition-transform duration-300 group-hover:scale-[1.02]"
                 />
               </div>
