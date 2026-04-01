@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import Breadcrumb from "@/components/Breadcrumb";
 import SelectionTableSection from "@/components/product/SelectionTableSection";
 import { formatMoneyValue, resolveSelectedVariantUnitPrice, getStandardizedDisplayPrice, getStandardizedDisplayTitle } from "@/lib/pricing";
-import { getAvailableStock } from "@/lib/stock";
+import { getAvailableStock, MAX_ORDER_QUANTITY } from "@/lib/stock";
 import {
   findMatchingCombinationVariant,
   getProductVariantMode,
@@ -529,8 +529,11 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
   }, [id, customer]);
 
   useEffect(() => {
-    if (availableStock !== null && availableStock > 0 && qty > availableStock) {
-      setQty(availableStock);
+    const cap = availableStock !== null
+      ? Math.min(availableStock, MAX_ORDER_QUANTITY)
+      : MAX_ORDER_QUANTITY;
+    if (cap > 0 && qty > cap) {
+      setQty(cap);
     }
   }, [availableStock, qty]);
 
@@ -576,6 +579,12 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
     if (availableStock !== null && qty > availableStock) {
       toast.error(`Only ${availableStock} unit(s) are in stock.`);
       setQty(availableStock);
+      return;
+    }
+
+    if (qty > MAX_ORDER_QUANTITY) {
+      toast.error(`Maximum order quantity is ${MAX_ORDER_QUANTITY}.`);
+      setQty(MAX_ORDER_QUANTITY);
       return;
     }
 
@@ -761,12 +770,13 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
                       <div className="ml-auto flex flex-col">
                         <button
                           type="button"
-                          onClick={() => setQty((currentQty) => (
-                            availableStock === null
-                              ? currentQty + 1
-                              : Math.min(currentQty + 1, availableStock)
-                          ))}
-                          disabled={isOutOfStock || (availableStock !== null && qty >= availableStock)}
+                          onClick={() => setQty((currentQty) => {
+                            const cap = availableStock !== null
+                              ? Math.min(availableStock, MAX_ORDER_QUANTITY)
+                              : MAX_ORDER_QUANTITY;
+                            return Math.min(currentQty + 1, cap);
+                          })}
+                          disabled={isOutOfStock || qty >= (availableStock !== null ? Math.min(availableStock, MAX_ORDER_QUANTITY) : MAX_ORDER_QUANTITY)}
                           className="text-[#7f8ca5] hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <ChevronUp className="w-3 h-3" />

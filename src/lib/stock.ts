@@ -1,5 +1,8 @@
 import { findMatchingCombinationVariant, getProductVariantMode } from "@/lib/variants";
 
+/** Hard cap on the quantity a customer can order in a single line item. */
+export const MAX_ORDER_QUANTITY = 999;
+
 export const parseStockValue = (value: unknown): number | null => {
   if (value === null || value === undefined || value === "") return null;
 
@@ -64,13 +67,13 @@ export const getAvailableStock = (product: {
 };
 
 export const clampQuantityToStock = (quantity: number, availableStock: number | null) => {
-  if (availableStock === null) {
-    return Math.max(1, quantity);
-  }
+  const cap = availableStock !== null
+    ? Math.min(availableStock, MAX_ORDER_QUANTITY)
+    : MAX_ORDER_QUANTITY;
 
-  if (availableStock <= 0) {
+  if (cap <= 0) {
     return 0;
   }
 
-  return Math.min(Math.max(1, quantity), availableStock);
+  return Math.min(Math.max(1, quantity), cap);
 };

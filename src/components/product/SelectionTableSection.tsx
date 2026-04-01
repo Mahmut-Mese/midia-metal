@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { addToCart } from "@/stores/cart";
 import { $customer } from "@/stores/auth";
-import { clampQuantityToStock, getAvailableStock } from "@/lib/stock";
+import { clampQuantityToStock, getAvailableStock, MAX_ORDER_QUANTITY } from "@/lib/stock";
 import { formatMoneyValue } from "@/lib/pricing";
 import {
   buildSelectedVariantsFromCombination,
@@ -52,7 +52,7 @@ const formatCustomFieldValue = (variant: Record<string, any>, columnKey: string)
 
 const parseQuantityInput = (value: string): number => {
   const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, MAX_ORDER_QUANTITY) : 1;
 };
 
 const isPartNumberLabel = (label: string): boolean => /part\s*number/i.test(label);
@@ -716,7 +716,7 @@ export default function SelectionTableSection({
                               <input
                                 type="number"
                                 min={1}
-                                max={rowAvailableStock ?? undefined}
+                                max={rowAvailableStock !== null ? Math.min(rowAvailableStock, MAX_ORDER_QUANTITY) : MAX_ORDER_QUANTITY}
                                 value={rowQuantity}
                                 onClick={(event) => event.stopPropagation()}
                                 onChange={(event) => updateRowQuantity(rowKey, event.target.value)}
