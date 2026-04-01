@@ -15,31 +15,27 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
+const settings = await fetchSettings();
+
 let posts: any[] = [];
 let categories: any[] = [];
 let recentPosts: any[] = [];
-let settings: Record<string, string> = {};
 
 try {
-  const [postsRes, catRes, recentRes, settingsRes] = await Promise.all([
+  const [postsRes, catRes, recentRes] = await Promise.all([
     fetch(`${API_BASE}/v1/blog`).then(r => r.ok ? r.json() : { data: [] }),
     fetch(`${API_BASE}/v1/blog/categories`).then(r => r.ok ? r.json() : []),
     fetch(`${API_BASE}/v1/blog/recent`).then(r => r.ok ? r.json() : []),
-    fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []),
   ]);
   posts = postsRes.data || postsRes || [];
   categories = catRes || [];
   recentPosts = recentRes || [];
-  const settingsMap: Record<string, string> = {};
-  (settingsRes || []).forEach((s: any) => {
-    settingsMap[s.key] = s.value;
-  });
-  settings = settingsMap;
 } catch (err) {
   console.error('Failed to load blog data at build time:', err);
 }
@@ -48,8 +44,8 @@ const t = (key: string, def: string) => settings[key] || def;
 ---
 
 <BaseLayout
-  title="Blog"
-  description="Read insights on commercial kitchen ventilation, stainless steel fabrication, canopy systems, hygiene, and maintenance from Midia M Metal."
+  title={getPageTitle(settings, 'blog_hero_title', 'Blog')}
+  description={getPageDescription(settings, undefined, 'Read insights on commercial kitchen ventilation, stainless steel fabrication, canopy systems, hygiene, and maintenance from Midia M Metal.')}
   canonicalPath="/blog"
   structuredData={[buildBreadcrumbJsonLd([
     { name: 'Home', url: `${siteUrl}/` },

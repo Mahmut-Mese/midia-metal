@@ -10,31 +10,20 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
-let settings: Record<string, string> = {};
-
-try {
-  const settingsRes = await fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []);
-  const settingsMap: Record<string, string> = {};
-  (settingsRes || []).forEach((s: any) => {
-    settingsMap[s.key] = s.value;
-  });
-  settings = settingsMap;
-} catch (err) {
-  console.error('Failed to load terms of service data at build time:', err);
-}
+const settings = await fetchSettings();
 
 const title = settings['terms_conditions_title'] || 'Terms & Conditions';
 const content = settings['terms_conditions_content'] || '';
 ---
 
 <BaseLayout
-  title="Terms & Conditions"
-  description="Terms and conditions for using the Midia M Metal website and services."
+  title={getPageTitle(settings, 'terms_conditions_title', 'Terms & Conditions')}
+  description={getPageDescription(settings, undefined, 'Terms and conditions for using the Midia M Metal website and services.')}
   canonicalPath="/terms-of-service"
   structuredData={[
     buildBreadcrumbJsonLd([

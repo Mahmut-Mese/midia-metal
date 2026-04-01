@@ -14,6 +14,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import HeroCarousel from '@/islands/HeroCarousel';
 import { buildOrganizationJsonLd, buildBreadcrumbJsonLd, stripHtml, truncateText } from '@/lib/seo';
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
@@ -22,23 +23,18 @@ const API_BASE = 'http://127.0.0.1:8000/api';
 let heroSlides: any[] = [];
 let categories: any[] = [];
 let trendingItems: any[] = [];
-let settings: Record<string, string> = {};
+
+const settings = await fetchSettings();
 
 try {
-  const [slidesRes, categoriesRes, trendingRes, settingsRes] = await Promise.all([
+  const [slidesRes, categoriesRes, trendingRes] = await Promise.all([
     fetch(`${API_BASE}/v1/hero-slides`).then(r => r.ok ? r.json() : []),
     fetch(`${API_BASE}/v1/product-categories`).then(r => r.ok ? r.json() : []),
     fetch(`${API_BASE}/v1/products/featured`).then(r => r.ok ? r.json() : []),
-    fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []),
   ]);
   heroSlides = slidesRes || [];
   categories = (categoriesRes || []).slice(0, 4);
   trendingItems = trendingRes || [];
-  const settingsMap: Record<string, string> = {};
-  (settingsRes || []).forEach((s: any) => {
-    settingsMap[s.key] = s.value;
-  });
-  settings = settingsMap;
 } catch (err) {
   console.error('Failed to load homepage data at build time:', err);
 }
@@ -50,8 +46,8 @@ const weldingSecondaryImage = t("home_welding_secondary_image", t("home_gallery_
 const weldingServiceSlug = (t("home_welding_service_slug", "custom-fabrication") || "custom-fabrication").trim();
 const weldingServicePath = `/services/${encodeURIComponent(weldingServiceSlug || "custom-fabrication")}`;
 
-const title = 'Midia M Metal | Commercial Kitchen Ventilation & Fabrication';
-const description = 'Specialist in commercial kitchen ventilation, stainless steel fabrication, and canopy installation across the UK.';
+const title = getPageTitle(settings, 'meta_title', 'Midia M Metal | Commercial Kitchen Ventilation & Fabrication');
+const description = getPageDescription(settings, 'meta_description', 'Specialist in commercial kitchen ventilation, stainless steel fabrication, and canopy installation across the UK.');
 const image = '/logo.png';
 
 const organizationJsonLd = buildOrganizationJsonLd({

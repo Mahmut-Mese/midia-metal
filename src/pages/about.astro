@@ -10,23 +10,16 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd, buildOrganizationJsonLd } from '@/lib/seo';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
-let settings: Record<string, string> = {};
+const settings = await fetchSettings();
 
-try {
-  const settingsRes = await fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []);
-  const settingsMap: Record<string, string> = {};
-  (settingsRes || []).forEach((s: any) => {
-    settingsMap[s.key] = s.value;
-  });
-  settings = settingsMap;
-} catch (err) {
-  console.error('Failed to load about data at build time:', err);
-}
+// SEO — title/description from API with hardcoded fallbacks
+const pageTitle = getPageTitle(settings, 'about_title', 'About Us');
+const pageDescription = getPageDescription(settings, 'about_subtitle', 'Midia M Metal specializes in stainless steel fabrication and ventilation systems for commercial kitchens across the UK.');
 
 // Helper: get setting
 const t = (key: string) => settings[key] || '';
@@ -61,8 +54,8 @@ const values = [
 ---
 
 <BaseLayout
-  title="About Us"
-  description="Midia M Metal specializes in stainless steel fabrication and ventilation systems for commercial kitchens across the UK."
+  title={pageTitle}
+  description={pageDescription}
   image="/images/workshop.jpg"
   canonicalPath="/about"
   structuredData={[

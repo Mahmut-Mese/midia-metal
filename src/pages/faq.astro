@@ -7,6 +7,11 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
+
+const settings = await fetchSettings();
+const pageTitle = getPageTitle(settings, 'faq_page_title', 'Frequently Asked Questions');
+const pageDescription = getPageDescription(settings, undefined, 'Frequently Asked Questions about Midia M Metal\'s products, services, delivery, and returns.');
 
 const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
@@ -23,8 +28,8 @@ try {
 ---
 
 <BaseLayout
-  title="Frequently Asked Questions"
-  description="Frequently Asked Questions about Midia M Metal's products, services, delivery, and returns."
+  title={pageTitle}
+  description={pageDescription}
   canonicalPath="/faq"
   structuredData={[buildBreadcrumbJsonLd([
     { name: 'Home', url: `${siteUrl}/` },
@@ -35,7 +40,7 @@ try {
     <section class="container mx-auto px-4 lg:px-8 pt-16 md:pt-24 pb-20 md:pb-28 max-w-4xl">
       <div class="bg-white border border-[#cad4e4] p-8 md:p-12">
         <h1 class="font-sans text-[32px] md:text-[42px] leading-tight font-semibold text-orange mb-10">
-          Frequently Asked Questions
+          {pageTitle}
         </h1>
 
         <div class="space-y-10">

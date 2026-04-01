@@ -11,30 +11,19 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ContactForm from '@/islands/ContactForm';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
-let settings: Record<string, string> = {};
-
-try {
-  const settingsRes = await fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []);
-  const settingsMap: Record<string, string> = {};
-  (settingsRes || []).forEach((s: any) => {
-    settingsMap[s.key] = s.value;
-  });
-  settings = settingsMap;
-} catch (err) {
-  console.error('Failed to load settings at build time:', err);
-}
+const settings = await fetchSettings();
 
 const t = (key: string, def: string) => settings[key] || def;
 ---
 
 <BaseLayout
-  title="Contact"
-  description="Get in touch with Midia M Metal for custom stainless steel fabrication and commercial kitchen ventilation enquiries."
+  title={getPageTitle(settings, undefined, 'Contact')}
+  description={getPageDescription(settings, undefined, 'Get in touch with Midia M Metal for custom stainless steel fabrication and commercial kitchen ventilation enquiries.')}
   canonicalPath="/contact"
   structuredData={[buildBreadcrumbJsonLd([
     { name: 'Home', url: `${siteUrl}/` },

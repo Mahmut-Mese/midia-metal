@@ -10,28 +10,24 @@
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import PortfolioFilter from '@/islands/PortfolioFilter';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
+const settings = await fetchSettings();
+
 let categories: any[] = [];
 let projects: any[] = [];
-let settings: Record<string, string> = {};
 
 try {
-  const [catsRes, projRes, settingsRes] = await Promise.all([
+  const [catsRes, projRes] = await Promise.all([
     fetch(`${API_BASE}/v1/portfolio/categories`).then(r => r.ok ? r.json() : []),
     fetch(`${API_BASE}/v1/portfolio`).then(r => r.ok ? r.json() : []),
-    fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []),
   ]);
   categories = catsRes || [];
   projects = projRes || [];
-  const settingsMap: Record<string, string> = {};
-  (settingsRes || []).forEach((s: any) => {
-    settingsMap[s.key] = s.value;
-  });
-  settings = settingsMap;
 } catch (err) {
   console.error('Failed to load portfolio data at build time:', err);
 }
@@ -40,8 +36,8 @@ const t = (key: string, def: string) => settings[key] || def;
 ---
 
 <BaseLayout
-  title="Portfolio"
-  description="View recent commercial kitchen ventilation, stainless steel fabrication, canopy installation, and custom metalwork projects completed by Midia M Metal."
+  title={getPageTitle(settings, undefined, 'Portfolio')}
+  description={getPageDescription(settings, undefined, 'View recent commercial kitchen ventilation, stainless steel fabrication, canopy installation, and custom metalwork projects completed by Midia M Metal.')}
   canonicalPath="/portfolio"
   structuredData={[buildBreadcrumbJsonLd([
     { name: 'Home', url: `${siteUrl}/` },

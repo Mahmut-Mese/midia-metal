@@ -10,31 +10,20 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
-let settings: Record<string, string> = {};
-
-try {
-  const settingsRes = await fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []);
-  const settingsMap: Record<string, string> = {};
-  (settingsRes || []).forEach((s: any) => {
-    settingsMap[s.key] = s.value;
-  });
-  settings = settingsMap;
-} catch (err) {
-  console.error('Failed to load returns policy data at build time:', err);
-}
+const settings = await fetchSettings();
 
 const title = settings['returns_refunds_title'] || 'Returns & Refunds';
 const content = settings['returns_refunds_content'] || '';
 ---
 
 <BaseLayout
-  title="Returns & Refunds"
-  description="Our returns and refunds policy for standard and custom fabricated products."
+  title={getPageTitle(settings, 'returns_refunds_title', 'Returns & Refunds')}
+  description={getPageDescription(settings, undefined, 'Our returns and refunds policy for standard and custom fabricated products.')}
   canonicalPath="/returns-policy"
   structuredData={[
     buildBreadcrumbJsonLd([

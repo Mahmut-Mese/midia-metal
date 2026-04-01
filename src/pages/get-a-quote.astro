@@ -1,11 +1,16 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import QuoteForm from '@/islands/QuoteForm';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
+
+const settings = await fetchSettings();
+const pageTitle = getPageTitle(settings, undefined, 'Get a Quote');
+const pageDescription = getPageDescription(settings, undefined, 'Request a free quote for custom stainless steel fabrication, kitchen canopy systems, and more from Midia M Metal.');
 ---
 
 <BaseLayout
-  title="Get a Quote"
-  description="Request a free quote for custom stainless steel fabrication, kitchen canopy systems, and more from Midia M Metal."
+  title={pageTitle}
+  description={pageDescription}
   canonicalPath="/get-a-quote"
 >
   <div class="min-h-screen bg-[#eaf0f3]">

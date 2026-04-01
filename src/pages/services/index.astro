@@ -19,29 +19,24 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
+import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
 const API_BASE = 'http://127.0.0.1:8000/api';
 
 // --- Data Fetching (runs at build time) ---
+const settings = await fetchSettings();
+
 let services: any[] = [];
 let testimonials: any[] = [];
-let settings: Record<string, string> = {};
 
 try {
-  const [servicesRes, settingsRes, testimonialsRes] = await Promise.all([
+  const [servicesRes, testimonialsRes] = await Promise.all([
     fetch(`${API_BASE}/v1/services`).then(r => r.ok ? r.json() : []),
-    fetch(`${API_BASE}/v1/settings`).then(r => r.ok ? r.json() : []),
     fetch(`${API_BASE}/v1/testimonials`).then(r => r.ok ? r.json() : []),
   ]);
   services = servicesRes || [];
   testimonials = testimonialsRes || [];
-  // Transform settings array to key-value map
-  const settingsMap: Record<string, string> = {};
-  (settingsRes || []).forEach((s: any) => {
-    settingsMap[s.key] = s.value;
-  });
-  settings = settingsMap;
 } catch (err) {
   console.error('Failed to load services data at build time:', err);
 }
@@ -51,8 +46,8 @@ const t = (key: string) => settings[key] || '';
 ---
 
 <BaseLayout
-  title="Services"
-  description="Commercial kitchen ventilation, stainless steel welding, custom fabrication, canopy installation, and maintenance services across the UK."
+  title={getPageTitle(settings, 'services_hero_subtitle', 'Services')}
+  description={getPageDescription(settings, 'services_hero_desc', 'Commercial kitchen ventilation, stainless steel welding, custom fabrication, canopy installation, and maintenance services across the UK.')}
   canonicalPath="/services"
   structuredData={[
     buildBreadcrumbJsonLd([
