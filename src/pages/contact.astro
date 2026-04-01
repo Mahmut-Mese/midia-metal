@@ -65,7 +65,7 @@ const t = (key: string, def: string) => settings[key] || def;
         <!-- Contact Form Island -->
         <div>
           <ContactForm
-            client:visible
+            client:idle
             messagePlaceholder={t("contact_form_message_placeholder", "How can we help you? Feel free to get in touch!")}
             buttonLabel={t("contact_form_button_label", "Get in Touch")}
           />
