@@ -279,6 +279,10 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
   const hasCompleteSelection = isCompleteVariantSelection(product, selectedVariants);
   const availableStock = product ? getAvailableStock({ ...product, selected_variants: selectedVariants }) : null;
   const selectedUnitPrice = product ? resolveSelectedVariantUnitPrice(product.price, selectedVariants, product) : null;
+  const displayedUnitPrice = selectedUnitPrice ?? product?.price;
+  const displayedTotalPrice = typeof displayedUnitPrice === "number"
+    ? displayedUnitPrice * qty
+    : displayedUnitPrice;
   const isOutOfStock = availableStock !== null && availableStock <= 0;
   const stockLabel = isSelectionTableMode && !selectedCombinationVariant
     ? "Stock: Choose a row below"
@@ -734,8 +738,13 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
             </div>
             <div className="flex items-baseline gap-3 mt-3 mb-3">
               <p className="text-orange text-[28px] md:text-[34px] leading-none font-medium">
-                {formatMoneyValue(selectedUnitPrice ?? product.price)}
+                {formatMoneyValue(displayedTotalPrice)}
               </p>
+              {qty > 1 && (
+                <p className="text-[#6e7a92] text-[13px] md:text-[15px] font-medium">
+                  {formatMoneyValue(displayedUnitPrice)} each
+                </p>
+              )}
               {product.old_price && (
                 <p className="text-[#9aa6bc] text-[20px] md:text-[24px] line-through font-normal">
                   {product.old_price}
