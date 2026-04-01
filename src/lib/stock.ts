@@ -50,7 +50,12 @@ export const getAvailableStock = (product: {
     return explicitAvailable;
   }
 
-  const baseStock = product.track_stock ? parseStockValue(product.stock_quantity) : null;
+  // When track_stock is false, ignore both product-level and variant-level stock
+  if (!product.track_stock) {
+    return null;
+  }
+
+  const baseStock = parseStockValue(product.stock_quantity);
   const variantStock = getProductVariantMode(product) === "combination"
     ? parseStockValue(findMatchingCombinationVariant(product.variants, product.selected_variants, [])?.stock)
     : getVariantStockLimit(product.variants, product.selected_variants);
