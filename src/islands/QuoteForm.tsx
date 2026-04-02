@@ -144,7 +144,7 @@ const QuoteForm = () => {
                     </div>
 
                     <button type="submit" disabled={submitting}
-                        className="w-full h-14 bg-orange text-white font-semibold text-sm hover:bg-[#d4500b] disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                        className="w-full h-14 bg-orange text-white font-semibold text-sm hover:bg-orange-hover disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
                         {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                         {submitting ? "Submitting..." : "Submit Quote Request"}
                     </button>

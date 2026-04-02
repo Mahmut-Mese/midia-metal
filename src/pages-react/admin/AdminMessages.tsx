@@ -143,7 +143,7 @@ export default function AdminMessages() {
                                             <p className={`text-sm ${!msg.read ? "font-bold text-[#10275c]" : "text-gray-600"}`}>
                                                 {msg.name}
                                             </p>
-                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${msg.message_type === "order_request" ? "bg-orange-100 text-[#cf4d08]" : "bg-slate-100 text-slate-600"}`}>
+                                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${msg.message_type === "order_request" ? "bg-orange-100 text-orange" : "bg-slate-100 text-slate-600"}`}>
                                                 {getMessageTypeLabel(msg.message_type)}
                                             </span>
                                             {msg.request_status && (
@@ -190,7 +190,7 @@ export default function AdminMessages() {
 
                             <div className="space-y-4 pt-4 border-t border-[#f0f2f5]">
                                 <div className="flex flex-wrap gap-2">
-                                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${selectedMessage.message_type === "order_request" ? "bg-orange-100 text-[#cf4d08]" : "bg-slate-100 text-slate-600"}`}>
+                                    <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${selectedMessage.message_type === "order_request" ? "bg-orange-100 text-orange" : "bg-slate-100 text-slate-600"}`}>
                                         {getMessageTypeLabel(selectedMessage.message_type)}
                                     </span>
                                     {selectedMessage.order?.order_number && (

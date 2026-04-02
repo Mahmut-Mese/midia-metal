@@ -59,7 +59,19 @@ const SKIP_PAGES = ['/404'];
 
 // Sample dynamic pages to test (verified to exist)
 const DYNAMIC_PAGES = [
-  '/shop/canopy-2',           // Product detail page
+  '/shop/baffle-grease-filters-1',
+
+  '/shop/category/baffle-filters',
+
+  '/blog/importance-of-commercial-ventilation',
+
+  '/services/ventilation-systems',
+
+  '/portfolio/commercial-kitchen-ventilation',
+
+  // ── Admin (login + dashboard — uses React Router SPA) ──
+  '/admin',
+  '/admin/login',
 ];
 
 // Patterns to ignore (expected behaviors in test environment)

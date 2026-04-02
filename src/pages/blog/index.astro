@@ -21,7 +21,7 @@ import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
 
 // --- Data Fetching (runs at build time) ---
 const settings = await fetchSettings();
@@ -77,7 +77,7 @@ const itemListJsonLd = posts.length > 0
       <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_370px] gap-8 lg:gap-10">
         <!-- Main Content -->
         <div>
-          <p class="text-[13px] text-[#9aa6bc] mb-8">Showing results for blog</p>
+          <p class="text-[13px] text-[#647089] mb-8">Showing results for blog</p>
           {posts.length > 0 ? (
             <div class="space-y-10">
               {posts.map((post, index) => (
@@ -99,7 +99,7 @@ const itemListJsonLd = posts.length > 0
                     )}
                   </a>
                   <div class="pt-5">
-                    <div class="flex items-center gap-5 text-[13px] text-[#6f7c95] mb-3">
+                    <div class="flex items-center gap-5 text-[13px] text-[#58657f] mb-3">
                       <span class="flex items-center gap-1">
                         <!-- Calendar icon -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#2f9cea]"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
@@ -116,12 +116,12 @@ const itemListJsonLd = posts.length > 0
                         {post.title}
                       </h2>
                     </a>
-                    <p class="text-[15px] leading-8 text-[#6f7c95] mb-5">{post.excerpt}</p>
+                    <p class="text-[15px] leading-8 text-[#58657f] mb-5">{post.excerpt}</p>
                     <a
                       href={`/blog/${post.slug}`}
                       class="inline-flex items-center gap-2 text-[13px] font-semibold text-[#10275c] hover:text-orange transition-colors"
                     >
-                      Read More
+                      Read {post.title}
                       <!-- ArrowRight icon -->
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                     </a>

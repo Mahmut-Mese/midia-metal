@@ -11,7 +11,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd, buildServiceJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-const API = 'http://127.0.0.1:8000/api/v1';
+const API = `${(import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '')}/v1`;
 
 const { slug } = Astro.params;
 
@@ -146,16 +146,16 @@ const serviceJsonLd = buildServiceJsonLd({
           </h1>
 
           {service?.excerpt && (
-            <p class="text-[18px] text-primary/80 font-medium leading-8 mb-6">
+            <p class="text-[18px] text-primary/90 font-medium leading-8 mb-6">
               {service.excerpt}
             </p>
           )}
 
           {service?.content && (
-            <div
-              class="text-[16px] text-[#6f7c95] leading-8 mb-8 space-y-4 [&_img]:my-4 [&_img]:max-w-full [&_img]:h-auto"
-              set:html={service.content}
-            />
+              <div
+               class="text-[16px] text-[#58657f] leading-8 mb-8 space-y-4 [&_img]:my-4 [&_img]:max-w-full [&_img]:h-auto"
+               set:html={service.content}
+             />
           )}
 
           {service?.features && service.features.length > 0 && (
@@ -163,7 +163,7 @@ const serviceJsonLd = buildServiceJsonLd({
               <h3 class="font-sans text-[28px] font-semibold text-[#10275c] mb-4">Service Features</h3>
               <ul class="space-y-3">
                 {service.features.map((feature: string) => (
-                  <li class="flex items-start gap-3 text-[15px] text-[#6f7c95] leading-relaxed">
+                  <li class="flex items-start gap-3 text-[15px] text-[#58657f] leading-relaxed">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange flex-shrink-0 mt-0.5"><path d="m9 18 6-6-6-6"/></svg>
                     <span>{feature}</span>
                   </li>
@@ -180,14 +180,14 @@ const serviceJsonLd = buildServiceJsonLd({
             <input type="text" placeholder="Name" class="w-full h-10 border-b border-[#c7d0de] bg-transparent outline-none text-[14px]" />
             <input type="email" placeholder="Email" class="w-full h-10 border-b border-[#c7d0de] bg-transparent outline-none text-[14px]" />
             <textarea placeholder="Message" rows={3} class="w-full border-b border-[#c7d0de] bg-transparent outline-none text-[14px] resize-none pt-2" />
-            <button type="submit" class="h-[46px] w-full bg-orange text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-[#d4500b] transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-              Get in Touch
-            </button>
+              <button type="submit" class="h-[46px] w-full bg-orange text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-orange-hover transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                Send Service Enquiry
+              </button>
           </form>
 
           <h4 class="font-sans text-[26px] leading-none font-semibold text-primary mb-5">Contact Info</h4>
-          <div class="space-y-4 text-[14px] text-[#6f7c95]">
+            <div class="space-y-4 text-[14px] text-[#58657f]">
             <div class="flex gap-3 items-start">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#2f9cea] mt-0.5 flex-shrink-0"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
               <p class="whitespace-pre-line">

@@ -104,7 +104,7 @@ export default function AdminProductCategories() {
                 <h1 className="text-3xl font-bold font-sans text-[#10275c]">Product Categories</h1>
                 <button
                     onClick={() => openEdit()}
-                    className="flex items-center gap-2 rounded bg-[#eb5c10] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#d4500b]"
+                    className="flex items-center gap-2 rounded bg-orange px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-hover"
                 >
                     <Plus className="h-4 w-4" /> Add Category
                 </button>
@@ -246,7 +246,7 @@ export default function AdminProductCategories() {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="rounded-md bg-[#eb5c10] px-4 py-2 text-sm font-medium text-white shadow-sm hover:focus:outline-none"
+                                    className="rounded-md bg-orange px-4 py-2 text-sm font-medium text-white shadow-sm hover:focus:outline-none"
                                 >
                                     Save Category
                                 </button>

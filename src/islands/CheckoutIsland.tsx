@@ -632,7 +632,7 @@ function CheckoutIsland() {
               <button
                 type="submit"
                 disabled={isSubmitting || !isHydrated || cart.length === 0 || (form.fulfillmentMethod === "delivery" && !form.shippingOptionToken)}
-                className="w-full mt-8 h-16 bg-orange text-white inline-flex items-center justify-center text-sm font-semibold hover:bg-[#d4500b] disabled:opacity-50 transition-colors"
+                className="w-full mt-8 h-16 bg-orange text-white inline-flex items-center justify-center text-sm font-semibold hover:bg-orange-hover disabled:opacity-50 transition-colors"
                 aria-label="Proceed to payment"
               >
                 {isSubmitting ? "Processing..." : "Proceed to Payment"}

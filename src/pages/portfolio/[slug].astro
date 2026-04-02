@@ -11,7 +11,7 @@ import { Image } from 'astro:assets';
 import { buildBreadcrumbJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-const API = 'http://127.0.0.1:8000/api/v1';
+const API = `${(import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '')}/v1`;
 
 const { slug } = Astro.params;
 
@@ -67,7 +67,7 @@ if (!project) {
               <p class="mt-8 text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">{project.portfolio_category?.name || "Uncategorized"}</p>
               <h2 class="font-sans text-[42px] md:text-[58px] leading-[0.95] font-semibold text-[#10275c] mt-3 mb-6">{project.title}</h2>
 
-              <p class="text-[15px] text-[#6f7c95] leading-8 mb-6 whitespace-pre-wrap">
+              <p class="text-[15px] text-[#58657f] leading-8 mb-6 whitespace-pre-wrap">
                 {project.description || "No description provided."}
               </p>
 
@@ -82,7 +82,7 @@ if (!project) {
 
             <aside class="bg-[#f4f5f7] p-8">
               <h3 class="font-sans text-[30px] leading-none font-semibold text-primary mb-8">Project Info</h3>
-              <div class="space-y-5 text-[15px] text-[#6f7c95]">
+            <div class="space-y-5 text-[15px] text-[#58657f]">
                 <div class="flex items-start gap-3">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#2f9cea] mt-1"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                   <p>
@@ -114,7 +114,7 @@ if (!project) {
                   <h4 class="font-sans text-[24px] leading-none font-semibold text-primary mt-10 mb-4">Services</h4>
                   <ul class="space-y-2">
                     {project.services_list.map((service: string) => (
-                      <li class="text-[14px] text-[#6f7c95]">
+                       <li class="text-[14px] text-[#58657f]">
                         - {service}
                       </li>
                     ))}
@@ -124,9 +124,9 @@ if (!project) {
 
               <a
                 href="/contact"
-                class="mt-10 inline-flex items-center justify-center h-12 px-8 w-full bg-orange text-white text-[14px] font-semibold hover:bg-[#d4500b] transition-colors"
+                class="mt-10 inline-flex items-center justify-center h-12 px-8 w-full bg-orange text-white text-[14px] font-semibold hover:bg-orange-hover transition-colors"
               >
-                Start Your Project
+                Start Your Project Brief
               </a>
             </aside>
           </div>
@@ -142,7 +142,7 @@ if (!project) {
                     <Image src={item.image} alt={item.title} width={600} height={400} loading="lazy" decoding="async" class="w-full h-[240px] object-cover transition-transform duration-300 group-hover:scale-105" />
                   </div>
                   <h4 class="font-sans text-[20px] font-semibold text-orange">{item.title}</h4>
-                  <p class="text-[14px] text-[#6f7c95] mt-1">{item.portfolio_category?.name || "Uncategorized"}</p>
+                  <p class="text-[14px] text-[#58657f] mt-1">{item.portfolio_category?.name || "Uncategorized"}</p>
                 </a>
               ))}
             </div>

@@ -15,7 +15,7 @@ import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
 
 // --- Data Fetching (runs at build time) ---
 const settings = await fetchSettings();
@@ -80,7 +80,7 @@ const itemListJsonLd = projects.length > 0
           href="/get-a-quote"
           class="inline-flex items-center justify-center h-11 px-8 bg-white text-[#10275c] text-[13px] font-semibold hover:bg-[#e9eff6] transition-colors"
         >
-          Request a Quote
+          Request a Project Quote
         </a>
       </div>
     </section>

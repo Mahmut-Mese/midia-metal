@@ -493,7 +493,7 @@ function VariantColumnManager({
                                 onAddColumn(label);
                                 setNewColumnLabel("");
                             }}
-                            className="inline-flex items-center rounded-md bg-[#eb5c10] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#d4500b]"
+                            className="inline-flex items-center rounded-md bg-orange px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-hover"
                         >
                             Add
                         </button>
@@ -2044,7 +2044,7 @@ export default function AdminProducts() {
                 <h1 className="text-3xl font-bold font-sans text-[#10275c]">Products</h1>
                 <button
                     onClick={() => openEdit()}
-                    className="flex items-center gap-2 rounded bg-[#eb5c10] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#d4500b]"
+                    className="flex items-center gap-2 rounded bg-orange px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-hover"
                 >
                     <Plus className="h-4 w-4" /> Add Product
                 </button>
@@ -2680,7 +2680,7 @@ export default function AdminProducts() {
                                                         <button
                                                             type="button"
                                                             onClick={addCombinationOption}
-                                                            className="rounded-md bg-[#eb5c10] px-3 py-2 text-sm font-semibold text-white hover:bg-[#d4500b]"
+                                                            className="rounded-md bg-orange px-3 py-2 text-sm font-semibold text-white hover:bg-orange-hover"
                                                         >
                                                             Add Attribute
                                                         </button>
@@ -2953,7 +2953,7 @@ export default function AdminProducts() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={appendNewCombinationVariant}
-                                                                        className="bg-[#eb5c10] text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-[#d4500b] transition-colors shadow-sm whitespace-nowrap"
+                                                                        className="bg-orange text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-orange-hover transition-colors shadow-sm whitespace-nowrap"
                                                                     >
                                                                         Add
                                                                     </button>
@@ -3015,7 +3015,7 @@ export default function AdminProducts() {
                                                                         <button
                                                                             type="button"
                                                                             onClick={appendNewSizeVariant}
-                                                                            className="bg-[#eb5c10] text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-[#d4500b] transition-colors shadow-sm whitespace-nowrap"
+                                                                            className="bg-orange text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-orange-hover transition-colors shadow-sm whitespace-nowrap"
                                                                         >Add</button>
                                                                     </td>
                                                                 </tr>
@@ -3074,7 +3074,7 @@ export default function AdminProducts() {
                                                                         <button
                                                                             type="button"
                                                                             onClick={appendNewOtherVariant}
-                                                                            className="bg-[#eb5c10] text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-[#d4500b] transition-colors shadow-sm whitespace-nowrap"
+                                                                            className="bg-orange text-white py-1.5 px-3 rounded text-xs font-bold hover:bg-orange-hover transition-colors shadow-sm whitespace-nowrap"
                                                                         >Add</button>
                                                                     </td>
                                                                 </tr>
@@ -3098,7 +3098,7 @@ export default function AdminProducts() {
                                     </button>
                                     <button
                                         type="submit"
-                                        className="rounded-md bg-[#eb5c10] px-4 py-2 text-sm font-medium text-white shadow-sm hover:focus:outline-none"
+                                        className="rounded-md bg-orange px-4 py-2 text-sm font-medium text-white shadow-sm hover:focus:outline-none"
                                     >
                                         Save Product
                                     </button>

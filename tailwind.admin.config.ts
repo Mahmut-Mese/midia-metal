@@ -1,19 +1,25 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * tailwind.admin.config.ts — Tailwind config for the Admin SPA CSS bundle.
+ *
+ * Content scanning is narrowed to admin-only files so that sidebar,
+ * data table, and admin-UI utilities do NOT get generated in the
+ * public-facing stylesheet (src/index.css / tailwind.config.ts).
+ */
 export default {
   darkMode: ["class"],
   content: [
-    // Public pages and layouts
-    "./src/pages/**/*.astro",
-    "./src/layouts/**/*.astro",
-    // All React islands (public + admin)
-    "./src/islands/**/*.{ts,tsx}",
-    // All components (public + admin ui/)
+    // Admin SPA island entry point
+    "./src/islands/AdminApp.tsx",
+    // All admin React pages
+    "./src/pages-react/admin/**/*.{ts,tsx}",
+    // All shared UI components (shadcn/ui primitives used in admin)
+    "./src/components/ui/**/*.{ts,tsx}",
+    // Admin-specific layout components
     "./src/components/**/*.{ts,tsx}",
-    // Admin page components
-    "./src/pages-react/**/*.{ts,tsx}",
-    // Shared utilities
-    "./src/lib/**/*.{ts,tsx}",
+    // Admin Astro wrapper page
+    "./src/pages/admin/**/*.astro",
   ],
   prefix: "",
   theme: {

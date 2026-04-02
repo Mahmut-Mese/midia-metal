@@ -1,0 +1,85 @@
+/*
+ * admin.css — CSS entry point for the Admin SPA only.
+ *
+ * This is imported exclusively by src/pages/admin/[...path].astro.
+ * It keeps all admin-specific Tailwind utilities (sidebar, data tables,
+ * Radix UI primitives used only in the admin) out of the public-facing
+ * stylesheet, significantly reducing CSS payload on public pages.
+ *
+ * Tailwind content scanning for this file is configured in tailwind.admin.config.ts.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 213 37% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 213 37% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 37% 14%;
+
+    --primary: 213 37% 14%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 213 37% 14%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 34%;
+
+    --accent: 23 92% 35%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 27 95% 55%;
+
+    --radius: 0.375rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Custom tokens */
+    --navy: 213 37% 14%;
+    --navy-light: 213 30% 22%;
+    --orange: 23 92% 35%;
+    --orange-hover: 23 92% 29%;
+    --orange-light: 27 95% 95%;
+    --gray-light: 210 20% 96%;
+    --gray-medium: 215 14% 46%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'DM Sans', sans-serif;
+  }
+}

@@ -33,9 +33,15 @@ export default defineConfig({
 
   integrations: [
     react(),
+    // Public stylesheet: scoped to public pages/islands (excludes admin UI components)
     tailwind({
       configFile: './tailwind.config.ts',
       applyBaseStyles: false, // We use our own base styles in index.css
+    }),
+    // Admin stylesheet: scoped to admin SPA files only (sidebar, data tables, etc.)
+    tailwind({
+      configFile: './tailwind.admin.config.ts',
+      applyBaseStyles: false,
     }),
     sitemap({
       filter: (page) =>

@@ -20,9 +20,9 @@
     --secondary-foreground: 213 37% 14%;
 
     --muted: 210 20% 96%;
-    --muted-foreground: 215 14% 46%;
+    --muted-foreground: 215 16% 34%;
 
-    --accent: 27 95% 55%;
+    --accent: 23 92% 35%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
@@ -46,8 +46,8 @@
     /* Custom tokens */
     --navy: 213 37% 14%;
     --navy-light: 213 30% 22%;
-    --orange: 27 95% 55%;
-    --orange-hover: 27 95% 48%;
+    --orange: 23 92% 35%;
+    --orange-hover: 23 92% 29%;
     --orange-light: 27 95% 95%;
     --gray-light: 210 20% 96%;
     --gray-medium: 215 14% 46%;

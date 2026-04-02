@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { X, Cookie } from "lucide-react";
 
 const COOKIE_KEY = "midia_cookie_consent";
 
@@ -31,7 +30,7 @@ export default function CookieBannerIsland() {
     <div className="fixed bottom-0 left-0 right-0 z-[200] p-4 md:p-6 animate-in slide-in-from-bottom duration-500">
       <div className="max-w-4xl mx-auto bg-[#10275c] text-white rounded-lg shadow-2xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">
-          <Cookie className="w-6 h-6 flex-shrink-0 mt-0.5 text-orange" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 flex-shrink-0 mt-0.5 text-orange"><path d="M12 2a2 2 0 0 0 2 2 2 2 0 0 1 2 2 2 2 0 0 0 4 0c1.1 0 2 .9 2 2a10 10 0 1 1-10-10Z" /><path d="M10 9h.01" /><path d="M15 15h.01" /><path d="M16 9h.01" /><path d="M7 14h.01" /></svg>
           <div>
             <p className="text-sm font-semibold mb-1">We use cookies</p>
             <p className="text-xs text-[#8ab0d1] leading-relaxed">
@@ -57,7 +56,7 @@ export default function CookieBannerIsland() {
           </button>
           <button
             onClick={accept}
-            className="text-xs font-semibold bg-orange text-white px-5 py-2.5 rounded hover:bg-[#d4500b] transition-colors"
+            className="text-xs font-semibold bg-orange text-white px-5 py-2.5 rounded hover:bg-orange-hover transition-colors"
           >
             Accept All
           </button>
@@ -66,7 +65,7 @@ export default function CookieBannerIsland() {
             className="text-[#8ab0d1] hover:text-white p-1"
             aria-label="Close"
           >
-            <X className="w-4 h-4" />
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
           </button>
         </div>
       </div>

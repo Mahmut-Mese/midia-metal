@@ -96,7 +96,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, label, hideP
                         type="button"
                         disabled={isUploading}
                         onClick={() => fileInputRef.current?.click()}
-                        className="h-10 px-6 bg-[#eb5c10] text-white rounded-md text-sm font-bold shadow-md hover:bg-[#d4500b] disabled:opacity-50 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                        className="h-10 px-6 bg-orange text-white rounded-md text-sm font-bold shadow-md hover:bg-orange-hover disabled:opacity-50 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                     >
                         {value && !hidePreview ? "Change Image" : hidePreview ? (isUploading ? "Uploading..." : "Upload Image") : "Upload Image"}
                     </button>

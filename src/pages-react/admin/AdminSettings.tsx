@@ -406,7 +406,7 @@ export default function AdminSettings() {
                     <button
                         type="button"
                         onClick={handleAddSlide}
-                        className="inline-flex items-center gap-2 rounded-md bg-[#eb5c10] px-4 py-2 text-sm font-semibold text-white hover:bg-[#d4500b]"
+                        className="inline-flex items-center gap-2 rounded-md bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange-hover"
                     >
                         <Plus className="h-4 w-4" />
                         Add Hero Slide
@@ -423,7 +423,7 @@ export default function AdminSettings() {
                     >
                         {tab.replace(/-/g, " ")}
                         {activeTab === tab && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#eb5c10]" />
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange" />
                         )}
                     </button>
                 ))}
@@ -495,7 +495,7 @@ export default function AdminSettings() {
                                         <button
                                             type="button"
                                             onClick={() => handleSaveSlide(slide)}
-                                            className="rounded-md bg-[#eb5c10] px-6 py-3 text-sm font-bold text-white hover:bg-[#d4500b]"
+                                            className="rounded-md bg-orange px-6 py-3 text-sm font-bold text-white hover:bg-orange-hover"
                                         >
                                             {slide.isNew ? "Create Slide" : "Save Slide"}
                                         </button>
@@ -549,7 +549,7 @@ export default function AdminSettings() {
                             <button
                                 type="submit"
                                 disabled={saving}
-                                className="rounded-md bg-[#eb5c10] px-8 py-3 text-sm font-bold text-white shadow-lg hover:bg-[#d4500b] disabled:opacity-50"
+                                className="rounded-md bg-orange px-8 py-3 text-sm font-bold text-white shadow-lg hover:bg-orange-hover disabled:opacity-50"
                             >
                                 {saving ? "Saving..." : `Save ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Settings`}
                             </button>

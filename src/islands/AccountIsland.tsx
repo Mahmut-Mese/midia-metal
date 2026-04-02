@@ -464,7 +464,7 @@ function AccountIsland() {
                                                             {STATUS_LABELS[order.status?.toLowerCase()] || order.status}
                                                         </span>
                                                         {orderRequestSubmitted && (
-                                                            <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${latestOrderRequest?.request_status === "approved" ? "bg-green-100 text-green-700" : latestOrderRequest?.request_status === "rejected" ? "bg-slate-200 text-slate-700" : "bg-orange-100 text-[#cf4d08]"}`}>
+                                                            <span className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider ${latestOrderRequest?.request_status === "approved" ? "bg-green-100 text-green-700" : latestOrderRequest?.request_status === "rejected" ? "bg-slate-200 text-slate-700" : "bg-orange-100 text-orange"}`}>
                                                                 {orderRequestStatusLabel}
                                                             </span>
                                                         )}
@@ -546,7 +546,7 @@ function AccountIsland() {
 
                                                         {orderRequestSubmitted && (
                                                             <div className={`mb-4 p-4 text-sm text-primary ${latestOrderRequest?.request_status === "approved" ? "border border-green-200 bg-green-50" : latestOrderRequest?.request_status === "rejected" ? "border border-slate-300 bg-slate-50" : "border border-orange-200 bg-orange-50"}`}>
-                                                                <p className={`font-semibold ${latestOrderRequest?.request_status === "approved" ? "text-green-700" : latestOrderRequest?.request_status === "rejected" ? "text-slate-700" : "text-[#cf4d08]"}`}>
+                                                                <p className={`font-semibold ${latestOrderRequest?.request_status === "approved" ? "text-green-700" : latestOrderRequest?.request_status === "rejected" ? "text-slate-700" : "text-orange"}`}>
                                                                     {orderRequestStatusLabel}
                                                                 </p>
                                                                 <p className="mt-1 text-[#6e7a92]">
@@ -585,7 +585,7 @@ function AccountIsland() {
                                                                 <button
                                                                     type="button"
                                                                     disabled
-                                                                    className={`flex items-center gap-2 px-4 h-10 text-sm font-semibold cursor-not-allowed ${latestOrderRequest?.request_status === "approved" ? "border border-green-200 bg-green-50 text-green-700" : latestOrderRequest?.request_status === "rejected" ? "border border-slate-300 bg-slate-50 text-slate-700" : "border border-orange-200 bg-orange-50 text-[#cf4d08]"}`}
+                                                                    className={`flex items-center gap-2 px-4 h-10 text-sm font-semibold cursor-not-allowed ${latestOrderRequest?.request_status === "approved" ? "border border-green-200 bg-green-50 text-green-700" : latestOrderRequest?.request_status === "rejected" ? "border border-slate-300 bg-slate-50 text-slate-700" : "border border-orange-200 bg-orange-50 text-orange"}`}
                                                                 >
                                                                     <RotateCcw className="w-4 h-4" /> {orderRequestStatusLabel}
                                                                 </button>

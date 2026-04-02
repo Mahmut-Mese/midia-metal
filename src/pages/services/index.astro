@@ -25,7 +25,7 @@ import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
 
 // --- Data Fetching (runs at build time) ---
 const settings = await fetchSettings();
@@ -88,8 +88,8 @@ const itemListJsonLd = services.length > 0
             {t("services_hero_desc")}
           </p>
           <div class="flex items-center gap-4 flex-wrap">
-            <a href="/about" class="inline-flex items-center justify-center px-8 py-4 bg-orange text-white text-sm font-semibold hover:bg-[#d4500b] transition-colors">
-              About Us
+            <a href="/about" class="inline-flex items-center justify-center px-8 py-4 bg-orange text-white text-sm font-semibold hover:bg-orange-hover transition-colors">
+              About Our Team
             </a>
             <a href={`tel:${t("services_hero_phone")}`} class="flex items-center gap-3 text-sm font-semibold text-primary">
               <span class="w-11 h-11 border border-[#d3dbe7] grid place-items-center bg-white">
@@ -132,8 +132,9 @@ const itemListJsonLd = services.length > 0
                   {s.title}
                 </a>
               </h3>
-              <p class="text-sm text-[#7b879f] leading-relaxed mb-5 max-w-sm mx-auto">{s.description}</p>
-              <a href={`/services/${s.slug}`} class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#cfd8e6] text-primary hover:text-orange hover:border-orange transition-colors">
+              <p class="text-sm text-[#58657f] leading-relaxed mb-5 max-w-sm mx-auto">{s.description}</p>
+              <a href={`/services/${s.slug}`} class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#cfd8e6] text-primary hover:text-orange hover:border-orange transition-colors" aria-label={`View details for ${s.title}`}>
+                <span class="sr-only">View details for {s.title}</span>
                 <!-- ArrowRight icon -->
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
               </a>
@@ -156,7 +157,7 @@ const itemListJsonLd = services.length > 0
             Request a Quote
           </a>
           <a href="/contact" class="inline-flex items-center justify-center px-7 py-3 border border-white text-white text-sm font-semibold hover:bg-white hover:text-[#0f6fb5] transition-colors">
-            Contact Us
+            Discuss Your Project
           </a>
         </div>
       </div>
@@ -175,8 +176,8 @@ const itemListJsonLd = services.length > 0
           <p class="text-[#7b879f] text-sm leading-relaxed mb-7">
             {t("services_modern_desc")}
           </p>
-          <a href="/shop" class="inline-flex items-center justify-center px-8 py-4 bg-orange text-white text-sm font-semibold hover:bg-[#d4500b] transition-colors">
-            Visit Our Online Store
+          <a href="/shop" class="inline-flex items-center justify-center px-8 py-4 bg-orange text-white text-sm font-semibold hover:bg-orange-hover transition-colors">
+            Browse Ventilation Products
           </a>
         </div>
       </div>
@@ -192,7 +193,8 @@ const itemListJsonLd = services.length > 0
           </div>
           <h3 class="font-sans text-[34px] leading-tight font-semibold text-primary mb-3">{t("services_feature_1_title")}</h3>
           <p class="text-sm text-muted-foreground max-w-sm mx-auto">{t("services_feature_1_desc")}</p>
-          <a href="/services" class="inline-flex items-center justify-center mt-4 text-primary hover:text-orange transition-colors">
+          <a href="/services" class="inline-flex items-center justify-center mt-4 text-primary hover:text-orange transition-colors" aria-label={`Learn more about ${t("services_feature_1_title")}`}>
+            <span class="sr-only">Learn more about {t("services_feature_1_title")}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
           </a>
         </div>
@@ -203,7 +205,8 @@ const itemListJsonLd = services.length > 0
           </div>
           <h3 class="font-sans text-[34px] leading-tight font-semibold text-primary mb-3">{t("services_feature_2_title")}</h3>
           <p class="text-sm text-muted-foreground max-w-sm mx-auto">{t("services_feature_2_desc")}</p>
-          <a href="/services" class="inline-flex items-center justify-center mt-4 text-primary hover:text-orange transition-colors">
+          <a href="/services" class="inline-flex items-center justify-center mt-4 text-primary hover:text-orange transition-colors" aria-label={`Learn more about ${t("services_feature_2_title")}`}>
+            <span class="sr-only">Learn more about {t("services_feature_2_title")}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
           </a>
         </div>
@@ -214,7 +217,8 @@ const itemListJsonLd = services.length > 0
           </div>
           <h3 class="font-sans text-[34px] leading-tight font-semibold text-primary mb-3">{t("services_feature_3_title")}</h3>
           <p class="text-sm text-muted-foreground max-w-sm mx-auto">{t("services_feature_3_desc")}</p>
-          <a href="/services" class="inline-flex items-center justify-center mt-4 text-primary hover:text-orange transition-colors">
+          <a href="/services" class="inline-flex items-center justify-center mt-4 text-primary hover:text-orange transition-colors" aria-label={`Learn more about ${t("services_feature_3_title")}`}>
+            <span class="sr-only">Learn more about {t("services_feature_3_title")}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
           </a>
         </div>

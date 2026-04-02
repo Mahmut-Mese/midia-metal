@@ -39,7 +39,7 @@ class IslandErrorBoundary extends Component<Props, State> {
           <p className="text-[#6e7a92] mb-4">Something went wrong loading this section.</p>
           <button
             onClick={this.handleRetry}
-            className="text-sm font-semibold text-[#eb5c10] hover:underline"
+            className="text-sm font-semibold text-orange hover:underline"
           >
             Try again
           </button>

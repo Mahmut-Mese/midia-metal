@@ -117,7 +117,7 @@ export default function AdminBlog() {
                 <h1 className="text-3xl font-bold font-sans text-[#10275c]">Blog Posts</h1>
                 <button
                     onClick={() => openEdit()}
-                    className="flex items-center gap-2 rounded bg-[#eb5c10] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#d4500b]"
+                    className="flex items-center gap-2 rounded bg-orange px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-hover"
                 >
                     <Plus className="h-4 w-4" /> Add Post
                 </button>
@@ -298,7 +298,7 @@ export default function AdminBlog() {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="rounded-md bg-[#eb5c10] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#d4500b] focus:outline-none"
+                                    className="rounded-md bg-orange px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-hover focus:outline-none"
                                 >
                                     Save Post
                                 </button>

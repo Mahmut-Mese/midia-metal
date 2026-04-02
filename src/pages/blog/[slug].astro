@@ -13,7 +13,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import { buildBreadcrumbJsonLd, buildBlogPostingJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-const API = 'http://127.0.0.1:8000/api/v1';
+const API = `${(import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '')}/v1`;
 
 const { slug } = Astro.params;
 
@@ -155,7 +155,7 @@ const blogPostingJsonLd = buildBlogPostingJsonLd({
             <Image src={post.image} alt={post.title} width={1200} height={800} loading="eager" decoding="async" class="w-full h-[260px] md:h-[360px] lg:h-[420px] object-cover" />
           )}
 
-          <div class="mt-7 flex flex-wrap items-center gap-5 text-[13px] text-[#6f7c95]">
+          <div class="mt-7 flex flex-wrap items-center gap-5 text-[13px] text-[#58657f]">
             {post?.category && (
               <span class="inline-flex items-center h-8 px-3 bg-orange text-white text-[11px] font-semibold uppercase tracking-wide">
                 {post.category}
@@ -178,7 +178,7 @@ const blogPostingJsonLd = buildBlogPostingJsonLd({
           </h1>
 
           {post?.excerpt && (
-            <p class="text-[18px] leading-8 text-[#6f7c95] mb-7">{post.excerpt}</p>
+            <p class="text-[18px] leading-8 text-[#58657f] mb-7">{post.excerpt}</p>
           )}
 
           {post?.content && (
@@ -208,14 +208,14 @@ const blogPostingJsonLd = buildBlogPostingJsonLd({
           <!-- Prev/Next Navigation -->
           <div class="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
             {prevPost ? (
-              <a
-                href={`/blog/${prevPost.slug}`}
-                class="group border border-[#cfd7e4] bg-white px-5 py-5 transition-colors hover:bg-[#f4f5f7]"
-              >
+               <a
+                 href={`/blog/${prevPost.slug}`}
+                 class="group border border-[#cfd7e4] bg-white px-5 py-5 transition-colors hover:bg-[#f4f5f7]"
+               >
                 <p class="text-[11px] uppercase tracking-[0.18em] text-[#6f7c95] mb-2 inline-flex items-center gap-2">
                   <!-- ArrowLeft icon -->
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-                  Previous Post
+                  Previous Article
                 </p>
                 <h3 class="text-[18px] font-semibold leading-snug text-orange group-hover:text-orange/80 transition-colors">
                   {prevPost.title}
@@ -226,12 +226,12 @@ const blogPostingJsonLd = buildBlogPostingJsonLd({
             )}
 
             {nextPost ? (
-              <a
-                href={`/blog/${nextPost.slug}`}
-                class="group border border-[#cfd7e4] bg-white px-5 py-5 transition-colors hover:bg-[#f4f5f7]"
-              >
+               <a
+                 href={`/blog/${nextPost.slug}`}
+                 class="group border border-[#cfd7e4] bg-white px-5 py-5 transition-colors hover:bg-[#f4f5f7]"
+               >
                 <p class="text-[11px] uppercase tracking-[0.18em] text-[#6f7c95] mb-2 inline-flex items-center gap-2">
-                  Next Post
+                  Next Article
                   <!-- ArrowRight icon -->
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 </p>

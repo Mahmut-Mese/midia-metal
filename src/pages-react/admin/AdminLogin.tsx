@@ -58,7 +58,7 @@ export default function AdminLogin() {
                     <div>
                         <div className="flex items-center justify-between">
                             <label className="block text-sm font-medium text-[#10275c]">Password</label>
-                            <Link to="/admin/forgot-password" className="text-sm text-[#eb5c10] hover:text-[#d4500b] font-medium">Forgot password?</Link>
+                            <Link to="/admin/forgot-password" className="text-sm text-orange hover:text-orange-hover font-medium">Forgot password?</Link>
                         </div>
                         <div className="relative mt-2 rounded-md shadow-sm">
                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -90,7 +90,7 @@ export default function AdminLogin() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="flex w-full justify-center rounded-md bg-[#eb5c10] px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#d4500b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#eb5c10] disabled:opacity-50 transition-colors"
+                        className="flex w-full justify-center rounded-md bg-orange px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange disabled:opacity-50 transition-colors"
                     >
                         {loading ? "Signing in..." : "Sign in"}
                     </button>

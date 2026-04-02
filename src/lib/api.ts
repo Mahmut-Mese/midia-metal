@@ -55,16 +55,13 @@ const isMutatingMethod = (method?: string) => {
     return !["GET", "HEAD", "OPTIONS", "TRACE"].includes(normalized);
 };
 
-const ensureCsrfCookie = async (force = false) => {
+const ensureCsrfCookie = async () => {
     if (typeof window === "undefined") {
         return;
     }
 
-    if (!force && getCookie(CSRF_COOKIE_NAME)) {
-        return;
-    }
-
-    if (csrfBootstrapPromise && !force) {
+    // If a fetch is already in flight, wait for it rather than firing a second one
+    if (csrfBootstrapPromise) {
         return csrfBootstrapPromise;
     }
 
@@ -112,7 +109,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     });
 
     if (response.status === 419 && shouldSendCsrf) {
-        await ensureCsrfCookie(true);
+        await ensureCsrfCookie();
         const retryXsrfToken = getCookie(CSRF_COOKIE_NAME);
         response = await fetch(`${API_URL}${endpoint}`, {
             ...options,

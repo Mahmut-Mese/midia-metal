@@ -91,7 +91,7 @@ export default function AdminCoupons() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold font-sans text-[#10275c]">Coupons</h1>
-                <button onClick={openCreate} className="inline-flex items-center gap-2 bg-[#eb5c10] text-white px-5 py-2.5 rounded-md text-sm font-semibold hover:bg-[#d4500b]">
+                <button onClick={openCreate} className="inline-flex items-center gap-2 bg-orange text-white px-5 py-2.5 rounded-md text-sm font-semibold hover:bg-orange-hover">
                     <Plus className="h-4 w-4" /> New Coupon
                 </button>
             </div>
@@ -211,7 +211,7 @@ export default function AdminCoupons() {
                             </label>
                             <div className="flex gap-3 justify-end pt-2">
                                 <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm border rounded text-gray-700 hover:bg-gray-50">Cancel</button>
-                                <button type="submit" className="px-5 py-2 text-sm bg-[#eb5c10] text-white rounded font-semibold hover:bg-[#d4500b]">Save Coupon</button>
+                                <button type="submit" className="px-5 py-2 text-sm bg-orange text-white rounded font-semibold hover:bg-orange-hover">Save Coupon</button>
                             </div>
                         </form>
                     </div>

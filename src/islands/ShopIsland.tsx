@@ -386,7 +386,7 @@ export default function ShopIsland({
                   {hasActiveSidebarFilters && (
                     <button
                       onClick={clearFilters}
-                      className="text-[12px] font-semibold text-orange hover:text-[#d4500b] transition-colors"
+                      className="text-[12px] font-semibold text-orange hover:text-orange-hover transition-colors"
                     >
                       Clear all
                     </button>

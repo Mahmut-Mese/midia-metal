@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { User, AtSign, Smartphone, Tag, Pencil, Send } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 
@@ -30,29 +29,29 @@ export default function ContactForm({ messagePlaceholder = "How can we help you?
     <form onSubmit={handleSubmit} className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-7 gap-y-8">
         <label className="flex items-center gap-3 border-b border-[#c7d0de] pb-3">
-          <User className="w-4 h-4 text-primary" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-primary"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
           <input type="text" placeholder="Name" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full bg-transparent text-[15px] text-primary placeholder:text-[#8f9bb2] outline-none" />
         </label>
         <label className="flex items-center gap-3 border-b border-[#c7d0de] pb-3">
-          <AtSign className="w-4 h-4 text-primary" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-primary"><circle cx="12" cy="12" r="4" /><path d="M16 8v5a2 2 0 1 0 4 0v-1a8 8 0 1 0-4 6.93" /></svg>
           <input type="email" placeholder="Email Address" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-transparent text-[15px] text-primary placeholder:text-[#8f9bb2] outline-none" />
         </label>
         <label className="flex items-center gap-3 border-b border-[#c7d0de] pb-3">
-          <Smartphone className="w-4 h-4 text-primary" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-primary"><rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" /></svg>
           <input type="tel" placeholder="Phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full bg-transparent text-[15px] text-primary placeholder:text-[#8f9bb2] outline-none" />
         </label>
         <label className="flex items-center gap-3 border-b border-[#c7d0de] pb-3">
-          <Tag className="w-4 h-4 text-primary" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-primary"><path d="M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82Z" /><path d="M7 7h.01" /></svg>
           <input type="text" placeholder="Subject" value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} className="w-full bg-transparent text-[15px] text-primary placeholder:text-[#8f9bb2] outline-none" />
         </label>
       </div>
       <label className="flex items-start gap-3 border-b border-[#c7d0de] pb-10">
-        <Pencil className="w-4 h-4 text-primary mt-1" />
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-primary mt-1"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
         <textarea rows={1} required placeholder={messagePlaceholder} value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} className="w-full bg-transparent text-[15px] text-primary placeholder:text-[#8f9bb2] outline-none resize-none" />
       </label>
       <div className="flex flex-wrap items-center gap-8">
-        <button type="submit" disabled={isSubmitting} className="h-[56px] px-10 bg-orange text-white text-[16px] font-semibold inline-flex items-center gap-3 hover:bg-[#d4500b] disabled:opacity-50 transition-colors">
-          <Send className="w-4 h-4" />
+        <button type="submit" disabled={isSubmitting} className="h-[56px] px-10 bg-orange text-white text-[16px] font-semibold inline-flex items-center gap-3 hover:bg-orange-hover disabled:opacity-50 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
           {isSubmitting ? "Sending..." : buttonLabel}
         </button>
         <label className="inline-flex items-center gap-3 text-[15px] text-[#8f9bb2] cursor-pointer">

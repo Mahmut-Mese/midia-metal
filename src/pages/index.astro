@@ -20,7 +20,7 @@ import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
 
 // --- Data Fetching (runs at build time) ---
 let heroSlides: any[] = [];
@@ -48,6 +48,7 @@ const weldingPrimaryImage = t("home_welding_image", t("home_gallery_1", "/images
 const weldingSecondaryImage = t("home_welding_secondary_image", t("home_gallery_5", "/images/workshop.jpg"));
 const weldingServiceSlug = (t("home_welding_service_slug", "custom-fabrication") || "custom-fabrication").trim();
 const weldingServicePath = `/services/${encodeURIComponent(weldingServiceSlug || "custom-fabrication")}`;
+const kitchenSystemsCtaLabel = t("home_learn_more_label", "Explore Kitchen Systems");
 
 const title = getPageTitle(settings, 'meta_title', 'Midia M Metal | Commercial Kitchen Ventilation & Fabrication');
 const description = getPageDescription(settings, 'meta_description', 'Specialist in commercial kitchen ventilation, stainless steel fabrication, and canopy installation across the UK.');
@@ -97,7 +98,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 md:h-8 md:w-8 flex-shrink-0 text-[#7a8293]"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
             <div class="leading-tight">
               <p class="font-sans text-[13px] md:text-[17px] font-semibold text-[#15264b]">{t("home_reward_title", "Commercial-grade fabrication")}</p>
-              <p class="mt-1 text-[10px] md:text-xs text-[#8b93a4]">{t("home_reward_desc", "Built for demanding kitchen and ventilation environments.")}</p>
+              <p class="mt-1 text-[10px] md:text-xs text-[#5d6982]">{t("home_reward_desc", "Built for demanding kitchen and ventilation environments.")}</p>
             </div>
           </div>
           <!-- Feature 2: CirclePercent -->
@@ -105,7 +106,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 md:h-8 md:w-8 flex-shrink-0 text-[#7a8293]"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="M9 9h.01"/><path d="M15 15h.01"/></svg>
             <div class="leading-tight">
               <p class="font-sans text-[13px] md:text-[17px] font-semibold text-[#15264b]">{t("home_discount_title", "Fast quote turnaround")}</p>
-              <p class="mt-1 text-[10px] md:text-xs text-[#8b93a4]">{t("home_discount_desc", "Clear commercial pricing and lead times for every enquiry.")}</p>
+              <p class="mt-1 text-[10px] md:text-xs text-[#5d6982]">{t("home_discount_desc", "Clear commercial pricing and lead times for every enquiry.")}</p>
             </div>
           </div>
           <!-- Feature 3: ShoppingBag -->
@@ -113,7 +114,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 md:h-8 md:w-8 flex-shrink-0 text-[#7a8293]"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             <div class="leading-tight">
               <p class="font-sans text-[13px] md:text-[17px] font-semibold text-[#15264b]">{t("home_shipping_title", "UK-wide delivery")}</p>
-              <p class="mt-1 text-[10px] md:text-xs text-[#8b93a4]">{t("home_shipping_desc", "Reliable dispatch for stocked products and fabricated components.")}</p>
+              <p class="mt-1 text-[10px] md:text-xs text-[#5d6982]">{t("home_shipping_desc", "Reliable dispatch for stocked products and fabricated components.")}</p>
             </div>
           </div>
           <!-- Feature 4: WalletMinimal -->
@@ -121,7 +122,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 md:h-8 md:w-8 flex-shrink-0 text-[#7a8293]"><path d="M17 14h.01"/><path d="M7 7h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14"/></svg>
             <div class="leading-tight">
               <p class="font-sans text-[13px] md:text-[17px] font-semibold text-[#15264b]">{t("home_prices_title", "Installation support")}</p>
-              <p class="mt-1 text-[10px] md:text-xs text-[#8b93a4]">{t("home_prices_desc", "Supply, fabrication, installation, and aftercare in one workflow.")}</p>
+              <p class="mt-1 text-[10px] md:text-xs text-[#5d6982]">{t("home_prices_desc", "Supply, fabrication, installation, and aftercare in one workflow.")}</p>
             </div>
           </div>
         </div>
@@ -190,13 +191,13 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
               />
             </div>
             <div class="bg-[#f4f6f8] border border-[#d4dce6] px-4 md:px-5 py-4 md:py-5 max-w-[340px]">
-              <p class="text-[10px] font-bold tracking-[0.18em] text-[#7b879a] uppercase mb-2">
+              <p class="text-[10px] font-bold tracking-[0.18em] text-[#56637d] uppercase mb-2">
                 {t("home_welding_card_label", "Workshop + site support")}
               </p>
               <p class="font-sans text-[18px] md:text-[22px] leading-[1.05] font-semibold text-primary mb-2">
                 {t("home_welding_card_title", "From fabrication bench to final install")}
               </p>
-              <p class="text-[12px] md:text-[13px] leading-5 text-[#6f7e9a]">
+              <p class="text-[12px] md:text-[13px] leading-5 text-[#536079]">
                 {t("home_welding_card_desc", "Built for projects that need custom metalwork, fast adjustments, and practical welding support on the job.")}
               </p>
             </div>
@@ -268,7 +269,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
         <div class="relative overflow-hidden min-h-[200px] md:h-[240px] bg-gradient-to-r from-[#eb5c10] to-[#ff7d1b] p-6 md:p-10 flex flex-col justify-center">
           <h3 class="text-[42px] md:text-5xl leading-[0.95] font-semibold text-white mb-4 md:mb-5 font-sans">{t("home_installation_title", "Installation services")}</h3>
           <p class="text-white/85 text-xs md:text-sm mb-5 md:mb-7 max-w-md">{t("home_installation_desc", "Dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia.")}</p>
-          <a href="/get-a-quote" class="inline-flex items-center justify-center w-fit px-5 md:px-7 py-2.5 md:py-3 border border-white text-white text-xs md:text-sm font-semibold hover:bg-white hover:text-[#eb5c10] transition-all">
+          <a href="/get-a-quote" class="inline-flex items-center justify-center w-fit px-5 md:px-7 py-2.5 md:py-3 border border-white text-white text-xs md:text-sm font-semibold hover:bg-white hover:text-orange transition-all">
             {t("home_request_quote_label", "Request a Quote")}
           </a>
         </div>
@@ -276,8 +277,8 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
           <div class="flex-1 p-6 md:p-10 flex flex-col justify-center z-10">
           <h3 class="text-[48px] md:text-[35px] leading-[0.95] md:leading-[1.02] font-semibold text-[#10275c] mb-3 md:mb-4 font-sans">{t("home_comfort_title", "Built for commercial kitchens")}</h3>
           <p class="text-[#6f7e9a] text-xs md:text-sm mb-5 md:mb-7">{t("home_comfort_desc", "Stainless steel products and systems designed for hygiene, durability, and compliance.")}</p>
-            <a href="/shop" class="inline-flex items-center justify-center w-fit px-5 md:px-7 py-2.5 md:py-3 bg-[#22a3e6] text-white text-xs md:text-sm font-semibold hover:bg-[#1c90cb] transition-colors">
-              {t("home_learn_more_label", "Learn More")}
+            <a href="/shop" class="inline-flex items-center justify-center w-fit px-5 md:px-7 py-2.5 md:py-3 bg-[#0d79b8] text-white text-xs md:text-sm font-semibold hover:bg-[#0a689f] transition-colors">
+              {kitchenSystemsCtaLabel}
             </a>
           </div>
           <div class="w-[32%] h-full flex-shrink-0 hidden md:block">
@@ -296,7 +297,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
           t("home_brand_3", "SPLENDOR"),
           t("home_brand_4", "DELT")
         ].map((name) => (
-          <div class="text-center text-[#bfc7d4] text-[36px] md:text-3xl font-semibold tracking-wide">
+          <div class="text-center text-[#78849b] text-[36px] md:text-3xl font-semibold tracking-wide">
             {name}
           </div>
         ))}

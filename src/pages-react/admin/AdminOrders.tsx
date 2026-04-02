@@ -294,7 +294,7 @@ export default function AdminOrders() {
                     </div>
                     {order.customer_requests_count > 0 && (
                       <div className="mt-1 flex items-center gap-2">
-                        <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#cf4d08]">
+                        <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-orange">
                           {order.customer_requests_count} request{order.customer_requests_count > 1 ? "s" : ""}
                         </span>
                         {order.unread_customer_requests_count > 0 && (
@@ -516,7 +516,7 @@ export default function AdminOrders() {
                       <article key={request.id} className="rounded-lg border border-[#fdba74] bg-white p-5 space-y-4">
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#cf4d08]">
+                            <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-orange">
                               {getRequestTypeLabel(request.request_type)}
                             </span>
                             <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${request.request_status === "approved" ? "bg-green-100 text-green-700" : request.request_status === "rejected" ? "bg-slate-200 text-slate-700" : "bg-yellow-100 text-yellow-700"}`}>
@@ -546,7 +546,7 @@ export default function AdminOrders() {
                             <button
                               type="button"
                               onClick={() => handleReviewRequest(request.id, "approved")}
-                              className="inline-flex items-center rounded-md bg-[#eb5c10] px-4 py-2 text-sm font-semibold text-white hover:bg-[#cf4d08]"
+                              className="inline-flex items-center rounded-md bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange-hover"
                             >
                               Accept Cancellation
                             </button>
@@ -597,7 +597,7 @@ export default function AdminOrders() {
                         type="button"
                         onClick={handleCreateShippingLabel}
                         disabled={shippingBusy !== null}
-                        className="inline-flex items-center gap-2 rounded-md bg-[#eb5c10] px-4 py-2 text-sm font-semibold text-white hover:bg-[#cf4d08] disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-md bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange-hover disabled:opacity-60"
                       >
                         <Truck className="w-4 h-4" />
                         {viewingOrder.shipping_label_url ? "Regenerate Label" : "Create Label"}

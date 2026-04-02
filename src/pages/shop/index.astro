@@ -14,7 +14,7 @@ import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings'
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-const API = 'http://127.0.0.1:8000/api/v1';
+const API = `${(import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '')}/v1`;
 
 const settings = await fetchSettings();
 const pageTitle = getPageTitle(settings, undefined, 'Shop');
