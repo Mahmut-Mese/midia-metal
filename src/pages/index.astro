@@ -12,7 +12,6 @@ export const prerender = true;
  *   5. Use inline SVGs instead of lucide-react icons
  *   6. Use `class` instead of `className`
  */
-import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import HeroCarousel from '@/islands/HeroCarousel';
 import { getApiBase } from '@/lib/api-base';
@@ -54,6 +53,14 @@ const kitchenSystemsCtaLabel = t("home_learn_more_label", "Explore Kitchen Syste
 const title = getPageTitle(settings, 'meta_title', 'Midia M Metal | Commercial Kitchen Ventilation & Fabrication');
 const description = getPageDescription(settings, 'meta_description', 'Specialist in commercial kitchen ventilation, stainless steel fabrication, and canopy installation across the UK.');
 const image = '/logo.png';
+const normalizeImage = (value: unknown, fallback = '/logo.png') => {
+  if (typeof value !== 'string' || value.trim().length === 0) return fallback;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('/uploads/')) return `/storage${trimmed}`;
+  if (trimmed.startsWith('uploads/')) return `/storage/${trimmed}`;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) return trimmed;
+  return `/${trimmed}`;
+};
 
 const organizationJsonLd = buildOrganizationJsonLd({
   name: 'Midia M Metal',
@@ -221,7 +228,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
             href={`/shop/category/${cat.slug}`}
             class="relative block overflow-hidden group"
           >
-            <Image src={cat.image} alt={cat.name} width={400} height={300} loading="lazy" decoding="async" class="w-full h-[124px] sm:h-[150px] md:h-[260px] object-cover transition-transform duration-500 group-hover:scale-105" />
+            <img src={normalizeImage(cat.image)} alt={cat.name} width="400" height="300" loading="lazy" decoding="async" class="w-full h-[124px] sm:h-[150px] md:h-[260px] object-cover transition-transform duration-500 group-hover:scale-105" />
             <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent flex items-end p-3 md:p-5">
               <p class="text-white text-[13px] sm:text-[16px] md:text-[22px] leading-tight font-semibold">{cat.name}</p>
             </div>
@@ -243,7 +250,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
                   {item.badge}
                 </span>
               )}
-              <Image src={item.image} alt={item.name} width={400} height={400} loading="lazy" decoding="async" class="w-full aspect-square object-cover" />
+              <img src={normalizeImage(item.image)} alt={item.name} width="400" height="400" loading="lazy" decoding="async" class="w-full aspect-square object-cover" />
             </div>
             <h3 class="font-sans text-[16px] md:text-[20px] leading-tight md:leading-7 font-semibold text-orange">{getStandardizedDisplayTitle(item)}</h3>
             <div class="flex items-center gap-2 mt-1 flex-wrap">

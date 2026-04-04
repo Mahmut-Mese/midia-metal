@@ -37,7 +37,9 @@ const {
 const siteUrl = import.meta.env.SITE;
 const fullTitle = title.includes('Midia') ? title : `${title} | Midia M Metal`;
 const canonicalUrl = canonicalPath ? `${siteUrl}${canonicalPath}` : undefined;
-const ogImage = image.startsWith('http') ? image : `${siteUrl}${image}`;
+const safeImage = typeof image === 'string' && image.trim().length > 0 ? image.trim() : '/logo.png';
+const normalizedOgImagePath = safeImage.startsWith('/') ? safeImage : `/${safeImage}`;
+const ogImage = safeImage.startsWith('http') ? safeImage : `${siteUrl}${normalizedOgImagePath}`;
 
 // Pre-fetch settings server-side so Header/Footer don't need client-side API calls
 const layoutSettings = await fetchSettings();

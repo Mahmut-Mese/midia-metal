@@ -55,7 +55,6 @@ export default function HeroCarousel({ slides = [] }: { slides: Slide[] }) {
             height="599"
             loading={index === 0 ? "eager" : "lazy"}
             decoding={index === 0 ? "sync" : "async"}
-            fetchPriority={index === 0 ? "high" : "auto"}
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
               index === currentSlide ? "opacity-100" : "opacity-0"
             }`}

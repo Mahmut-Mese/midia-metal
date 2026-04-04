@@ -30,6 +30,7 @@ import {
   removeCoupon,
 } from '@/stores/cart';
 import withErrorBoundary from '@/lib/withErrorBoundary';
+import { normalizeMediaUrl } from '@/lib/media';
 
 // Astro-compatible CheckoutSteps (inline, no react-router)
 function CheckoutSteps({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
@@ -136,7 +137,7 @@ function CartIsland() {
           {(isHydrated ? cart : []).map((item) => (
             <div key={item.id} className="border border-[#cad4e4] bg-[#f0f3f7] p-4">
               <div className="flex items-start gap-3">
-                <img src={item.image} alt={item.name} className="w-16 h-16 object-cover" />
+                <img src={normalizeMediaUrl(item.image, '/logo.png')} alt={item.name} className="w-16 h-16 object-cover" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-primary leading-snug">{item.name}</p>
                   {item.available_stock !== null && item.available_stock !== undefined && (
@@ -206,7 +207,7 @@ function CartIsland() {
             cart.map((item) => (
               <div key={item.id} className="grid grid-cols-5 gap-6 px-6 py-8 items-center border-b border-[#cad4e4]">
                 <div className="flex items-center gap-5 min-w-0">
-                  <img src={item.image} alt={item.name} className="w-20 h-20 object-cover flex-shrink-0" />
+                  <img src={normalizeMediaUrl(item.image, '/logo.png')} alt={item.name} className="w-20 h-20 object-cover flex-shrink-0" />
                   <div className="flex flex-col min-w-0">
                     <span className="text-base md:text-xl leading-tight font-semibold text-primary truncate">
                       {item.name}

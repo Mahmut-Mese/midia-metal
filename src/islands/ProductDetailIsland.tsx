@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
+import { normalizeMediaUrl } from "@/lib/media";
 import { useStore } from "@nanostores/react";
 import { addToCart } from "@/stores/cart";
 import withErrorBoundary from "@/lib/withErrorBoundary";
@@ -66,6 +67,27 @@ const dedupeSpecEntries = (entries: Array<[string, string]>): Array<[string, str
     seen.add(normalizedKey);
     return true;
   });
+};
+
+const normalizeProductSpecEntries = (specifications: unknown): Array<[string, string]> => {
+  if (Array.isArray(specifications)) {
+    return specifications.flatMap((entry) => {
+      if (!entry || typeof entry !== "object") return [];
+      const key = formatSpecValue((entry as Record<string, unknown>).key);
+      const value = formatSpecValue((entry as Record<string, unknown>).value);
+      return key && value ? [[key, value] as [string, string]] : [];
+    });
+  }
+
+  if (specifications && typeof specifications === "object") {
+    return Object.entries(specifications as Record<string, unknown>).flatMap(([key, value]) => {
+      const normalizedKey = formatSpecValue(key);
+      const normalizedValue = formatSpecValue(value);
+      return normalizedKey && normalizedValue ? [[normalizedKey, normalizedValue] as [string, string]] : [];
+    });
+  }
+
+  return [];
 };
 
 type VariantTableSection = "size" | "general" | "combination";
@@ -218,7 +240,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
 
   const [canReviewStatus, setCanReviewStatus] = useState<"loading" | "allowed" | "not_purchased" | "not_delivered" | "already_reviewed" | "unauthenticated">("loading");
 
-  const allImages = product ? [product.image, ...(product.gallery || [])].filter(Boolean) : [];
+  const allImages = product ? [product.image, ...(product.gallery || [])].filter(Boolean).map((img: unknown) => normalizeMediaUrl(img)) : [];
   const variantMode = getProductVariantMode(product);
   const isCombinationMode = variantMode === "combination";
   const variantOptions = getVariantOptionNames(product);
@@ -424,8 +446,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
 
     return entries;
   });
-  const productSpecs = product?.specifications || {};
-  const productSpecEntries: Array<[string, string]> = Object.entries(productSpecs).map(([k, v]) => [k, String(v)] as [string, string]);
+  const productSpecEntries = normalizeProductSpecEntries(product?.specifications);
 
   const generatedSpecificationEntries: Array<[string, string]> = [
     ...productSpecEntries,
@@ -735,7 +756,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
                     removeFromWishlist(product.id);
                     toast.success("Removed from wishlist");
                   } else {
-                    addToWishlist({ id: product.id, name: product.name, price: product.price, image: product.image });
+                    addToWishlist({ id: product.id, name: product.name, price: product.price, image: normalizeMediaUrl(product.image) });
                     toast.success("Added to wishlist!");
                   }
                 }}
@@ -1085,7 +1106,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
               className="group"
             >
               <div className="mb-5 bg-[#f7f8fa] border border-[#d5deea]">
-                <img src={p.image} alt={p.name} className="w-full aspect-[1.02] object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+                      <img src={normalizeMediaUrl(p.image)} alt={p.name} className="w-full aspect-[1.02] object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
               </div>
               <h3 className="font-sans text-[18px] md:text-[20px] leading-tight font-semibold text-orange">
                 {getStandardizedDisplayTitle(p)}

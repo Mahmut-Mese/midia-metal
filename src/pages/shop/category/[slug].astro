@@ -6,7 +6,6 @@ export const prerender = false;
  * Server-rendered: fetches fresh category + products data on every request.
  * This ensures new products appear immediately after being added in admin.
  */
-import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
@@ -39,6 +38,15 @@ if (!category) {
 
 const pageTitle = category?.name || 'Category';
 const pageDescription = category?.description || `Browse ${pageTitle} products from Midia M Metal.`;
+const normalizeImage = (value: unknown, fallback = '/logo.png') => {
+  if (typeof value !== 'string' || value.trim().length === 0) return fallback;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('/uploads/')) return `/storage${trimmed}`;
+  if (trimmed.startsWith('uploads/')) return `/storage/${trimmed}`;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) return trimmed;
+  return `/${trimmed}`;
+};
+const categoryImage = normalizeImage(category?.image, '/logo.png');
 
 // Cache headers: CDN caches for 5 min
 Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
@@ -67,7 +75,7 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
 <BaseLayout
   title={pageTitle}
   description={pageDescription}
-  image={category?.image}
+  image={categoryImage}
   canonicalPath={`/shop/category/${slug}`}
   structuredData={[breadcrumbJsonLd, ...(itemListJsonLd ? [itemListJsonLd] : [])]}
 >
@@ -85,11 +93,11 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
 
       <div class="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-8 md:gap-10 items-center">
         <div class="bg-[#f4f5f7]">
-          <Image
-            src={category.image}
+          <img
+            src={categoryImage}
             alt={category.name}
-            width={1200}
-            height={400}
+            width="1200"
+            height="400"
             loading="eager"
             decoding="async"
             class="w-full h-[280px] md:h-[420px] object-cover"
@@ -114,11 +122,11 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
           {products.map((product: any) => (
             <a href={`/shop/${product.slug || product.id}`} class="group">
               <div class="bg-[#f7f8fa] mb-4">
-                <Image
-                  src={product.image}
+                <img
+                  src={normalizeImage(product.image)}
                   alt={product.name}
-                  width={400}
-                  height={400}
+                  width="400"
+                  height="400"
                   loading="lazy"
                   decoding="async"
                   class="w-full aspect-square object-contain transition-transform duration-300 group-hover:scale-[1.02]"

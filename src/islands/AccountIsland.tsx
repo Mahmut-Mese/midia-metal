@@ -10,6 +10,7 @@ import { $customer, $isAuthLoading, logoutCustomer, updateCustomer } from "@/sto
 import { $wishlist, removeFromWishlist } from "@/stores/wishlist";
 import { addToCart } from "@/stores/cart";
 import { API_URL, apiFetch } from "@/lib/api";
+import { normalizeMediaUrl } from "@/lib/media";
 import withErrorBoundary from "@/lib/withErrorBoundary";
 import {
     Dialog,
@@ -616,7 +617,7 @@ function AccountIsland() {
                                     {wishlist.map(item => (
                                         <div key={item.id} className="border border-[#cad4e4] p-4 flex items-center gap-4">
                                             {item.image ? (
-                                                <img src={item.image} alt={item.name} className="w-16 h-16 object-cover flex-shrink-0 bg-[#f4f7f9]" />
+                                                <img src={normalizeMediaUrl(item.image, '/logo.png')} alt={item.name} className="w-16 h-16 object-cover flex-shrink-0 bg-[#f4f7f9]" />
                                             ) : (
                                                 <div className="w-16 h-16 bg-[#f4f7f9] flex items-center justify-center flex-shrink-0">
                                                     <Package className="w-6 h-6 text-[#8f9bb2]" />

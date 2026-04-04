@@ -1,5 +1,17 @@
 export const API_URL = import.meta.env.PUBLIC_API_URL || "/api";
 
+const getResolvedApiUrl = () => {
+    if (typeof window === "undefined") {
+        return API_URL;
+    }
+
+    if (API_URL.startsWith("http://127.0.0.1:") || API_URL.startsWith("http://localhost:")) {
+        return "/api";
+    }
+
+    return API_URL;
+};
+
 const CSRF_COOKIE_NAME = "XSRF-TOKEN";
 let csrfBootstrapPromise: Promise<void> | null = null;
 
@@ -101,7 +113,9 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         headers["Content-Type"] = "application/json";
     }
 
-    let response = await fetch(`${API_URL}${endpoint}`, {
+    const resolvedApiUrl = getResolvedApiUrl();
+
+    let response = await fetch(`${resolvedApiUrl}${endpoint}`, {
         ...options,
         method,
         credentials: "include",
@@ -111,7 +125,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     if (response.status === 419 && shouldSendCsrf) {
         await ensureCsrfCookie();
         const retryXsrfToken = getCookie(CSRF_COOKIE_NAME);
-        response = await fetch(`${API_URL}${endpoint}`, {
+        response = await fetch(`${resolvedApiUrl}${endpoint}`, {
             ...options,
             method,
             credentials: "include",
