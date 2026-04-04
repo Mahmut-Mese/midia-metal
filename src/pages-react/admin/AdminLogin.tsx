@@ -30,25 +30,25 @@ export default function AdminLogin() {
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-[#f4f5f7] px-4">
-            <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-xl">
+            <div className="w-full max-w-md rounded-[18px] bg-white p-10 shadow-xl">
                 <div className="mb-8 text-center">
-                    <h1 className="text-3xl font-bold text-[#10275c] font-sans">Midia Admin</h1>
-                    <p className="mt-2 text-sm text-[#6f7e9a]">Sign in to access your dashboard</p>
+                    <h1 className="text-3xl font-bold text-[#10275c] font-sans sm:text-4xl">Midia Admin</h1>
+                    <p className="mt-3 text-sm text-[#6f7e9a] sm:text-base">Sign in to access your dashboard</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-[#10275c]">Email Address</label>
-                        <div className="relative mt-2 rounded-md shadow-sm">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                <Mail className="h-5 w-5 text-gray-400" />
+                        <label className="block text-sm font-semibold text-[#10275c] sm:text-[15px]">Email Address</label>
+                        <div className="relative mt-3">
+                            <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                <Mail className="h-7 w-7" strokeWidth={1.75} />
                             </div>
                             <input
                                 type="email"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="block w-full rounded-md border-0 py-2.5 pl-10 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-[#22a3e6] sm:text-sm sm:leading-6"
+                                className="block h-14 w-full rounded-xl border border-slate-300 bg-white px-14 text-base leading-none text-slate-400 shadow-sm outline-none transition focus:border-[#22a3e6] focus:ring-2 focus:ring-[#22a3e6]/15"
                                 placeholder="admin@midiaematal.com"
                                 autoComplete="username"
                             />
@@ -57,31 +57,31 @@ export default function AdminLogin() {
 
                     <div>
                         <div className="flex items-center justify-between">
-                            <label className="block text-sm font-medium text-[#10275c]">Password</label>
+                            <label className="block text-sm font-semibold text-[#10275c] sm:text-[15px]">Password</label>
                             <Link to="/admin/forgot-password" className="text-sm text-orange hover:text-orange-hover font-medium">Forgot password?</Link>
                         </div>
-                        <div className="relative mt-2 rounded-md shadow-sm">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                <Lock className="h-5 w-5 text-gray-400" />
+                        <div className="relative mt-3">
+                            <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                <Lock className="h-7 w-7" strokeWidth={1.75} />
                             </div>
                             <input
                                 type={showPassword ? "text" : "password"}
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="block w-full rounded-md border-0 py-2.5 pl-10 pr-10 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-[#22a3e6] sm:text-sm sm:leading-6"
+                                className="block h-14 w-full rounded-xl border border-slate-300 bg-white px-14 pr-14 text-base leading-none text-slate-400 shadow-sm outline-none transition focus:border-[#22a3e6] focus:ring-2 focus:ring-[#22a3e6]/15"
                                 placeholder="password"
                                 autoComplete="current-password"
                             />
                             <button
                                 type="button"
-                                className="absolute inset-y-0 right-0 flex items-center pr-3"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
                                 onClick={() => setShowPassword(!showPassword)}
                             >
                                 {showPassword ? (
-                                    <EyeOff className="h-5 w-5 text-gray-400" />
+                                    <EyeOff className="h-7 w-7" strokeWidth={1.75} />
                                 ) : (
-                                    <Eye className="h-5 w-5 text-gray-400" />
+                                    <Eye className="h-7 w-7" strokeWidth={1.75} />
                                 )}
                             </button>
                         </div>
@@ -90,7 +90,7 @@ export default function AdminLogin() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="flex w-full justify-center rounded-md bg-orange px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange disabled:opacity-50 transition-colors"
+                        className="flex h-14 w-full justify-center rounded-xl bg-orange px-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-orange-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange disabled:opacity-50"
                     >
                         {loading ? "Signing in..." : "Sign in"}
                     </button>

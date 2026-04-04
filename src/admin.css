@@ -56,8 +56,8 @@
     /* Custom tokens */
     --navy: 213 37% 14%;
     --navy-light: 213 30% 22%;
-    --orange: 23 92% 35%;
-    --orange-hover: 23 92% 29%;
+    --orange: 22 96% 50%;
+    --orange-hover: 22 96% 45%;
     --orange-light: 27 95% 95%;
     --gray-light: 210 20% 96%;
     --gray-medium: 215 14% 46%;
@@ -72,6 +72,21 @@
   body {
     @apply bg-background text-foreground font-sans;
     font-family: 'DM Sans', sans-serif;
+  }
+
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  select:-webkit-autofill:hover,
+  select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #94a3b8;
+    -webkit-box-shadow: 0 0 0px 1000px #ffffff inset;
+    box-shadow: 0 0 0px 1000px #ffffff inset;
+    transition: background-color 9999s ease-in-out 0s;
   }
 
   h1,

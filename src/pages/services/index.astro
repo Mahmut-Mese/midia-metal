@@ -21,11 +21,12 @@ export const prerender = true;
  */
 import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getApiBase } from '@/lib/api-base';
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
+const API_BASE = getApiBase();
 
 // --- Data Fetching (runs at build time) ---
 const settings = await fetchSettings();

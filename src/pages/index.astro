@@ -15,12 +15,13 @@ export const prerender = true;
 import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import HeroCarousel from '@/islands/HeroCarousel';
+import { getApiBase } from '@/lib/api-base';
 import { buildOrganizationJsonLd, buildBreadcrumbJsonLd, stripHtml, truncateText } from '@/lib/seo';
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
+const API_BASE = getApiBase();
 
 // --- Data Fetching (runs at build time) ---
 let heroSlides: any[] = [];

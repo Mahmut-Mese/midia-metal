@@ -8,6 +8,7 @@ export const prerender = true;
  * Uses native <details>/<summary> for accordion — zero client-side JS.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getApiBase } from '@/lib/api-base';
 import { buildBreadcrumbJsonLd, buildFaqPageJsonLd } from '@/lib/seo';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 
@@ -16,7 +17,7 @@ const pageTitle = getPageTitle(settings, 'faq_page_title', 'Frequently Asked Que
 const pageDescription = getPageDescription(settings, undefined, 'Frequently Asked Questions about Midia M Metal\'s products, services, delivery, and returns.');
 
 const siteUrl = import.meta.env.SITE;
-const API_BASE = (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
+const API_BASE = getApiBase();
 
 // --- Data Fetching (runs at build time) ---
 let faqs: any[] = [];

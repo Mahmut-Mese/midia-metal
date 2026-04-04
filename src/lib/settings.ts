@@ -10,7 +10,9 @@
  *   const title = settings['about_title'] || 'Fallback';
  */
 
-const API_BASE = (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
+import { getApiBase } from '@/lib/api-base';
+
+const API_BASE = getApiBase();
 
 /** In-memory TTL cache for settings (avoids repeated API calls during SSR) */
 let cachedSettings: Record<string, string> | null = null;
