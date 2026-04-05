@@ -63,6 +63,7 @@ class ProductController extends Controller
         ]);
 
         $validated['description'] = HtmlSanitizer::richText($validated['description'] ?? null);
+        $validated['image'] = trim((string) ($validated['image'] ?? ''));
         $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(4);
         $validated['variant_mode'] = ($validated['variant_mode'] ?? 'legacy') === 'combination' ? 'combination' : 'legacy';
         $validated['frontend_variant_layout'] = $this->normalizeFrontendVariantLayout($validated['frontend_variant_layout'] ?? null);
@@ -127,6 +128,7 @@ class ProductController extends Controller
         ]);
 
         $validated['description'] = HtmlSanitizer::richText($validated['description'] ?? null);
+        $validated['image'] = trim((string) ($validated['image'] ?? ''));
         $validated['variant_mode'] = ($validated['variant_mode'] ?? $product->variant_mode ?? 'legacy') === 'combination' ? 'combination' : 'legacy';
         $validated['frontend_variant_layout'] = $this->normalizeFrontendVariantLayout(
             $validated['frontend_variant_layout'] ?? $product->frontend_variant_layout ?? null
