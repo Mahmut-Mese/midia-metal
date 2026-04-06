@@ -16,11 +16,12 @@ env:
   SSH_PORT: 65002
   SSH_USER: u993999906
   SUPPORT_APP_PATH: /home/u993999906/domains/support.midiawork.com/public_html
-  SUPPORT_RESTART_FILE: /home/u993999906/domains/support.midiawork.com/nodejs/tmp/restart.txt
+  SUPPORT_RESTART_FILE: /home/u993999906/domains/support.midiawork.com/public_html/tmp/restart.txt
   STAGING_API_APP_PATH: /home/u993999906/domains/midiawork.com/public_html/staging-api
   SUPPORT_PUBLIC_API_URL: https://staging-api.midiawork.com/api
-  HOSTINGER_NODE_BIN: /opt/alt/alt-nodejs22/root/usr/bin/node
-  HOSTINGER_NPM_BIN: /opt/alt/alt-nodejs22/root/usr/bin/npm
+  SUPPORT_PUBLIC_STRIPE_KEY: pk_test_51T7y9WAiRuCNaQmFx2ilGjkkLbvMavgDJ5Bu49PV2iQcNlpYIsE9Y2xkVfXryFr5KXDNm55Hj7ReSlx7hhptKFJL00ljg2mUfC
+  HOSTINGER_NODE_BIN: /opt/alt/alt-nodejs20/root/usr/bin/node
+  HOSTINGER_NPM_BIN: /opt/alt/alt-nodejs20/root/usr/bin/npm
 
 jobs:
   frontend-build:
@@ -48,6 +49,20 @@ jobs:
 
       - name: Build Astro app
         run: npm run build
+
+      - name: Copy server CSS into client assets
+        run: |
+          if ls dist/server/_astro/*.css >/dev/null 2>&1; then
+            cp dist/server/_astro/*.css dist/client/_astro/
+          fi
+          ls dist/client/_astro/_path_*.css
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+          if-no-files-found: error
 
   frontend-lint:
     name: Frontend Lint
@@ -158,11 +173,18 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
     needs:
+      - frontend-build
       - deploy-backend
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Download frontend build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
 
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -174,37 +196,31 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
 
-      - name: Sync frontend files
+      - name: Sync frontend runtime files
         run: |
           rsync -az --delete \
             -e "ssh -p $SSH_PORT" \
-            --exclude='.env' \
-            --exclude='.htaccess' \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='backend' \
-            --exclude='node_modules' \
-            --exclude='dist' \
-            --exclude='.astro' \
-            --exclude='coverage' \
-            --exclude='playwright-report' \
-            --exclude='test-results' \
-            --exclude='.builds' \
-            --exclude='tmp' \
-            --exclude='stderr.log' \
-            --exclude='default.php' \
-            --exclude='*.zip' \
-            ./ "$SSH_USER@$SSH_HOST:$SUPPORT_APP_PATH/"
+            package.json package-lock.json server.mjs \
+            "$SSH_USER@$SSH_HOST:$SUPPORT_APP_PATH/"
 
-      - name: Build frontend on server and restart Node app
+      - name: Sync built frontend dist
+        run: |
+          rsync -az --delete \
+            -e "ssh -p $SSH_PORT" \
+            dist/ "$SSH_USER@$SSH_HOST:$SUPPORT_APP_PATH/dist/"
+
+      - name: Install runtime dependencies and restart Node app
         run: |
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "
             set -e
             export PATH=\$(dirname '$HOSTINGER_NODE_BIN'):\$PATH
             cd '$SUPPORT_APP_PATH'
             export PUBLIC_API_URL='$SUPPORT_PUBLIC_API_URL'
+            export PUBLIC_STRIPE_KEY='$SUPPORT_PUBLIC_STRIPE_KEY'
+            export ASTRO_NODE_AUTOSTART='disabled'
+            export NODE_ENV='production'
             '$HOSTINGER_NODE_BIN' -v
             '$HOSTINGER_NPM_BIN' ci
-            '$HOSTINGER_NPM_BIN' run build
+            ls dist/client/_astro/_path_*.css
             touch '$SUPPORT_RESTART_FILE'
           "
