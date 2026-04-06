@@ -196,7 +196,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
     // Pre-compute initial variant selection from initialProduct if available
     if (!initialProduct?.variants?.length) return {};
     const prodRes = initialProduct;
-    let variants: Record<string, any> = {};
+    const variants: Record<string, any> = {};
     if (getProductVariantMode(prodRes) === "combination") {
       const productOptionNames = getVariantOptionNames(prodRes);
       productOptionNames.forEach((optionName) => {
@@ -474,7 +474,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
           apiFetch(`/v1/products/${id}/related`)
         ]);
 
-        let initialVariants: Record<string, any> = {};
+        const initialVariants: Record<string, any> = {};
         if (prodRes.variants && prodRes.variants.length > 0) {
           if (getProductVariantMode(prodRes) === "combination") {
             const productOptionNames = getVariantOptionNames(prodRes);

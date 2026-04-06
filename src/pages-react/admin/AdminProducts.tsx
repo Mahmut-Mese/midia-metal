@@ -938,7 +938,7 @@ export default function AdminProducts() {
             // Check if there's a pending specification to add
             const keyEl = document.getElementById('new_spec_key') as HTMLInputElement;
             const valEl = document.getElementById('new_spec_value') as HTMLInputElement;
-            let finalProduct = { ...currentProduct };
+            const finalProduct = { ...currentProduct };
 
             if (keyEl && valEl) {
                 const key = keyEl.value.trim();
