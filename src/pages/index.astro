@@ -1,8 +1,6 @@
 ---
-export const prerender = true;
-
 /**
- * index.astro — Home page (PURE ASTRO + HeroCarousel island)
+ * index.astro — Home page (SSR — fetches fresh data on every request)
  *
  * Pattern:
  *   1. Fetch ALL data in frontmatter using direct fetch() to backend
@@ -22,7 +20,7 @@ import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings'
 const siteUrl = import.meta.env.SITE;
 const API_BASE = getApiBase();
 
-// --- Data Fetching (runs at build time) ---
+// --- Data Fetching (runs at request time — SSR) ---
 let heroSlides: any[] = [];
 let categories: any[] = [];
 let trendingItems: any[] = [];
@@ -39,7 +37,7 @@ try {
   categories = (categoriesRes || []).slice(0, 4);
   trendingItems = trendingRes || [];
 } catch (err) {
-  console.error('Failed to load homepage data at build time:', err);
+  console.error('[index.astro] Failed to load homepage data:', err);
 }
 
 const t = (key: string, def: string) => settings[key] || def;
