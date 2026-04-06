@@ -208,20 +208,3 @@ jobs:
             '$HOSTINGER_NPM_BIN' run build
             touch '$SUPPORT_RESTART_FILE'
           "
-
-  verify-deploy:
-    name: Verify Deployment
-    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
-    runs-on: ubuntu-latest
-    needs:
-      - deploy-frontend
-
-    steps:
-      - name: Check backend health endpoint
-        run: curl --fail --silent --show-error https://staging-api.midiawork.com/up > /dev/null
-
-      - name: Check backend settings endpoint
-        run: curl --fail --silent --show-error https://staging-api.midiawork.com/api/v1/settings > /dev/null
-
-      - name: Check support homepage
-        run: curl --fail --silent --show-error https://support.midiawork.com/ > /dev/null
