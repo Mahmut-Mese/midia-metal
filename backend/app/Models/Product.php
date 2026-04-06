@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\NormalizesMediaUrls;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
+    use NormalizesMediaUrls;
+
     protected $fillable = [
         'name',
         'show_variant_in_title',
@@ -59,6 +62,16 @@ class Product extends Model
     public function category()
     {
         return $this->belongsTo(ProductCategory::class, 'product_category_id');
+    }
+
+    public function getImageAttribute($value)
+    {
+        return $this->normalizeMediaUrl($value);
+    }
+
+    public function getGalleryAttribute($value)
+    {
+        return $this->normalizeMediaArray($value);
     }
 
     public function orderItems()

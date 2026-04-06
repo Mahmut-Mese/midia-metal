@@ -81,13 +81,13 @@ export default function AdminLayout() {
         <div className="flex bg-[#f4f5f7] min-h-screen">
             {/* Sidebar */}
             <aside
-                className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#10275c] text-white transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-                    } lg:sticky lg:top-0 lg:h-screen lg:flex-shrink-0`}
+                className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#10275c] text-white transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+                    } lg:static`}
             >
                 <div className="flex h-16 items-center flex-shrink-0 px-6 font-bold text-xl border-b border-white/10">
                     Midia Admin
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+                <div className="h-full overflow-y-auto px-4 py-6">
                     <ul className="space-y-1">
                         {navigation.map((item) => {
                             const isActive = location.pathname === item.href || (location.pathname.startsWith(item.href) && item.href !== "/admin");
@@ -107,7 +107,7 @@ export default function AdminLayout() {
                         })}
                     </ul>
                 </div>
-                <div className="flex-shrink-0 border-t border-white/10 bg-[#10275c] p-4">
+                <div className="p-4 border-t border-white/10 absolute bottom-0 w-full bg-[#10275c]">
                     <button
                         onClick={handleLogout}
                         className="group flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white transition-colors"

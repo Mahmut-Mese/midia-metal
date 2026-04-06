@@ -17,6 +17,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
@@ -41,8 +42,8 @@ const AdminCustomers = lazy(() => import("@/pages-react/admin/AdminCustomers"));
 const AdminFaq = lazy(() => import("@/pages-react/admin/AdminFaq"));
 
 const RouteLoader = () => (
-  <div className="min-h-screen bg-[#eaf0f3] flex items-center justify-center">
-    <div className="w-8 h-8 border-2 border-orange border-t-transparent rounded-full animate-spin" />
+  <div className="flex min-h-screen items-center justify-center bg-[#f4f5f7]">
+    <Loader2 className="h-8 w-8 animate-spin text-[#22a3e6]" />
   </div>
 );
 
