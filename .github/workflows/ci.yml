@@ -48,7 +48,9 @@ jobs:
         run: npm run test
 
       - name: Build Astro app
-        run: npm run build
+        run: |
+          rm -rf .astro node_modules/.vite dist
+          npm run build
 
       - name: Copy server CSS into client assets
         run: |
