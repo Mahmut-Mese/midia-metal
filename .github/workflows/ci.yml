@@ -133,6 +133,7 @@ jobs:
       - name: Sync backend files
         run: |
           rsync -az --delete \
+            -e "ssh -p $SSH_PORT" \
             --exclude='.env' \
             --exclude='vendor' \
             --exclude='node_modules' \
@@ -177,6 +178,7 @@ jobs:
       - name: Sync frontend files
         run: |
           rsync -az --delete \
+            -e "ssh -p $SSH_PORT" \
             --exclude='.env' \
             --exclude='.htaccess' \
             --exclude='.git' \
