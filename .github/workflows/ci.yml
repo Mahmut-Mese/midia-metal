@@ -48,16 +48,50 @@ jobs:
         run: npm run test
 
       - name: Build Astro app
+        env:
+          PUBLIC_API_URL: ${{ env.SUPPORT_PUBLIC_API_URL }}
+          PUBLIC_STRIPE_KEY: ${{ env.SUPPORT_PUBLIC_STRIPE_KEY }}
+          NODE_ENV: production
         run: |
           rm -rf .astro node_modules/.vite dist
           npm run build
 
       - name: Copy server CSS into client assets
         run: |
+          echo "=== Server _astro CSS files ==="
+          ls -la dist/server/_astro/*.css 2>/dev/null || echo "(none)"
+          echo "=== Client _astro CSS files (before copy) ==="
+          ls -la dist/client/_astro/*.css 2>/dev/null || echo "(none)"
           if ls dist/server/_astro/*.css >/dev/null 2>&1; then
             cp dist/server/_astro/*.css dist/client/_astro/
+            echo "=== Copied server CSS to client ==="
           fi
-          ls dist/client/_astro/_path_*.css
+          echo "=== Client _astro CSS files (after copy) ==="
+          ls -la dist/client/_astro/*.css 2>/dev/null || echo "(none)"
+
+      - name: Validate admin CSS bundle
+        run: |
+          CSS_FILE=$(ls dist/client/_astro/_path_*.css 2>/dev/null | head -1)
+          if [ -z "$CSS_FILE" ]; then
+            echo "::error::Admin CSS file (_path_*.css) NOT FOUND in dist/client/_astro/"
+            exit 1
+          fi
+          CSS_SIZE=$(wc -c < "$CSS_FILE" | tr -d ' ')
+          echo "Admin CSS file: $CSS_FILE"
+          echo "Admin CSS size: $CSS_SIZE bytes"
+          # Admin CSS must be at least 100KB (full bundle is ~130KB; broken is ~75KB)
+          if [ "$CSS_SIZE" -lt 100000 ]; then
+            echo "::error::Admin CSS is only $CSS_SIZE bytes (expected >= 100000). Tailwind likely purged admin classes."
+            exit 1
+          fi
+          # Verify key admin classes are present
+          for CLASS in "text-muted-foreground" "bg-sidebar" "rounded-md" "border-border"; do
+            if ! grep -q "$CLASS" "$CSS_FILE"; then
+              echo "::error::Admin CSS missing class: $CLASS"
+              exit 1
+            fi
+          done
+          echo "Admin CSS validation passed ($CSS_SIZE bytes, all key classes present)"
 
       - name: Upload frontend build artifact
         uses: actions/upload-artifact@v4
@@ -222,7 +256,24 @@ jobs:
             export ASTRO_NODE_AUTOSTART='disabled'
             export NODE_ENV='production'
             '$HOSTINGER_NODE_BIN' -v
-            '$HOSTINGER_NPM_BIN' ci
-            ls dist/client/_astro/_path_*.css
+            '$HOSTINGER_NPM_BIN' ci --omit=dev
             touch '$SUPPORT_RESTART_FILE'
+          "
+
+      - name: Verify admin CSS on server
+        run: |
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "
+            set -e
+            CSS_FILE=\$(ls '$SUPPORT_APP_PATH'/dist/client/_astro/_path_*.css 2>/dev/null | head -1)
+            if [ -z \"\$CSS_FILE\" ]; then
+              echo 'FATAL: Admin CSS not found on server after deploy!'
+              exit 1
+            fi
+            CSS_SIZE=\$(wc -c < \"\$CSS_FILE\" | tr -d ' ')
+            echo \"Server admin CSS: \$CSS_FILE (\$CSS_SIZE bytes)\"
+            if [ \"\$CSS_SIZE\" -lt 100000 ]; then
+              echo 'FATAL: Admin CSS on server is too small — Tailwind classes were purged!'
+              exit 1
+            fi
+            echo 'Server admin CSS verification passed.'
           "
