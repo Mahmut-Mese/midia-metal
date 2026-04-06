@@ -277,3 +277,104 @@ jobs:
             fi
             echo 'Server admin CSS verification passed.'
           "
+
+      - name: Verify no production URLs in API responses
+        run: |
+          echo "=== Checking API responses for production host references ==="
+          PROD_HOST="lightblue-albatross-164447.hostingersite.com"
+          FAIL=0
+
+          # Check products endpoint
+          PRODUCTS=$(curl -sf 'https://staging-api.midiawork.com/api/v1/products' || echo "FETCH_FAILED")
+          if [ "$PRODUCTS" = "FETCH_FAILED" ]; then
+            echo "::error::Failed to fetch products API"
+            FAIL=1
+          elif echo "$PRODUCTS" | grep -q "$PROD_HOST"; then
+            echo "::error::Products API response contains production host: $PROD_HOST"
+            echo "$PRODUCTS" | grep -o "\"[^\"]*${PROD_HOST}[^\"]*\"" | head -5
+            FAIL=1
+          else
+            echo "Products API: OK (no production URLs)"
+          fi
+
+          # Check product-categories endpoint
+          CATEGORIES=$(curl -sf 'https://staging-api.midiawork.com/api/v1/product-categories' || echo "FETCH_FAILED")
+          if [ "$CATEGORIES" = "FETCH_FAILED" ]; then
+            echo "::error::Failed to fetch categories API"
+            FAIL=1
+          elif echo "$CATEGORIES" | grep -q "$PROD_HOST"; then
+            echo "::error::Categories API response contains production host: $PROD_HOST"
+            echo "$CATEGORIES" | grep -o "\"[^\"]*${PROD_HOST}[^\"]*\"" | head -5
+            FAIL=1
+          else
+            echo "Categories API: OK (no production URLs)"
+          fi
+
+          if [ "$FAIL" -ne 0 ]; then
+            echo "::error::STAGING ISOLATION FAILED — production URLs detected in API responses!"
+            exit 1
+          fi
+          echo "=== Staging isolation verified: 0 production URLs ==="
+
+      - name: Verify staging media files are accessible
+        run: |
+          echo "=== Checking that staging media files return HTTP 200 ==="
+          FAIL=0
+          CHECKED=0
+          MISSING=0
+
+          # Extract image URLs from products API
+          PRODUCTS=$(curl -sf 'https://staging-api.midiawork.com/api/v1/products' || echo "[]")
+          MEDIA_URLS=$(echo "$PRODUCTS" | python3 -c "
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+              items = data.get('data', data) if isinstance(data, dict) else data
+              if not isinstance(items, list): items = [items]
+              urls = set()
+              for item in items:
+                  img = item.get('image', '') or ''
+                  if img.startswith('http'): urls.add(img)
+                  for g in (item.get('gallery') or []):
+                      if isinstance(g, str) and g.startswith('http'): urls.add(g)
+              for u in sorted(urls): print(u)
+          except: pass
+          " 2>/dev/null)
+
+          # Extract image URLs from categories API
+          CATEGORIES=$(curl -sf 'https://staging-api.midiawork.com/api/v1/product-categories' || echo "[]")
+          CAT_URLS=$(echo "$CATEGORIES" | python3 -c "
+          import sys, json
+          try:
+              data = json.load(sys.stdin)
+              items = data.get('data', data) if isinstance(data, dict) else data
+              if not isinstance(items, list): items = [items]
+              urls = set()
+              for item in items:
+                  img = item.get('image', '') or ''
+                  if img.startswith('http'): urls.add(img)
+              for u in sorted(urls): print(u)
+          except: pass
+          " 2>/dev/null)
+
+          ALL_URLS=$(echo -e "${MEDIA_URLS}\n${CAT_URLS}" | sort -u | grep -v '^$')
+
+          if [ -z "$ALL_URLS" ]; then
+            echo "No media URLs found in API responses (this may indicate an API issue)"
+            exit 0
+          fi
+
+          while IFS= read -r url; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$url" || echo "000")
+            CHECKED=$((CHECKED + 1))
+            if [ "$STATUS" != "200" ]; then
+              echo "::warning::Media file returned HTTP $STATUS: $url"
+              MISSING=$((MISSING + 1))
+            fi
+          done <<< "$ALL_URLS"
+
+          echo "Checked $CHECKED media URLs: $((CHECKED - MISSING)) OK, $MISSING failed"
+          if [ "$MISSING" -gt 0 ]; then
+            echo "::warning::Some staging media files are not accessible (non-blocking)"
+          fi
+          echo "=== Media accessibility check complete ==="
