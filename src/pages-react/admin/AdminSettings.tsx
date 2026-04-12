@@ -22,7 +22,7 @@ type HeroSlideRecord = {
     isNew?: boolean;
 };
 
-const GROUP_ORDER = ["header", "footer", "general", "shipping-tax", "home", "about", "contact", "services", "portfolio", "blog", "legal", "seo", "hero-slides"];
+const GROUP_ORDER = ["header", "footer", "general", "shipping-tax", "shipping-freight", "home", "about", "contact", "services", "portfolio", "blog", "legal", "seo", "hero-slides"];
 
 type SettingsSection = {
     id: string;
@@ -128,6 +128,22 @@ const SHIPPING_TAX_KEYS = new Set([
     "tax_rate",
 ]);
 
+const SHIPPING_FREIGHT_KEYS = new Set([
+    "freight_surcharge_highlands",
+    "freight_surcharge_ni",
+    "freight_surcharge_scotland",
+    "freight_surcharge_london",
+    "freight_surcharge_default",
+]);
+
+const FREIGHT_SURCHARGE_LABELS: Record<string, string> = {
+    freight_surcharge_highlands: "Highlands & Remote Scotland (AB, HS, IV, KW, PA, PH, ZE, IM)",
+    freight_surcharge_ni: "Northern Ireland (BT)",
+    freight_surcharge_scotland: "Lowland Scotland (DD, DG, EH, FK, G, KA, KY, ML, TD)",
+    freight_surcharge_london: "London (E, EC, N, NW, SE, SW, W, WC)",
+    freight_surcharge_default: "Mainland England & Wales (default)",
+};
+
 const LEGACY_DUPLICATE_KEYS: Record<string, string> = {
     shipping_flat_rate: "shipping_rate",
     tax_enabled: "vat_enabled",
@@ -188,6 +204,11 @@ const normalizeSettingsForDisplay = (settings: SettingRecord[]) => {
 
             if (SHIPPING_TAX_KEYS.has(nextSetting.key)) {
                 nextSetting.group = "shipping-tax";
+            }
+
+            if (SHIPPING_FREIGHT_KEYS.has(nextSetting.key)) {
+                nextSetting.group = "shipping-freight";
+                nextSetting.type = "number";
             }
 
             if (nextSetting.key === "vat_enabled" || (nextSetting.key === "tax_enabled" && !keys.has("vat_enabled"))) {
@@ -354,7 +375,10 @@ export default function AdminSettings() {
     const renderSettingField = (setting: SettingRecord) => (
         <div key={setting.id} className="space-y-2">
             <label className="block text-sm font-bold text-[#10275c] capitalize">
-                {LABEL_OVERRIDES[setting.key] || setting.key.replace(/_/g, " ").replace(activeTab, "").trim() || setting.key}
+                {FREIGHT_SURCHARGE_LABELS[setting.key]
+                    || LABEL_OVERRIDES[setting.key]
+                    || setting.key.replace(/_/g, " ").replace(activeTab, "").trim()
+                    || setting.key}
             </label>
             {setting.type === "richtext" ? (
                 <RichTextEditor
@@ -386,6 +410,18 @@ export default function AdminSettings() {
                     <label htmlFor={`setting-${setting.key}`} className="text-sm text-gray-600 cursor-pointer">
                         Enabled
                     </label>
+                </div>
+            ) : setting.type === "number" ? (
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-500">£</span>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={setting.value || "0"}
+                        onChange={(e) => updateSetting(setting.key, e.target.value)}
+                        className="block w-40 rounded-md border-gray-300 shadow-sm focus:border-[#eb5c10] focus:ring-[#eb5c10] sm:text-sm p-3 border"
+                    />
                 </div>
             ) : (
                 <input

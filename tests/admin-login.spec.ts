@@ -6,11 +6,16 @@ test('admin can log in with seeded credentials', async ({ page }) => {
     if (msg.type() === 'error') console.log(`CONSOLE [${msg.type()}]: ${text}`);
   });
 
-  await page.goto('http://127.0.0.1:4321/admin/login');
+  await page.goto('/admin/login');
   await page.locator('input[type="email"]').fill('admin@midiaematal.com');
   await page.locator('input[type="password"]').fill('password');
+  const loginResponsePromise = page.waitForResponse((response) => response.url().includes('/api/admin/login'));
   await page.getByRole('button', { name: /sign in/i }).click();
 
-  await page.waitForURL('**/admin', { timeout: 10000 });
+  const loginResponse = await loginResponsePromise;
+  expect(loginResponse.ok()).toBeTruthy();
+
+  await expect.poll(() => page.url(), { timeout: 15000 }).toBe('http://127.0.0.1:4323/admin');
   await expect(page.getByText('Admin Panel')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 });
 });

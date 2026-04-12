@@ -93,7 +93,7 @@ DB_PASSWORD=your_password
 SESSION_DRIVER=database
 STRIPE_KEY=pk_test_...
 STRIPE_SECRET=sk_test_...
-SANCTUM_STATEFUL_DOMAINS=localhost:4321,127.0.0.1:4321
+SANCTUM_STATEFUL_DOMAINS=localhost:3000,127.0.0.1:3000,localhost:4323,127.0.0.1:4323
 SESSION_DOMAIN=localhost
 ```
 
@@ -113,22 +113,31 @@ cd backend && php artisan serve
 # → http://127.0.0.1:8000
 
 # Terminal 2: Frontend
-npm run dev
-# → http://localhost:4321
+npm run dev -- --host localhost --port 3000
+# → http://localhost:3000
 ```
 
 The Astro dev server proxies `/api`, `/sanctum`, and `/storage` to the Laravel backend.
 
 ### 6. Open in browser
 
-- **Public site**: http://localhost:4321
-- **Admin panel**: http://localhost:4321/admin/dashboard
+- **Public site**: http://localhost:3000
+- **Admin panel**: http://localhost:3000/admin/dashboard
+
+### 7. Run Playwright E2E
+
+Playwright starts its own isolated Astro frontend on `http://127.0.0.1:4323` so you can keep your manual dev server running on `http://localhost:3000` while tests execute.
+
+```bash
+npx playwright test
+```
 
 ## Available Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Astro dev server with HMR (port 4321) |
+| `npm run dev -- --host localhost --port 3000` | Start Astro dev server with HMR for manual development (port 3000) |
+| `npx playwright test` | Run Playwright E2E suite on isolated frontend port 4323 |
 | `npm run build` | Production build — generates 86 static HTML pages |
 | `npm run preview` | Preview production build locally |
 | `npm run check` | Run Astro type checking (0 errors expected) |

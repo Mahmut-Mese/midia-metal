@@ -60,12 +60,15 @@ const normalizeImage = (value: unknown, fallback = '/logo.png') => {
   return `/${trimmed}`;
 };
 
+// TODO (client): Replace placeholder phone with real number in Admin > Settings > contact_phone
+// or update the hardcoded fallback below before go-live.
+const contactPhone = settings['contact_phone'] || '';
 const organizationJsonLd = buildOrganizationJsonLd({
   name: 'Midia M Metal',
   url: `${siteUrl}/`,
   logo: `${siteUrl}/logo.png`,
-  email: 'info@midia-metal.com',
-  telephone: '+44 123 456 7890',
+  email: settings['contact_email'] || 'info@midia-metal.com',
+  ...(contactPhone ? { telephone: contactPhone } : {}),
   sameAs: [],
 });
 

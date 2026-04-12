@@ -8,9 +8,12 @@ use App\Models\ProductCategory;
 use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
+    private const MONEY_PATTERN = '/^\s*£?\s*\d+(?:,\d{3})*(?:\.\d{1,2})?\s*$/';
+
     public function index(Request $request)
     {
         $query = Product::with('category');
@@ -38,14 +41,14 @@ class ProductController extends Controller
             'variant_options' => 'nullable|array',
             'frontend_variant_layout' => 'nullable|string|in:default,selection_table',
             'selection_table_config' => 'nullable|array',
-            'price' => 'required|string',
+            'price' => ['required', 'string', 'regex:' . self::MONEY_PATTERN],
             'image' => 'nullable|string',
             'gallery' => 'nullable|array',
             'description' => 'nullable|string',
             'product_category_id' => 'nullable|integer|exists:product_categories,id',
             'tags' => 'nullable|array',
             'badge' => 'nullable|string',
-            'old_price' => 'nullable|string',
+            'old_price' => ['nullable', 'string', 'regex:' . self::MONEY_PATTERN],
             'featured' => 'boolean',
             'active' => 'boolean',
             'order' => 'integer',
@@ -55,14 +58,17 @@ class ProductController extends Controller
             'shipping_length_cm' => 'nullable|numeric|min:1|max:999.99',
             'shipping_width_cm' => 'nullable|numeric|min:1|max:999.99',
             'shipping_height_cm' => 'nullable|numeric|min:1|max:999.99',
-            'shipping_class' => 'nullable|string|in:standard,bulky,oversized',
+            'shipping_class' => 'nullable|string|in:standard,freight',
             'ships_separately' => 'nullable|boolean',
+            'freight_delivery_price' => 'nullable|numeric|min:0|max:9999.99',
             'specifications' => 'nullable|array',
             'variants' => 'nullable|array',
             'variant_table_columns' => 'nullable|array',
         ]);
 
         $validated['description'] = HtmlSanitizer::richText($validated['description'] ?? null);
+        $validated['price'] = $this->normalizeMoneyValue($validated['price'], 'price');
+        $validated['old_price'] = $this->normalizeMoneyValue($validated['old_price'] ?? null, 'old_price');
         $validated['image'] = trim((string) ($validated['image'] ?? ''));
         $validated['stock_quantity'] = max(0, (int) ($validated['stock_quantity'] ?? 0));
         $validated['slug'] = Str::slug($validated['name']) . '-' . Str::random(4);
@@ -76,6 +82,11 @@ class ProductController extends Controller
             (string) $validated['price'],
             $validated['variant_mode'],
             $validated['variant_options'] ?? null,
+        );
+        $this->assertValidCombinationSetup(
+            $validated['variant_mode'],
+            $validated['variant_options'] ?? null,
+            $validated['variants'] ?? null,
         );
         $validated['selection_table_config'] = $this->normalizeSelectionTableConfig(
             $validated['selection_table_config'] ?? null,
@@ -104,14 +115,14 @@ class ProductController extends Controller
             'variant_options' => 'nullable|array',
             'frontend_variant_layout' => 'nullable|string|in:default,selection_table',
             'selection_table_config' => 'nullable|array',
-            'price' => 'required|string',
+            'price' => ['required', 'string', 'regex:' . self::MONEY_PATTERN],
             'image' => 'nullable|string',
             'gallery' => 'nullable|array',
             'description' => 'nullable|string',
             'product_category_id' => 'nullable|integer|exists:product_categories,id',
             'tags' => 'nullable|array',
             'badge' => 'nullable|string',
-            'old_price' => 'nullable|string',
+            'old_price' => ['nullable', 'string', 'regex:' . self::MONEY_PATTERN],
             'featured' => 'boolean',
             'active' => 'boolean',
             'order' => 'integer',
@@ -121,14 +132,17 @@ class ProductController extends Controller
             'shipping_length_cm' => 'nullable|numeric|min:1|max:999.99',
             'shipping_width_cm' => 'nullable|numeric|min:1|max:999.99',
             'shipping_height_cm' => 'nullable|numeric|min:1|max:999.99',
-            'shipping_class' => 'nullable|string|in:standard,bulky,oversized',
+            'shipping_class' => 'nullable|string|in:standard,freight',
             'ships_separately' => 'nullable|boolean',
+            'freight_delivery_price' => 'nullable|numeric|min:0|max:9999.99',
             'specifications' => 'nullable|array',
             'variants' => 'nullable|array',
             'variant_table_columns' => 'nullable|array',
         ]);
 
         $validated['description'] = HtmlSanitizer::richText($validated['description'] ?? null);
+        $validated['price'] = $this->normalizeMoneyValue($validated['price'], 'price');
+        $validated['old_price'] = $this->normalizeMoneyValue($validated['old_price'] ?? null, 'old_price');
         $validated['image'] = trim((string) ($validated['image'] ?? ''));
         $validated['stock_quantity'] = max(0, (int) ($validated['stock_quantity'] ?? 0));
         $validated['variant_mode'] = ($validated['variant_mode'] ?? $product->variant_mode ?? 'legacy') === 'combination' ? 'combination' : 'legacy';
@@ -143,6 +157,11 @@ class ProductController extends Controller
             (string) $validated['price'],
             $validated['variant_mode'],
             $validated['variant_options'] ?? null,
+        );
+        $this->assertValidCombinationSetup(
+            $validated['variant_mode'],
+            $validated['variant_options'] ?? null,
+            $validated['variants'] ?? null,
         );
         $validated['selection_table_config'] = $this->normalizeSelectionTableConfig(
             $validated['selection_table_config'] ?? $product->selection_table_config ?? null,
@@ -211,7 +230,7 @@ class ProductController extends Controller
             $shippingWidth = $this->normalizeVariantNumeric($variant['shipping_width_cm'] ?? null, 1, 999.99, 2);
             $shippingHeight = $this->normalizeVariantNumeric($variant['shipping_height_cm'] ?? null, 1, 999.99, 2);
             $shippingClass = trim((string) ($variant['shipping_class'] ?? ''));
-            if (!in_array($shippingClass, ['standard', 'bulky', 'oversized'], true)) {
+            if (!in_array($shippingClass, ['standard', 'freight'], true)) {
                 $shippingClass = null;
             }
 
@@ -291,7 +310,7 @@ class ProductController extends Controller
             $shippingWidth = $this->normalizeVariantNumeric($variant['shipping_width_cm'] ?? null, 1, 999.99, 2);
             $shippingHeight = $this->normalizeVariantNumeric($variant['shipping_height_cm'] ?? null, 1, 999.99, 2);
             $shippingClass = trim((string) ($variant['shipping_class'] ?? ''));
-            if (!in_array($shippingClass, ['standard', 'bulky', 'oversized'], true)) {
+            if (!in_array($shippingClass, ['standard', 'freight'], true)) {
                 $shippingClass = null;
             }
 
@@ -625,5 +644,43 @@ class ProductController extends Controller
         }
 
         return round($numeric, $precision);
+    }
+
+    private function normalizeMoneyValue(mixed $value, string $field): ?string
+    {
+        $raw = trim((string) ($value ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        $normalized = preg_replace('/[^\d.,-]/', '', $raw);
+        $normalized = is_string($normalized) ? str_replace(',', '', $normalized) : '';
+
+        if ($normalized === '' || !is_numeric($normalized)) {
+            throw ValidationException::withMessages([
+                $field => 'The ' . str_replace('_', ' ', $field) . ' field must be a valid money amount.',
+            ]);
+        }
+
+        return '£' . number_format((float) $normalized, 2, '.', '');
+    }
+
+    private function assertValidCombinationSetup(string $variantMode, ?array $variantOptions, ?array $variants): void
+    {
+        if ($variantMode !== 'combination') {
+            return;
+        }
+
+        if (!is_array($variantOptions) || count($variantOptions) === 0) {
+            throw ValidationException::withMessages([
+                'variant_options' => 'Add at least one combination attribute.',
+            ]);
+        }
+
+        if (!is_array($variants) || count($variants) === 0) {
+            throw ValidationException::withMessages([
+                'variants' => 'Add at least one complete combination row.',
+            ]);
+        }
     }
 }

@@ -4,6 +4,7 @@
  * Works across Astro React islands — no shared React tree needed
  */
 import { atom, computed } from 'nanostores';
+import { API_URL } from '@/lib/api';
 
 export interface Customer {
   id: number;
@@ -27,7 +28,17 @@ export const $isAuthLoading = atom<boolean>(true);
 export const $isAuthenticated = computed($customer, (c) => c !== null);
 
 // --- Actions ---
-const API_URL = import.meta.env.PUBLIC_API_URL || '/api';
+const getResolvedApiUrl = () => {
+  if (typeof window === 'undefined') {
+    return API_URL;
+  }
+
+  if (API_URL.startsWith('http://127.0.0.1:') || API_URL.startsWith('http://localhost:')) {
+    return '/api';
+  }
+
+  return API_URL;
+};
 
 export function loginCustomer(customerData: Customer) {
   $customer.set(customerData);
@@ -51,7 +62,7 @@ export function updateCustomer(customerData: Customer) {
  */
 export async function fetchCurrentCustomer() {
   try {
-    const response = await fetch(`${API_URL}/v1/customer/me`, {
+    const response = await fetch(`${getResolvedApiUrl()}/v1/customer/me`, {
       credentials: 'include',
       headers: { Accept: 'application/json' },
     });

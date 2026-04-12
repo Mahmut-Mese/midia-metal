@@ -6,10 +6,10 @@ import {
     MessageSquare, Lock, ChevronRight, ChevronUp, ShoppingCart,
     Trash2, RotateCcw, Clock, Truck, CheckCheck, MapPin, CreditCard
 } from "lucide-react";
-import { $customer, $isAuthLoading, logoutCustomer, updateCustomer } from "@/stores/auth";
+import { $customer, $isAuthLoading, fetchCurrentCustomer, logoutCustomer, updateCustomer } from "@/stores/auth";
 import { $wishlist, removeFromWishlist } from "@/stores/wishlist";
 import { addToCart } from "@/stores/cart";
-import { API_URL, apiFetch } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { normalizeMediaUrl } from "@/lib/media";
 import withErrorBoundary from "@/lib/withErrorBoundary";
 import {
@@ -138,6 +138,10 @@ function AccountIsland() {
     const [savingPassword, setSavingPassword] = useState(false);
 
     useEffect(() => {
+        fetchCurrentCustomer();
+    }, []);
+
+    useEffect(() => {
         if (isLoading) {
             return;
         }
@@ -177,33 +181,24 @@ function AccountIsland() {
 
     const fetchOrders = async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/customer/orders`, {
-                credentials: "include",
-                headers: { Accept: "application/json" }
-            });
-            if (response.ok) setOrders(await response.json());
+            const data = await apiFetch("/v1/customer/orders");
+            if (Array.isArray(data)) setOrders(data);
         } catch { toast.error("Failed to load orders"); }
         finally { setLoadingOrders(false); }
     };
 
     const fetchQuotes = async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/customer/quotes`, {
-                credentials: "include",
-                headers: { Accept: "application/json" }
-            });
-            if (response.ok) setQuotes(await response.json());
+            const data = await apiFetch("/v1/customer/quotes");
+            if (Array.isArray(data)) setQuotes(data);
         } catch { /* silently fail */ }
         finally { setLoadingQuotes(false); }
     };
 
     const fetchCards = async () => {
         try {
-            const response = await fetch(`${API_URL}/v1/customer/payment-methods`, {
-                credentials: "include",
-                headers: { Accept: "application/json" }
-            });
-            if (response.ok) setSavedCards(await response.json());
+            const data = await apiFetch("/v1/customer/payment-methods");
+            if (Array.isArray(data)) setSavedCards(data);
         } catch { toast.error("Failed to load saved cards"); }
         finally { setLoadingCards(false); }
     };
@@ -211,7 +206,7 @@ function AccountIsland() {
     const deleteCard = async (id: number) => {
         if (!confirm("Are you sure you want to remove this card?")) return;
         try {
-            const response = await fetch(`${API_URL}/v1/customer/payment-methods/${id}`, {
+            const response = await fetch(`/api/v1/customer/payment-methods/${id}`, {
                 method: "DELETE",
                 credentials: "include",
                 headers: { Accept: "application/json" }
@@ -235,7 +230,7 @@ function AccountIsland() {
 
     const downloadInvoice = async (id: number, orderNumber: string) => {
         try {
-            const response = await fetch(`${API_URL}/v1/customer/orders/${id}/invoice`, {
+            const response = await fetch(`/api/v1/customer/orders/${id}/invoice`, {
                 credentials: "include",
                 headers: { Accept: "application/json" }
             });

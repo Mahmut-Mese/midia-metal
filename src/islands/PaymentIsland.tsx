@@ -526,6 +526,7 @@ function PaymentIsland() {
                   <div className="border border-[#cad4e4] bg-[#f0f3f7] p-6 mb-6">
                     <h3 className="font-semibold text-primary mb-3">Bank Transfer Details</h3>
                     <div className="text-sm text-primary space-y-1">
+                      {/* TODO: Replace Sort Code and Account Number with real Midia Metal Ltd bank details before go-live */}
                       <p><span className="text-[#6e7a92]">Account Name:</span> Midia Metal Ltd</p>
                       <p><span className="text-[#6e7a92]">Sort Code:</span> 20-00-00</p>
                       <p><span className="text-[#6e7a92]">Account Number:</span> 12345678</p>

@@ -11,7 +11,7 @@ class ParcelBuilder
 {
     /**
      * @param  array<int, array<string, mixed>>  $items
-     * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>}
+     * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>, freight_plan: array<string, mixed>|null}
      */
     public function buildForCheckoutItems(array $items): array
     {
@@ -52,7 +52,7 @@ class ParcelBuilder
     }
 
     /**
-     * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>}
+     * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>, freight_plan: array<string, mixed>|null}
      */
     public function buildForOrder(Order $order): array
     {
@@ -75,18 +75,37 @@ class ParcelBuilder
 
     /**
      * @param  array<int, array{product: Product, quantity: int, selected_variants?: array<string, mixed>|null}>  $lines
-     * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>}
+     * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>, freight_plan: array<string, mixed>|null}
      */
     private function buildFromLines(array $lines): array
     {
         $units = [];
+        $freightItems = [];
 
         foreach ($lines as $line) {
             $product = $line['product'];
             $profile = $this->profileForProduct($product, $line['selected_variants'] ?? null);
 
             if ($profile['shipping_class'] === 'freight') {
-                throw new RuntimeException("{$product->name} requires a freight or manual delivery quote.");
+                $freightPrice = is_numeric($product->freight_delivery_price ?? null)
+                    ? (float) $product->freight_delivery_price
+                    : null;
+
+                if ($freightPrice === null) {
+                    throw new RuntimeException(
+                        "\"{$product->name}\" requires pallet delivery. Please contact us for a freight quote."
+                    );
+                }
+
+                for ($i = 0; $i < $line['quantity']; $i++) {
+                    $freightItems[] = [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'freight_delivery_price' => $freightPrice,
+                        'quantity' => 1,
+                    ];
+                }
+                continue;
             }
 
             for ($i = 0; $i < $line['quantity']; $i++) {
@@ -94,8 +113,44 @@ class ParcelBuilder
             }
         }
 
-        if (count($units) === 0) {
+        if (count($units) === 0 && count($freightItems) === 0) {
             throw new RuntimeException('No shippable items were provided.');
+        }
+
+        // Build freight plan if any freight items are present
+        $freightPlan = null;
+        if (count($freightItems) > 0) {
+            $flatRate = collect($freightItems)->sum(fn (array $item) => $item['freight_delivery_price']);
+            $freightPlan = [
+                'flat_rate' => round($flatRate, 2),
+                'items' => collect($freightItems)
+                    ->groupBy('product_id')
+                    ->map(function ($group) {
+                        $first = $group->first();
+                        return [
+                            'product_id' => $first['product_id'],
+                            'product_name' => $first['product_name'],
+                            'quantity' => $group->count(),
+                            'freight_delivery_price' => $first['freight_delivery_price'],
+                        ];
+                    })
+                    ->values()
+                    ->all(),
+            ];
+        }
+
+        // If the order is freight-only there are no standard parcels to build
+        if (count($units) === 0) {
+            return [
+                'parcels' => [],
+                'parcel_summary' => [
+                    'parcel_count' => 0,
+                    'total_weight_kg' => 0,
+                    'shipping_classes' => ['freight'],
+                    'contains_separate_parcels' => false,
+                ],
+                'freight_plan' => $freightPlan,
+            ];
         }
 
         usort($units, function (array $left, array $right) {
@@ -107,7 +162,7 @@ class ParcelBuilder
 
         $draftParcels = [];
         foreach ($units as $unit) {
-            if ($unit['ships_separately'] || in_array($unit['shipping_class'], ['bulky', 'oversized'], true)) {
+            if ($unit['ships_separately']) {
                 $draftParcels[] = $this->createDraftParcel($unit);
                 continue;
             }
@@ -136,9 +191,9 @@ class ParcelBuilder
         $summary = [
             'parcel_count' => count($parcels),
             'total_weight_kg' => round(collect($parcels)->sum(fn (array $parcel) => (float) ($parcel['weight'] ?? 0)), 3),
-            'shipping_classes' => array_values(array_unique(array_map(
-                fn (array $parcel) => (string) ($parcel['shipping_class'] ?? 'standard'),
-                $parcels
+            'shipping_classes' => array_values(array_unique(array_merge(
+                array_map(fn (array $parcel) => (string) ($parcel['shipping_class'] ?? 'standard'), $parcels),
+                $freightPlan !== null ? ['freight'] : []
             ))),
             'contains_separate_parcels' => collect($parcels)->contains(fn (array $parcel) => (bool) ($parcel['ships_separately'] ?? false)),
         ];
@@ -146,6 +201,7 @@ class ParcelBuilder
         return [
             'parcels' => $parcels,
             'parcel_summary' => $summary,
+            'freight_plan' => $freightPlan,
         ];
     }
 
@@ -180,10 +236,6 @@ class ParcelBuilder
         if ($variantOverride['ships_separately']) {
             $shipsSeparately = true;
         }
-        if ($shippingClass === 'freight') {
-            $shippingClass = 'oversized';
-            $shipsSeparately = true;
-        }
 
         return [
             'product_id' => $product->id,
@@ -211,7 +263,7 @@ class ParcelBuilder
             'base_height_cm' => (float) $unit['height_cm'],
             'shipping_class' => (string) $unit['shipping_class'],
             'ships_separately' => (bool) $unit['ships_separately'],
-            'locked' => (bool) $unit['ships_separately'] || in_array($unit['shipping_class'], ['bulky', 'oversized'], true),
+            'locked' => (bool) $unit['ships_separately'],
         ];
     }
 
@@ -356,7 +408,7 @@ class ParcelBuilder
             ];
         }
 
-        $classPriority = ['standard' => 1, 'bulky' => 2, 'oversized' => 3, 'freight' => 4];
+        $classPriority = ['standard' => 1, 'freight' => 2];
         $shippingClass = $resolvedSelections
             ->map(fn (array $selection) => (string) ($selection['shipping_class'] ?? ''))
             ->filter(fn (string $value) => array_key_exists($value, $classPriority))

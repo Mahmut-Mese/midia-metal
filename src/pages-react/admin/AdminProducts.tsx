@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, X, SlidersHorizontal, Undo2 } from "lucide-react";
+import { Plus, Edit2, Trash2, X, SlidersHorizontal, Undo2, Copy, ChevronDown, ChevronRight, ClipboardPaste } from "lucide-react";
 import ImageUpload from "@/components/admin/ImageUpload";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -92,11 +92,41 @@ const normalizeVariantPrice = (value: unknown, fallbackPrice: string): string =>
 
 const normalizeVariantOptionName = (value: unknown): string => String(value ?? "").trim();
 
+/** Split a tab-separated line into trimmed tokens (for spreadsheet bulk paste). */
+const toVariantTableTokens = (line: string): string[] =>
+    line.split("\t").map((token) => token.trim());
+
+/** Create a stable, lowercase key from a group label (for collapsible group state). */
+const slugifyVariantGroupKey = (label: string): string =>
+    label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "other";
+
 const normalizeVariantOptionList = (value: unknown): string[] => (
     Array.isArray(value)
         ? value.map((option) => normalizeVariantOptionName(option)).filter(Boolean)
         : []
 );
+
+/**
+ * Specifications are stored in two formats in the DB:
+ *   - Correct:  { "Key": "Value", ... }          (plain object / associative array)
+ *   - Legacy:   [{ key: "Key", value: "Value" }]  (array of key-value pairs)
+ * This normalises both to the plain-object format the admin UI expects.
+ */
+const normalizeSpecifications = (value: unknown): Record<string, string> => {
+    if (!value || typeof value !== "object") return {};
+    if (Array.isArray(value)) {
+        // Convert [{key, value}] → {key: value}
+        const result: Record<string, string> = {};
+        for (const item of value) {
+            if (item && typeof item === "object" && "key" in item && "value" in item) {
+                result[String((item as any).key)] = String((item as any).value);
+            }
+        }
+        return result;
+    }
+    // Already a plain object
+    return value as Record<string, string>;
+};
 
 const normalizeCombinationAttributes = (
     value: unknown,
@@ -238,8 +268,7 @@ const mapCombinationVariantsForStorage = (
 
 const SHIPPING_CLASS_OPTIONS = [
     { value: "standard", label: "Standard" },
-    { value: "bulky", label: "Bulky" },
-    { value: "oversized", label: "Oversized" },
+    { value: "freight", label: "Freight (Pallet)" },
 ];
 
 type VariantTableSection = "size" | "general" | "combination";
@@ -277,8 +306,8 @@ const DEFAULT_VARIANT_TABLE_COLUMNS: VariantTableColumns = {
 };
 
 const FIXED_SIZE_COLUMNS: VariantTableColumn[] = [
-    { key: "shipping_class", label: "Shipping Class", visible: true, frontendVisible: true },
-    { key: "ships_separately", label: "Ships Separately", visible: true, frontendVisible: true },
+    { key: "shipping_class", label: "Delivery Type", visible: true, frontendVisible: true },
+    { key: "ships_separately", label: "Own Parcel", visible: true, frontendVisible: true },
 ];
 const HIDDEN_SIZE_COLUMN_KEYS = new Set(["value"]);
 const FIXED_SIZE_COLUMN_KEYS = new Set(FIXED_SIZE_COLUMNS.map((column) => column.key));
@@ -594,7 +623,7 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
                     shipping_length_cm: 180,
                     shipping_width_cm: baseWidth,
                     shipping_height_cm: baseHeight,
-                    shipping_class: "oversized",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
                 createSuggestedVariant(option, "2400mm", {
@@ -602,7 +631,7 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
                     shipping_length_cm: 240,
                     shipping_width_cm: baseWidth,
                     shipping_height_cm: baseHeight,
-                    shipping_class: "oversized",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
                 createSuggestedVariant(option, "3000mm", {
@@ -610,7 +639,7 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
                     shipping_length_cm: 300,
                     shipping_width_cm: baseWidth,
                     shipping_height_cm: baseHeight,
-                    shipping_class: "oversized",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
             ],
@@ -628,7 +657,7 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
                     shipping_length_cm: 45,
                     shipping_width_cm: 45,
                     shipping_height_cm: 35,
-                    shipping_class: "bulky",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
                 createSuggestedVariant(option, "315mm", {
@@ -636,7 +665,7 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
                     shipping_length_cm: 55,
                     shipping_width_cm: 55,
                     shipping_height_cm: 40,
-                    shipping_class: "bulky",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
                 createSuggestedVariant(option, "400mm", {
@@ -644,7 +673,7 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
                     shipping_length_cm: 70,
                     shipping_width_cm: 70,
                     shipping_height_cm: 50,
-                    shipping_class: "bulky",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
             ],
@@ -676,7 +705,7 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
                     shipping_length_cm: 120,
                     shipping_width_cm: Math.max(10, baseWidth),
                     shipping_height_cm: Math.max(8, baseHeight),
-                    shipping_class: "oversized",
+                    shipping_class: "standard",
                     ships_separately: true,
                 }),
             ],
@@ -709,14 +738,14 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
         const option = "Panel Size";
         return {
             option,
-            description: "Starter panel sizes. Keep these oversized and separate for courier handling.",
+            description: "Starter panel sizes. These ship as pallet freight.",
             variants: [
                 createSuggestedVariant(option, "1000 x 2000mm", {
                     shipping_weight_kg: scaleWeight(baseWeight, 0.8),
                     shipping_length_cm: 200,
                     shipping_width_cm: 100,
                     shipping_height_cm: Math.max(1, baseHeight),
-                    shipping_class: "oversized",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
                 createSuggestedVariant(option, "1250 x 2500mm", {
@@ -724,7 +753,7 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
                     shipping_length_cm: 250,
                     shipping_width_cm: 125,
                     shipping_height_cm: Math.max(1, baseHeight),
-                    shipping_class: "oversized",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
                 createSuggestedVariant(option, "1500 x 3000mm", {
@@ -732,7 +761,7 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
                     shipping_length_cm: 300,
                     shipping_width_cm: 150,
                     shipping_height_cm: Math.max(1, baseHeight),
-                    shipping_class: "oversized",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
             ],
@@ -760,17 +789,17 @@ const getVariantSuggestion = (product: any): VariantSuggestion => {
             variants: [
                 createSuggestedVariant(option, "12000 BTU", {
                     shipping_weight_kg: scaleWeight(baseWeight, 0.8),
-                    shipping_class: "bulky",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
                 createSuggestedVariant(option, "18000 BTU", {
                     shipping_weight_kg: scaleWeight(baseWeight, 1),
-                    shipping_class: "bulky",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
                 createSuggestedVariant(option, "24000 BTU", {
                     shipping_weight_kg: scaleWeight(baseWeight, 1.2),
-                    shipping_class: "oversized",
+                    shipping_class: "freight",
                     ships_separately: true,
                 }),
             ],
@@ -797,6 +826,10 @@ export default function AdminProducts() {
     const [newSizeVariant, setNewSizeVariant] = useState(createEmptySizeVariant());
     const [newOtherVariant, setNewOtherVariant] = useState(createEmptyGeneralVariant());
     const [newCombinationVariant, setNewCombinationVariant] = useState(createEmptyCombinationVariant());
+    const [sizeBulkPaste, setSizeBulkPaste] = useState("");
+    const [otherBulkPaste, setOtherBulkPaste] = useState("");
+    const [combinationBulkPaste, setCombinationBulkPaste] = useState("");
+    const [collapsedCombinationGroups, setCollapsedCombinationGroups] = useState<Record<string, boolean>>({});
     const [newCombinationOptionName, setNewCombinationOptionName] = useState("");
     const [newSelectionTableTabValue, setNewSelectionTableTabValue] = useState("");
 
@@ -868,7 +901,7 @@ export default function AdminProducts() {
                 price: stripCurrencyForAdmin(product.price),
                 old_price: stripCurrencyForAdmin(product.old_price),
                 show_variant_in_title: Boolean(product.show_variant_in_title),
-                specifications: product.specifications || {},
+                specifications: normalizeSpecifications(product.specifications),
                 variants: variantMode === "combination"
                     ? mapCombinationVariantsToAdmin(product.variants || [], productPrice, optionNames)
                     : mapVariantsToProductPrice(product.variants || [], productPrice),
@@ -966,6 +999,23 @@ export default function AdminProducts() {
             finalProduct.variant_options = finalProduct.variant_mode === "combination"
                 ? normalizeVariantOptionList(finalProduct.variant_options)
                 : [];
+
+            if (finalProduct.variant_mode === "combination") {
+                if (finalProduct.variant_options.length === 0) {
+                    toast.error("Add at least one combination attribute before saving.");
+                    return;
+                }
+
+                const completeCombinationRows = (finalProduct.variants || []).filter((variant: any) => (
+                    finalProduct.variant_options.every((optionName: string) => String(variant?.attributes?.[optionName] ?? "").trim())
+                ));
+
+                if (completeCombinationRows.length === 0) {
+                    toast.error("Add at least one complete combination row before saving.");
+                    return;
+                }
+            }
+
             finalProduct.variants = finalProduct.variant_mode === "combination"
                 ? mapCombinationVariantsForStorage(finalProduct.variants || [], finalProduct.price || "", finalProduct.variant_options)
                 : mapVariantsForStorage(finalProduct.variants || [], finalProduct.price || "");
@@ -984,6 +1034,12 @@ export default function AdminProducts() {
             finalProduct.shipping_length_cm = normalizeShippingNumber(finalProduct.shipping_length_cm);
             finalProduct.shipping_width_cm = normalizeShippingNumber(finalProduct.shipping_width_cm);
             finalProduct.shipping_height_cm = normalizeShippingNumber(finalProduct.shipping_height_cm);
+            if (finalProduct.shipping_class !== "freight") {
+                finalProduct.freight_delivery_price = null;
+            } else {
+                const fdp = parseFloat(String(finalProduct.freight_delivery_price ?? ""));
+                finalProduct.freight_delivery_price = isNaN(fdp) || fdp < 0 ? null : fdp;
+            }
 
             if (finalProduct.frontend_variant_layout === "selection_table") {
                 if (finalProduct.variant_mode !== "combination") {
@@ -1312,6 +1368,27 @@ export default function AdminProducts() {
         });
     };
 
+    const cloneVariantAtIndex = (index: number) => {
+        setCurrentProduct((prev: any) => {
+            if (!prev) return prev;
+
+            const variants = [...(prev.variants || [])];
+            const source = variants[index];
+            if (!source) return prev;
+
+            variants.splice(index + 1, 0, {
+                ...source,
+                attributes: source.attributes ? { ...source.attributes } : source.attributes,
+                custom_fields: normalizeVariantCustomFields(source.custom_fields),
+            });
+
+            return {
+                ...prev,
+                variants,
+            };
+        });
+    };
+
     const appendNewSizeVariant = () => {
         const generatedValue = buildVariantValueFromDimensions(
             "Size",
@@ -1605,6 +1682,117 @@ export default function AdminProducts() {
         setNewCombinationVariant(createEmptyCombinationVariant(optionNames));
     };
 
+    const applySizeBulkPaste = () => {
+        const rows = sizeBulkPaste.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        if (rows.length === 0) {
+            toast.error("Paste at least one size row.");
+            return;
+        }
+
+        const parsedRows = rows.map((line) => {
+            const [value, price = "", stock = "", weight = "", length = "", width = "", height = "", deliveryType = "", ownParcel = ""] = toVariantTableTokens(line);
+            return {
+                option: "Size",
+                value: value || buildVariantValueFromDimensions("Size", length, width, height),
+                price: normalizeVariantPrice(price, currentProduct?.price || ""),
+                stock: normalizeVariantStock(stock),
+                shipping_weight_kg: normalizeShippingNumber(weight),
+                shipping_length_cm: normalizeShippingNumber(length),
+                shipping_width_cm: normalizeShippingNumber(width),
+                shipping_height_cm: normalizeShippingNumber(height),
+                shipping_class: ["standard", "freight"].includes(deliveryType) ? deliveryType : "",
+                ships_separately: ["1", "true", "yes", "y"].includes(ownParcel.toLowerCase()),
+                custom_fields: {},
+            };
+        }).filter((row) => String(row.value || "").trim());
+
+        if (parsedRows.length === 0) {
+            toast.error("Each pasted size row needs a size label or dimensions.");
+            return;
+        }
+
+        setCurrentProduct((prev: any) => ({ ...prev, variants: [...(prev?.variants || []), ...parsedRows] }));
+        setSizeBulkPaste("");
+        toast.success(`${parsedRows.length} size rows added.`);
+    };
+
+    const applyOtherBulkPaste = () => {
+        const rows = otherBulkPaste.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        if (rows.length === 0) {
+            toast.error("Paste at least one option row.");
+            return;
+        }
+
+        const parsedRows = rows.map((line) => {
+            const [option = "", value = "", stock = ""] = toVariantTableTokens(line);
+            return {
+                option: option.trim(),
+                value: value.trim(),
+                price: null,
+                stock: normalizeVariantStock(stock),
+                shipping_weight_kg: null,
+                shipping_length_cm: null,
+                shipping_width_cm: null,
+                shipping_height_cm: null,
+                shipping_class: "",
+                ships_separately: false,
+                custom_fields: {},
+            };
+        }).filter((row) => row.option && row.value);
+
+        if (parsedRows.length === 0) {
+            toast.error("Use tab-separated columns: Option, Value, Stock.");
+            return;
+        }
+
+        setCurrentProduct((prev: any) => ({ ...prev, variants: [...(prev?.variants || []), ...parsedRows] }));
+        setOtherBulkPaste("");
+        toast.success(`${parsedRows.length} option rows added.`);
+    };
+
+    const applyCombinationBulkPaste = () => {
+        const optionNames = normalizeVariantOptionList(currentProduct?.variant_options);
+        if (optionNames.length === 0) {
+            toast.error("Add combination attributes first.");
+            return;
+        }
+
+        const rows = combinationBulkPaste.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        if (rows.length === 0) {
+            toast.error("Paste at least one combination row.");
+            return;
+        }
+
+        const parsedRows = rows.map((line) => {
+            const tokens = toVariantTableTokens(line);
+            const attributeTokens = tokens.slice(0, optionNames.length);
+            const [price = "", stock = "", weight = "", length = "", width = "", height = "", deliveryType = "", ownParcel = ""] = tokens.slice(optionNames.length);
+            const attributes = Object.fromEntries(optionNames.map((optionName, idx) => [optionName, attributeTokens[idx] || ""]));
+
+            return {
+                attributes,
+                price: normalizeVariantPrice(price, currentProduct?.price || ""),
+                stock: normalizeVariantStock(stock),
+                shipping_weight_kg: normalizeShippingNumber(weight),
+                shipping_length_cm: normalizeShippingNumber(length),
+                shipping_width_cm: normalizeShippingNumber(width),
+                shipping_height_cm: normalizeShippingNumber(height),
+                shipping_class: ["standard", "freight"].includes(deliveryType) ? deliveryType : "",
+                ships_separately: ["1", "true", "yes", "y"].includes(ownParcel.toLowerCase()),
+                custom_fields: {},
+            };
+        }).filter((row) => optionNames.every((optionName) => String(row.attributes?.[optionName] ?? "").trim()));
+
+        if (parsedRows.length === 0) {
+            toast.error("Each pasted row must include a value for every sellable attribute.");
+            return;
+        }
+
+        setCurrentProduct((prev: any) => ({ ...prev, variants: [...(prev?.variants || []), ...parsedRows] }));
+        setCombinationBulkPaste("");
+        toast.success(`${parsedRows.length} combination rows added.`);
+    };
+
     const variantTableColumns = currentProduct
         ? normalizeVariantTableColumns(currentProduct.variant_table_columns)
         : cloneVariantTableColumns(DEFAULT_VARIANT_TABLE_COLUMNS);
@@ -1641,6 +1829,23 @@ export default function AdminProducts() {
     const otherVariantEntries = (currentProduct?.variants || []).flatMap((variant: any, index: number) => (
         String(variant?.option ?? "").toLowerCase() !== "size" ? [{ variant, index }] : []
     ));
+    const combinationGroupSource = selectionTableConfig.tab_option && combinationVariantEntries.length > 0
+        ? selectionTableConfig.tab_option
+        : (combinationOptionNames[0] || "");
+    const combinationGroups = combinationVariantEntries.reduce((groups: Array<{ key: string; label: string; items: typeof combinationVariantEntries }>, entry) => {
+        const groupLabel = combinationGroupSource.startsWith("custom:")
+            ? String(entry.variant?.custom_fields?.[combinationGroupSource.slice("custom:".length)] ?? "Other").trim() || "Other"
+            : String(entry.variant?.attributes?.[combinationGroupSource] ?? "Other").trim() || "Other";
+        const groupKey = slugifyVariantGroupKey(groupLabel);
+        const existingGroup = groups.find((group) => group.key === groupKey);
+        if (existingGroup) {
+            existingGroup.items.push(entry);
+            return groups;
+        }
+
+        groups.push({ key: groupKey, label: groupLabel, items: [entry] });
+        return groups;
+    }, []);
 
     const renderSizeVariantCell = (columnKey: string, variant: any, index: number) => {
         const baseInputClass = "rounded border border-gray-300 bg-white px-1.5 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none";
@@ -2368,22 +2573,122 @@ export default function AdminProducts() {
                                             <span className="ml-2 text-sm text-gray-600">Track Stock</span>
                                         </label>
                                     </div>
-                                    {currentProduct.track_stock && (
-                                        <div className="col-span-2 sm:col-span-1">
-                                            <label className="block text-sm font-medium text-gray-700">Stock Quantity</label>
-                                            <input
-                                                type="number"
+                                     {currentProduct.track_stock && (
+                                         <div className="col-span-2 sm:col-span-1">
+                                             <label className="block text-sm font-medium text-gray-700">Stock Quantity</label>
+                                             <input
+                                                 type="number"
                                                 value={currentProduct.stock_quantity === null || currentProduct.stock_quantity === undefined ? "" : currentProduct.stock_quantity}
                                                 onChange={(e) => setCurrentProduct({ ...currentProduct, stock_quantity: e.target.value ? parseInt(e.target.value, 10) : "" })}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                                            />
-                                        </div>
-                                    )}
+                                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                             />
+                                         </div>
+                                     )}
 
                                     <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
-                                        <label className="block text-sm font-bold text-[#10275c] uppercase tracking-wider">Frontend Layout</label>
+                                        <label className="block text-sm font-bold text-[#10275c] uppercase tracking-wider">Base Shipping Profile</label>
                                         <p className="mt-2 text-xs text-gray-500">
-                                            Keep the normal product page for most items, or switch selected combination products to a tabbed selection table.
+                                            These values control delivery for simple products and act as the fallback whenever a variant row does not override weight, dimensions, or delivery type.
+                                        </p>
+                                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Weight (kg)</label>
+                                                <input
+                                                    type="number"
+                                                    min={0.01}
+                                                    step="0.001"
+                                                    value={currentProduct.shipping_weight_kg ?? ""}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_weight_kg: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                                    placeholder="2.000"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Length (cm)</label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    step="0.01"
+                                                    value={currentProduct.shipping_length_cm ?? ""}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_length_cm: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                                    placeholder="30"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Width (cm)</label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    step="0.01"
+                                                    value={currentProduct.shipping_width_cm ?? ""}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_width_cm: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                                    placeholder="20"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Height (cm)</label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    step="0.01"
+                                                    value={currentProduct.shipping_height_cm ?? ""}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_height_cm: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                                    placeholder="10"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Delivery Type</label>
+                                                <select
+                                                    value={currentProduct.shipping_class || "standard"}
+                                                    onChange={(e) => setCurrentProduct({ ...currentProduct, shipping_class: e.target.value })}
+                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border bg-white"
+                                                >
+                                                    {SHIPPING_CLASS_OPTIONS.map((option) => (
+                                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="flex items-end pb-2">
+                                                <label className="inline-flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={Boolean(currentProduct.ships_separately)}
+                                                        onChange={(e) => setCurrentProduct({ ...currentProduct, ships_separately: e.target.checked })}
+                                                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    />
+                                                    <span className="ml-2 text-sm text-gray-600">Pack as its own parcel</span>
+                                                </label>
+                                            </div>
+                                            {currentProduct.shipping_class === "freight" && (
+                                                <div className="col-span-2">
+                                                    <label className="block text-sm font-medium text-gray-700">
+                                                        Pallet Delivery Rate (£)
+                                                        <span className="ml-1 text-xs text-gray-400 font-normal">— shown to the customer at checkout as "Pallet Delivery" before any zone surcharge</span>
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min={0}
+                                                        step="0.01"
+                                                        value={currentProduct.freight_delivery_price ?? ""}
+                                                        onChange={(e) => setCurrentProduct({ ...currentProduct, freight_delivery_price: e.target.value })}
+                                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
+                                                        placeholder="e.g. 90.00"
+                                                    />
+                                                    <p className="mt-1 text-xs text-gray-500">
+                                                        Use this for the base pallet charge. Regional freight surcharges are added separately from Shipping settings.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                     <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50/60 p-4">
+                                         <label className="block text-sm font-bold text-[#10275c] uppercase tracking-wider">Frontend Layout</label>
+                                        <p className="mt-2 text-xs text-gray-500">
+                                            Keep the default layout for most products. Use the selection table only when customers need to compare exact combination rows in a structured table.
                                         </p>
                                         <div className="mt-4 flex flex-wrap gap-4">
                                             <label className="inline-flex items-center gap-2 text-sm text-gray-700">
@@ -2415,7 +2720,7 @@ export default function AdminProducts() {
                                         {currentProduct.frontend_variant_layout === "selection_table" && (
                                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="md:col-span-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                                    Selection table works with combination pricing. One variant attribute becomes the tab group, and each row stays an exact sellable combination.
+                                                    Selection table works only with combination pricing. One attribute becomes the tab group, and each row remains a single sellable combination with its own price, stock, and delivery profile.
                                                 </div>
                                                 <div className="md:col-span-2">
                                                     <label className="block text-sm font-medium text-gray-700">Intro Text</label>
@@ -2618,42 +2923,56 @@ export default function AdminProducts() {
                                     </div>
 
                                     <div className="col-span-2 border-t pt-6 bg-gray-50/50 py-6 px-1 rounded-lg">
-                                        <label className="block text-sm font-bold text-[#10275c] mb-4 uppercase tracking-wider px-4">PRODUCT VARIANTS</label>
-
                                         <div className="px-4">
-                                            <div className="flex flex-wrap gap-4">
-                                                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                                            <label className="block text-sm font-bold text-[#10275c] mb-2 uppercase tracking-wider">Product Variants</label>
+                                            <p className="text-xs text-gray-500">
+                                                Choose the simplest structure that matches how the product is sold, then fill in price, stock, and delivery overrides only where they genuinely differ.
+                                            </p>
+                                        </div>
+
+                                        <div className="mt-4 px-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <label className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-colors ${currentProduct.variant_mode !== "combination" ? "border-[#eb5c10] bg-orange-50/40" : "border-gray-200 bg-white hover:border-gray-300"}`}>
                                                     <input
                                                         type="radio"
                                                         name="variant_mode"
                                                         checked={currentProduct.variant_mode !== "combination"}
                                                         onChange={() => setProductVariantMode("legacy")}
-                                                        className="h-4 w-4 border-gray-300 text-[#eb5c10] focus:ring-[#eb5c10]"
+                                                        className="mt-0.5 h-4 w-4 border-gray-300 text-[#eb5c10] focus:ring-[#eb5c10]"
                                                     />
-                                                    <span>Legacy variants</span>
+                                                    <span>
+                                                        <span className="block text-sm font-semibold text-gray-800">Simple option lists</span>
+                                                        <span className="mt-1 block text-xs text-gray-500">Best for straightforward options like Size, Colour, or Finish where customers make one or two simple selections.</span>
+                                                    </span>
                                                 </label>
-                                                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                                                <label className={`flex items-start gap-3 rounded-lg border p-4 cursor-pointer transition-colors ${currentProduct.variant_mode === "combination" ? "border-[#eb5c10] bg-orange-50/40" : "border-gray-200 bg-white hover:border-gray-300"}`}>
                                                     <input
                                                         type="radio"
                                                         name="variant_mode"
                                                         checked={currentProduct.variant_mode === "combination"}
                                                         onChange={() => setProductVariantMode("combination")}
-                                                        className="h-4 w-4 border-gray-300 text-[#eb5c10] focus:ring-[#eb5c10]"
+                                                        className="mt-0.5 h-4 w-4 border-gray-300 text-[#eb5c10] focus:ring-[#eb5c10]"
                                                     />
-                                                    <span>Combination pricing</span>
+                                                    <span>
+                                                        <span className="block text-sm font-semibold text-gray-800">Combination matrix</span>
+                                                        <span className="mt-1 block text-xs text-gray-500">Use this when each exact combination, such as Material + Height, needs its own price, stock, or delivery profile.</span>
+                                                    </span>
                                                 </label>
                                             </div>
-                                            <p className="mt-2 text-xs text-gray-500">
-                                                Use combination pricing when one exact mix like Height + Feature needs its own price and stock.
-                                            </p>
                                         </div>
 
                                         {currentProduct.variant_mode === "combination" ? (
                                             <div className="mt-6 space-y-4 px-4">
+                                                <div className="rounded-md border border-dashed border-gray-300 bg-white p-3">
+                                                    <div className="flex items-center gap-2 text-xs font-semibold text-gray-600"><ClipboardPaste className="h-3.5 w-3.5" />Bulk paste combination rows</div>
+                                                    <p className="mt-1 text-[11px] text-gray-400">Paste tab-separated rows in this order: one column per sellable attribute, then Price, Stock, Weight, Length, Width, Height, Delivery Type, Own Parcel.</p>
+                                                    <textarea value={combinationBulkPaste} onChange={(event) => setCombinationBulkPaste(event.target.value)} rows={4} className="mt-2 block w-full rounded-md border border-gray-300 p-2 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder={combinationOptionNames.length > 0 ? `${combinationOptionNames.join("\t")}\tPrice\tStock\tWeight\tLength\tWidth\tHeight\tDelivery Type\tOwn Parcel` : "Add attributes first"} />
+                                                    <div className="mt-2 flex justify-end"><button type="button" onClick={applyCombinationBulkPaste} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"><ClipboardPaste className="h-3.5 w-3.5" />Add pasted rows</button></div>
+                                                </div>
                                                 <div className="rounded-md border border-gray-200 bg-white p-4">
-                                                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Variant Attributes</p>
+                                                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Sellable Attributes</p>
                                                     <p className="mt-1 text-xs text-gray-500">
-                                                        Add the fields that make one row a different sellable combination, such as Material, Height, Feature, or Type.
+                                                        Add the attributes that define each sellable row, such as Material, Height, Depth, Type, or Finish.
                                                     </p>
                                                     <div className="mt-3 flex flex-wrap gap-2">
                                                         {combinationOptionNames.map((optionName) => (
@@ -2689,9 +3008,9 @@ export default function AdminProducts() {
 
                                                 <div className="flex items-center justify-between gap-3 px-1">
                                                     <div>
-                                                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Extra Table Columns</p>
+                                                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Extra Display Columns</p>
                                                         <p className="mt-1 text-xs text-gray-400">
-                                                            Add display-only row data like Part Number, Airflow, or P.D. for the optional selection table layout.
+                                                            Add display-only row data such as Part Number, Airflow, Gauge, or P.D. for the optional selection table layout.
                                                         </p>
                                                     </div>
                                                     <VariantColumnManager
@@ -2705,11 +3024,86 @@ export default function AdminProducts() {
                                                     />
                                                 </div>
 
-                                                <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
-                                                    <table className="w-max divide-y divide-gray-200">
-                                                        <thead className="bg-gray-50">
-                                                            <tr>
-                                                                {combinationOptionNames.map((optionName) => (
+                                                <div className="px-4 text-[11px] text-gray-400">Scroll sideways to edit all columns.</div>
+                                                <div className="space-y-4">
+                                                    {combinationGroups.length === 0 ? (
+                                                        <div className="rounded-md border border-dashed border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-400">
+                                                            No combination rows yet.
+                                                        </div>
+                                                    ) : combinationGroups.map((group) => {
+                                                        const isCollapsed = Boolean(collapsedCombinationGroups[group.key]);
+
+                                                        return (
+                                                            <div key={group.key} className="rounded-md border border-gray-200 bg-white shadow-sm overflow-hidden">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setCollapsedCombinationGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
+                                                                    className="flex w-full items-center justify-between bg-gray-50 px-4 py-3 text-left"
+                                                                >
+                                                                    <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                                                        {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                                                        <span>{group.label}</span>
+                                                                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-gray-500">{group.items.length} row{group.items.length === 1 ? "" : "s"}</span>
+                                                                    </span>
+                                                                </button>
+
+                                                                {!isCollapsed && (
+                                                                    <div className="overflow-x-auto">
+                                                                        <table className="w-max min-w-full divide-y divide-gray-200">
+                                                                            <thead className="bg-gray-50">
+                                                                                <tr>
+                                                                                    {combinationOptionNames.map((optionName) => (
+                                                                                        <th key={optionName} className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">{optionName}</th>
+                                                                                    ))}
+                                                                                    {visibleCombinationCustomColumns.map((column) => (
+                                                                                        <th key={column.key} className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">{column.label}</th>
+                                                                                    ))}
+                                                                                    <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Price</th>
+                                                                                    <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Stock</th>
+                                                                                    <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Weight (kg)</th>
+                                                                                    <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Length (cm)</th>
+                                                                                    <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Width (cm)</th>
+                                                                                    <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Height (cm)</th>
+                                                                                    <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Delivery Type</th>
+                                                                                    <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Own Parcel</th>
+                                                                                    <th className="px-2 py-2 text-right"></th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody className="divide-y divide-gray-200 bg-white">
+                                                                                {group.items.map(({ variant, index }) => (
+                                                                                    <tr key={index} className="hover:bg-gray-50 transition-colors align-top">
+                                                                                        {combinationOptionNames.map((optionName) => (
+                                                                                            <td key={optionName} className="px-2 py-2">
+                                                                                                <input type="text" value={variant.attributes?.[optionName] ?? ""} onChange={(event) => updateCombinationVariantAttribute(index, optionName, event.target.value)} className="w-28 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder={optionName} />
+                                                                                            </td>
+                                                                                        ))}
+                                                                                        {visibleCombinationCustomColumns.map((column) => (
+                                                                                            <td key={column.key} className="px-2 py-2">{renderCombinationCustomFieldCell(variant, index, column.key)}</td>
+                                                                                        ))}
+                                                                                        <td className="px-2 py-2"><input type="text" value={variant.price ?? ""} onChange={(event) => updateCombinationVariantField(index, "price", event.target.value)} className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder={currentProduct.price || "£0.00"} /></td>
+                                                                                        <td className="px-2 py-2"><input type="number" min={0} value={variant.stock ?? ""} onChange={(event) => updateCombinationVariantField(index, "stock", normalizeVariantStock(event.target.value))} className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" /></td>
+                                                                                        <td className="px-2 py-2"><input type="number" min={0.01} step="0.001" value={variant.shipping_weight_kg ?? ""} onChange={(event) => updateCombinationVariantField(index, "shipping_weight_kg", normalizeShippingNumber(event.target.value))} className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="base" /></td>
+                                                                                        <td className="px-2 py-2"><input type="number" min={1} step="0.01" value={variant.shipping_length_cm ?? ""} onChange={(event) => updateCombinationVariantField(index, "shipping_length_cm", normalizeShippingNumber(event.target.value))} className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="base" /></td>
+                                                                                        <td className="px-2 py-2"><input type="number" min={1} step="0.01" value={variant.shipping_width_cm ?? ""} onChange={(event) => updateCombinationVariantField(index, "shipping_width_cm", normalizeShippingNumber(event.target.value))} className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="base" /></td>
+                                                                                        <td className="px-2 py-2"><input type="number" min={1} step="0.01" value={variant.shipping_height_cm ?? ""} onChange={(event) => updateCombinationVariantField(index, "shipping_height_cm", normalizeShippingNumber(event.target.value))} className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder="base" /></td>
+                                                                                        <td className="px-2 py-2"><select value={variant.shipping_class ?? ""} onChange={(event) => updateCombinationVariantField(index, "shipping_class", event.target.value)} className="w-24 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"><option value="">Use base</option>{SHIPPING_CLASS_OPTIONS.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}</select></td>
+                                                                                        <td className="px-2 py-2"><label className="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" checked={Boolean(variant.ships_separately)} onChange={(event) => updateCombinationVariantField(index, "ships_separately", event.target.checked)} className="rounded border-gray-300 text-[#eb5c10] focus:ring-[#eb5c10]" /><span>Yes</span></label></td>
+                                                                                        <td className="px-2 py-2 text-right"><div className="flex items-center justify-end gap-1"><button type="button" onClick={() => cloneVariantAtIndex(index)} className="inline-flex items-center gap-1 rounded border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50"><Copy className="w-3.5 h-3.5" />Clone</button><button type="button" onClick={() => removeVariantAtIndex(index)} className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" />Remove</button></div></td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
+                                                        <table className="w-max min-w-full divide-y divide-gray-200">
+                                                            <thead className="bg-gray-50">
+                                                                <tr>
+                                                                    {combinationOptionNames.map((optionName) => (
                                                                     <th key={optionName} className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">
                                                                         {optionName}
                                                                     </th>
@@ -2725,122 +3119,12 @@ export default function AdminProducts() {
                                                                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Length (cm)</th>
                                                                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Width (cm)</th>
                                                                 <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Height (cm)</th>
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Shipping Class</th>
-                                                                <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Ships Separately</th>
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Delivery Type</th>
+                                                                <th className="px-2 py-2 text-left text-[10px] font-bold uppercase text-gray-500">Own Parcel</th>
                                                                 <th className="px-2 py-2 text-right"></th>
                                                             </tr>
                                                         </thead>
-                                                        <tbody className="divide-y divide-gray-200 bg-white">
-                                                            {combinationVariantEntries.map(({ variant, index }) => (
-                                                                <tr key={index} className="hover:bg-gray-50 transition-colors">
-                                                                    {combinationOptionNames.map((optionName) => (
-                                                                        <td key={optionName} className="px-2 py-2">
-                                                                            <input
-                                                                                type="text"
-                                                                                value={variant.attributes?.[optionName] ?? ""}
-                                                                                onChange={(event) => updateCombinationVariantAttribute(index, optionName, event.target.value)}
-                                                                                className="w-28 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                                placeholder={optionName}
-                                                                            />
-                                                                        </td>
-                                                                    ))}
-                                                                    {visibleCombinationCustomColumns.map((column) => (
-                                                                        <td key={column.key} className="px-2 py-2">
-                                                                            {renderCombinationCustomFieldCell(variant, index, column.key)}
-                                                                        </td>
-                                                                    ))}
-                                                                    <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="text"
-                                                                            value={variant.price ?? ""}
-                                                                            onChange={(event) => updateCombinationVariantField(index, "price", event.target.value)}
-                                                                            className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder={currentProduct.price || "£0.00"}
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={0}
-                                                                            value={variant.stock ?? ""}
-                                                                            onChange={(event) => updateCombinationVariantField(index, "stock", normalizeVariantStock(event.target.value))}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={0.01}
-                                                                            step="0.001"
-                                                                            value={variant.shipping_weight_kg ?? ""}
-                                                                            onChange={(event) => updateCombinationVariantField(index, "shipping_weight_kg", normalizeShippingNumber(event.target.value))}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder="base"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={1}
-                                                                            step="0.01"
-                                                                            value={variant.shipping_length_cm ?? ""}
-                                                                            onChange={(event) => updateCombinationVariantField(index, "shipping_length_cm", normalizeShippingNumber(event.target.value))}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder="base"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={1}
-                                                                            step="0.01"
-                                                                            value={variant.shipping_width_cm ?? ""}
-                                                                            onChange={(event) => updateCombinationVariantField(index, "shipping_width_cm", normalizeShippingNumber(event.target.value))}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder="base"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-2 py-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min={1}
-                                                                            step="0.01"
-                                                                            value={variant.shipping_height_cm ?? ""}
-                                                                            onChange={(event) => updateCombinationVariantField(index, "shipping_height_cm", normalizeShippingNumber(event.target.value))}
-                                                                            className="w-16 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                            placeholder="base"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="px-2 py-2">
-                                                                        <select
-                                                                            value={variant.shipping_class ?? ""}
-                                                                            onChange={(event) => updateCombinationVariantField(index, "shipping_class", event.target.value)}
-                                                                            className="w-24 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none"
-                                                                        >
-                                                                            <option value="">Use base</option>
-                                                                            {SHIPPING_CLASS_OPTIONS.map((option) => (
-                                                                                <option key={option.value} value={option.value}>{option.label}</option>
-                                                                            ))}
-                                                                        </select>
-                                                                    </td>
-                                                                    <td className="px-2 py-2">
-                                                                        <label className="flex items-center gap-2 text-xs text-gray-600">
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                checked={Boolean(variant.ships_separately)}
-                                                                                onChange={(event) => updateCombinationVariantField(index, "ships_separately", event.target.checked)}
-                                                                                className="rounded border-gray-300 text-[#eb5c10] focus:ring-[#eb5c10]"
-                                                                            />
-                                                                            <span>Yes</span>
-                                                                        </label>
-                                                                    </td>
-                                                                    <td className="px-2 py-2 text-right">
-                                                                        <button type="button" onClick={() => removeVariantAtIndex(index)} className="text-red-400 hover:text-red-600 p-1"><Trash2 className="w-4 h-4" /></button>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                        <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                                        <tfoot className="sticky bottom-0 bg-gray-50 border-t-2 border-gray-200">
                                                             <tr>
                                                                 {combinationOptionNames.map((optionName) => (
                                                                     <td key={optionName} className="px-2 py-2">
@@ -2962,11 +3246,15 @@ export default function AdminProducts() {
                                                         </tfoot>
                                                     </table>
                                                 </div>
+                                                </div>
                                             </div>
                                         ) : (
                                             <>
                                                 <div className="mb-2 flex items-center justify-between gap-3 px-4">
-                                                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Size</p>
+                                                    <div>
+                                                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Size Rows</p>
+                                                        <p className="mt-1 text-xs text-gray-400">Use this table when a Size option changes price, stock, dimensions, or delivery details.</p>
+                                                    </div>
                                                     <VariantColumnManager
                                                         title="Size Table Columns"
                                                         description="Rename headers, remove columns from the admin table, and choose what appears on the product page."
@@ -2978,8 +3266,17 @@ export default function AdminProducts() {
                                                     />
                                                 </div>
                                                 <div className="space-y-4 mb-6">
+                                                    <div className="px-4">
+                                                        <div className="rounded-md border border-dashed border-gray-300 bg-white p-3">
+                                                            <div className="flex items-center gap-2 text-xs font-semibold text-gray-600"><ClipboardPaste className="h-3.5 w-3.5" />Bulk paste size rows</div>
+                                                            <p className="mt-1 text-[11px] text-gray-400">Paste tab-separated rows in this order: Size, Price, Stock, Weight, Length, Width, Height, Delivery Type, Own Parcel.</p>
+                                                            <textarea value={sizeBulkPaste} onChange={(event) => setSizeBulkPaste(event.target.value)} rows={4} className="mt-2 block w-full rounded-md border border-gray-300 p-2 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder={"Size : H 495 x W 495 x D 48mm\t£24.99\t10\t1.5\t49.5\t49.5\t4.8\tstandard\tno"} />
+                                                            <div className="mt-2 flex justify-end"><button type="button" onClick={applySizeBulkPaste} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"><ClipboardPaste className="h-3.5 w-3.5" />Add pasted rows</button></div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="px-4 text-[11px] text-gray-400">Scroll sideways to edit all columns.</div>
                                                     <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
-                                                        <table className="w-max divide-y divide-gray-200">
+                                                        <table className="w-max min-w-full divide-y divide-gray-200">
                                                             <thead className="bg-gray-50">
                                                                 <tr>
                                                                     {visibleSizeColumns.map((column) => (
@@ -2992,19 +3289,22 @@ export default function AdminProducts() {
                                                             </thead>
                                                             <tbody className="bg-white divide-y divide-gray-200">
                                                                 {sizeVariantEntries.map(({ variant, index }) => (
-                                                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                                                    <tr key={index} className="hover:bg-gray-50 transition-colors align-top">
                                                                         {visibleSizeColumns.map((column) => (
                                                                             <td key={column.key} className="px-2 py-2">
                                                                                 {renderSizeVariantCell(column.key, variant, index)}
                                                                             </td>
                                                                         ))}
                                                                         <td className="px-2 py-2 text-right">
-                                                                            <button type="button" onClick={() => removeVariantAtIndex(index)} className="text-red-400 hover:text-red-600 p-1"><Trash2 className="w-4 h-4" /></button>
+                                                                            <div className="flex items-center justify-end gap-1">
+                                                                                <button type="button" onClick={() => cloneVariantAtIndex(index)} className="inline-flex items-center gap-1 rounded border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50"><Copy className="w-3.5 h-3.5" />Clone</button>
+                                                                                <button type="button" onClick={() => removeVariantAtIndex(index)} className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" />Remove</button>
+                                                                            </div>
                                                                         </td>
                                                                     </tr>
                                                                 ))}
                                                             </tbody>
-                                                            <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                                            <tfoot className="sticky bottom-0 bg-gray-50 border-t-2 border-gray-200">
                                                                 <tr>
                                                                     {visibleSizeColumns.map((column) => (
                                                                         <td key={column.key} className="px-2 py-2">
@@ -3025,7 +3325,10 @@ export default function AdminProducts() {
                                                 </div>
 
                                                 <div className="mb-2 flex items-center justify-between gap-3 px-4">
-                                                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Other Variants <span className="normal-case font-normal text-gray-400">(Color, Material, etc.)</span></p>
+                                                    <div>
+                                                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Other Options <span className="normal-case font-normal text-gray-400">(Colour, Material, Finish, etc.)</span></p>
+                                                        <p className="mt-1 text-xs text-gray-400">Use this section for non-size selections that customers pick alongside the main size or base product.</p>
+                                                    </div>
                                                     <VariantColumnManager
                                                         title="Other Variant Columns"
                                                         description="Rename headers, remove columns from the admin table, and choose what appears on the product page."
@@ -3037,8 +3340,17 @@ export default function AdminProducts() {
                                                     />
                                                 </div>
                                                 <div className="space-y-4">
+                                                    <div className="px-4">
+                                                        <div className="rounded-md border border-dashed border-gray-300 bg-white p-3">
+                                                            <div className="flex items-center gap-2 text-xs font-semibold text-gray-600"><ClipboardPaste className="h-3.5 w-3.5" />Bulk paste other options</div>
+                                                            <p className="mt-1 text-[11px] text-gray-400">Paste tab-separated rows in this order: Option, Value, Stock.</p>
+                                                            <textarea value={otherBulkPaste} onChange={(event) => setOtherBulkPaste(event.target.value)} rows={4} className="mt-2 block w-full rounded-md border border-gray-300 p-2 text-xs text-gray-700 shadow-sm focus:border-[#eb5c10] focus:outline-none" placeholder={"Colour\tBrushed\t12\nColour\tPolished\t8"} />
+                                                            <div className="mt-2 flex justify-end"><button type="button" onClick={applyOtherBulkPaste} className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"><ClipboardPaste className="h-3.5 w-3.5" />Add pasted rows</button></div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="px-4 text-[11px] text-gray-400">Scroll sideways to edit all columns.</div>
                                                     <div className="border border-gray-200 rounded-md overflow-x-auto shadow-sm bg-white">
-                                                        <table className="w-max divide-y divide-gray-200">
+                                                        <table className="w-max min-w-full divide-y divide-gray-200">
                                                             <thead className="bg-gray-50">
                                                                 <tr>
                                                                     {visibleGeneralColumns.map((column) => (
@@ -3051,19 +3363,22 @@ export default function AdminProducts() {
                                                             </thead>
                                                             <tbody className="bg-white divide-y divide-gray-200">
                                                                 {otherVariantEntries.map(({ variant, index }) => (
-                                                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                                                    <tr key={index} className="hover:bg-gray-50 transition-colors align-top">
                                                                         {visibleGeneralColumns.map((column) => (
                                                                             <td key={column.key} className="px-2 py-2">
                                                                                 {renderOtherVariantCell(column.key, variant, index)}
                                                                             </td>
                                                                         ))}
                                                                         <td className="px-2 py-2 text-right">
-                                                                            <button type="button" onClick={() => removeVariantAtIndex(index)} className="text-red-400 hover:text-red-600 p-1"><Trash2 className="w-4 h-4" /></button>
+                                                                            <div className="flex items-center justify-end gap-1">
+                                                                                <button type="button" onClick={() => cloneVariantAtIndex(index)} className="inline-flex items-center gap-1 rounded border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50"><Copy className="w-3.5 h-3.5" />Clone</button>
+                                                                                <button type="button" onClick={() => removeVariantAtIndex(index)} className="inline-flex items-center gap-1 rounded border border-red-200 px-2 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" />Remove</button>
+                                                                            </div>
                                                                         </td>
                                                                     </tr>
                                                                 ))}
                                                             </tbody>
-                                                            <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                                            <tfoot className="sticky bottom-0 bg-gray-50 border-t-2 border-gray-200">
                                                                 <tr>
                                                                     {visibleGeneralColumns.map((column) => (
                                                                         <td key={column.key} className="px-2 py-2">

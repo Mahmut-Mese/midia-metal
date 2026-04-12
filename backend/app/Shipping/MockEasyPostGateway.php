@@ -3,6 +3,7 @@
 namespace App\Shipping;
 
 use App\Models\Order;
+use App\Models\SiteSetting;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -56,19 +57,52 @@ class MockEasyPostGateway implements ShippingGateway
         $currency = 'GBP';
         $profile = $this->resolveDeliveryProfile($toAddress);
         $parcelSummary = is_array($context['parcel_summary'] ?? null) ? $context['parcel_summary'] : [];
-        $parcelCount = max(1, (int) ($parcelSummary['parcel_count'] ?? 1));
+        $freightPlan = is_array($context['freight_plan'] ?? null) ? $context['freight_plan'] : null;
+
+        // ── Freight-only or mixed cart: return a Pallet Delivery option ──────
+        $freightOption = null;
+        if ($freightPlan !== null) {
+            $freightRate = round((float) ($freightPlan['flat_rate'] ?? 0) + $profile['rate_surcharge'], 2);
+            $estimatedFreightDate = CarbonImmutable::now('Europe/London')->addWeekdays(5)->format('Y-m-d');
+
+            $freightOption = [
+                'provider' => $this->provider(),
+                'carrier' => 'Pallet Carrier',
+                'service' => 'Pallet Delivery',
+                'service_code' => 'pallet_delivery',
+                'rate' => $freightRate,
+                'currency' => $currency,
+                'delivery_days' => 5,
+                'estimated_delivery_date' => $estimatedFreightDate,
+                'estimated_delivery_window_start' => '08:00',
+                'estimated_delivery_window_end' => '18:00',
+                'is_premium' => false,
+                'rate_id' => 'mock_pallet_delivery',
+                'rate_ids' => [['rate_id' => 'mock_pallet_delivery', 'parcel_reference' => 'freight']],
+                'parcels' => $context['parcels'] ?? [],
+                'parcel_summary' => $parcelSummary,
+                'freight_plan' => $freightPlan,
+            ];
+        }
+
+        // ── Freight present (freight-only or mixed cart): pallet delivery only ─
+        $parcelCount = (int) ($parcelSummary['parcel_count'] ?? 1);
+        if ($freightPlan !== null) {
+            return [$freightOption];
+        }
+
+        // ── Standard-only cart: build the regular Royal Mail options ──────────
+        $parcelCount = max(1, $parcelCount);
         $totalWeight = max(0, (float) ($parcelSummary['total_weight_kg'] ?? config('services.shipping.default_parcel.weight', 2)));
-        $classes = collect($parcelSummary['shipping_classes'] ?? [])->map(fn ($value) => (string) $value)->all();
-        $classSurcharge = in_array('oversized', $classes, true) ? 12.00 : (in_array('bulky', $classes, true) ? 5.00 : 0.00);
         $parcelSurcharge = max(0, $parcelCount - 1) * 3.50;
         $weightSurcharge = max(0, ceil(max(0, $totalWeight - 2))) * 1.25;
-        $standardRate = round($baseRate + $profile['rate_surcharge'] + $classSurcharge + $parcelSurcharge + $weightSurcharge, 2);
+        $standardRate = round($baseRate + $profile['rate_surcharge'] + $parcelSurcharge + $weightSurcharge, 2);
 
         $estimatedDate48 = CarbonImmutable::now('Europe/London')->addWeekdays($profile['tracked_48_days'])->format('Y-m-d');
         $estimatedDate24 = CarbonImmutable::now('Europe/London')->addWeekdays($profile['tracked_24_days'])->format('Y-m-d');
         $estimatedDateSD = CarbonImmutable::now('Europe/London')->addWeekdays(1)->format('Y-m-d');
 
-        return [
+        $options = [
             [
                 'provider' => $this->provider(),
                 'carrier' => 'Royal Mail',
@@ -121,6 +155,13 @@ class MockEasyPostGateway implements ShippingGateway
                 'parcel_summary' => $parcelSummary,
             ],
         ];
+
+        // Mixed cart: prepend the freight option to the standard options
+        if ($freightOption !== null) {
+            array_unshift($options, $freightOption);
+        }
+
+        return $options;
     }
 
     public function createLabel(Order $order, array $context = []): array
@@ -305,6 +346,7 @@ class MockEasyPostGateway implements ShippingGateway
     {
         $postcode = strtoupper(trim((string) ($toAddress['postcode'] ?? '')));
         $city = strtoupper(trim((string) ($toAddress['city'] ?? '')));
+        $surcharges = $this->freightSurcharges();
 
         $isRemote = $this->matchesPrefix($postcode, ['AB', 'HS', 'IV', 'KW', 'PA', 'PH', 'ZE', 'IM']);
         $isNorthernIreland = $this->matchesPrefix($postcode, ['BT']);
@@ -315,7 +357,7 @@ class MockEasyPostGateway implements ShippingGateway
             return [
                 'tracked_48_days' => 3,
                 'tracked_24_days' => 2,
-                'rate_surcharge' => 4.50,
+                'rate_surcharge' => $surcharges['ni'],
                 'premium_surcharge' => 2.00,
             ];
         }
@@ -324,7 +366,7 @@ class MockEasyPostGateway implements ShippingGateway
             return [
                 'tracked_48_days' => 4,
                 'tracked_24_days' => 3,
-                'rate_surcharge' => 7.00,
+                'rate_surcharge' => $surcharges['highlands'],
                 'premium_surcharge' => 3.50,
             ];
         }
@@ -333,7 +375,7 @@ class MockEasyPostGateway implements ShippingGateway
             return [
                 'tracked_48_days' => 3,
                 'tracked_24_days' => 2,
-                'rate_surcharge' => 2.00,
+                'rate_surcharge' => $surcharges['scotland'],
                 'premium_surcharge' => 1.50,
             ];
         }
@@ -342,7 +384,7 @@ class MockEasyPostGateway implements ShippingGateway
             return [
                 'tracked_48_days' => 2,
                 'tracked_24_days' => 1,
-                'rate_surcharge' => 0.00,
+                'rate_surcharge' => $surcharges['london'],
                 'premium_surcharge' => 0.00,
             ];
         }
@@ -351,9 +393,40 @@ class MockEasyPostGateway implements ShippingGateway
         return [
             'tracked_48_days' => 3,
             'tracked_24_days' => 1,
-            'rate_surcharge' => 1.00,
+            'rate_surcharge' => $surcharges['default'],
             'premium_surcharge' => 0.50,
         ];
+    }
+
+    /**
+     * Load freight zone surcharges from the settings table, with a per-request cache.
+     *
+     * @return array{highlands:float,ni:float,scotland:float,london:float,default:float}
+     */
+    private function freightSurcharges(): array
+    {
+        static $cache = null;
+        if ($cache !== null) {
+            return $cache;
+        }
+
+        $rows = SiteSetting::whereIn('key', [
+            'freight_surcharge_highlands',
+            'freight_surcharge_ni',
+            'freight_surcharge_scotland',
+            'freight_surcharge_london',
+            'freight_surcharge_default',
+        ])->pluck('value', 'key');
+
+        $cache = [
+            'highlands' => (float) ($rows['freight_surcharge_highlands'] ?? 7.00),
+            'ni'        => (float) ($rows['freight_surcharge_ni']        ?? 4.50),
+            'scotland'  => (float) ($rows['freight_surcharge_scotland']  ?? 2.00),
+            'london'    => (float) ($rows['freight_surcharge_london']    ?? 0.00),
+            'default'   => (float) ($rows['freight_surcharge_default']   ?? 1.00),
+        ];
+
+        return $cache;
     }
 
     /**

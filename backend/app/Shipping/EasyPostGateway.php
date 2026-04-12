@@ -3,6 +3,7 @@
 namespace App\Shipping;
 
 use App\Models\Order;
+use App\Models\SiteSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -17,6 +18,14 @@ class EasyPostGateway implements ShippingGateway
 
     public function quote(array $toAddress, array $items = [], array $context = []): array
     {
+        $freightPlan = is_array($context['freight_plan'] ?? null) ? $context['freight_plan'] : null;
+
+        // ── Freight present (freight-only or mixed cart): bypass EasyPost ────
+        if ($freightPlan !== null) {
+            return [$this->buildFreightOption($freightPlan, $context, $toAddress)];
+        }
+
+        // ── Standard-only path ────────────────────────────────────────────────
         $shipments = $this->createShipmentsForParcels(
             $this->toAddressPayload($toAddress),
             $this->resolveParcels($context),
@@ -29,6 +38,95 @@ class EasyPostGateway implements ShippingGateway
         }
 
         return $options;
+    }
+
+    /**
+     * Build a flat-rate Pallet Delivery option from a freight plan.
+     *
+     * @param  array<string, mixed>  $freightPlan
+     * @param  array<string, mixed>  $context
+     * @param  array<string, mixed>  $toAddress
+     * @return array<string, mixed>
+     */
+    private function buildFreightOption(array $freightPlan, array $context, array $toAddress = []): array
+    {
+        $parcelSummary = is_array($context['parcel_summary'] ?? null) ? $context['parcel_summary'] : [];
+        $estimatedDate = \Carbon\CarbonImmutable::now('Europe/London')->addWeekdays(5)->format('Y-m-d');
+        $surcharge = $this->resolveFreightSurcharge($toAddress);
+
+        return [
+            'provider' => $this->provider(),
+            'carrier' => 'Pallet Carrier',
+            'service' => 'Pallet Delivery',
+            'service_code' => 'pallet_delivery',
+            'rate' => round((float) ($freightPlan['flat_rate'] ?? 0) + $surcharge, 2),
+            'currency' => 'GBP',
+            'delivery_days' => 5,
+            'estimated_delivery_date' => $estimatedDate,
+            'estimated_delivery_window_start' => '08:00',
+            'estimated_delivery_window_end' => '18:00',
+            'is_premium' => false,
+            'rate_id' => 'pallet_delivery',
+            'rate_ids' => [['rate_id' => 'pallet_delivery', 'parcel_reference' => 'freight']],
+            'parcels' => $context['parcels'] ?? [],
+            'parcel_summary' => $parcelSummary,
+            'freight_plan' => $freightPlan,
+        ];
+    }
+
+    /**
+     * Determine the freight zone surcharge for the given address,
+     * reading values from the site_settings table (with a per-request static cache).
+     *
+     * @param  array<string, mixed>  $toAddress
+     */
+    private function resolveFreightSurcharge(array $toAddress): float
+    {
+        static $surcharges = null;
+        if ($surcharges === null) {
+            $rows = SiteSetting::whereIn('key', [
+                'freight_surcharge_highlands',
+                'freight_surcharge_ni',
+                'freight_surcharge_scotland',
+                'freight_surcharge_london',
+                'freight_surcharge_default',
+            ])->pluck('value', 'key');
+
+            $surcharges = [
+                'highlands' => (float) ($rows['freight_surcharge_highlands'] ?? 7.00),
+                'ni'        => (float) ($rows['freight_surcharge_ni']        ?? 4.50),
+                'scotland'  => (float) ($rows['freight_surcharge_scotland']  ?? 2.00),
+                'london'    => (float) ($rows['freight_surcharge_london']    ?? 0.00),
+                'default'   => (float) ($rows['freight_surcharge_default']   ?? 1.00),
+            ];
+        }
+
+        $postcode = strtoupper(preg_replace('/\s+/', '', (string) ($toAddress['postcode'] ?? '')) ?: '');
+        $city = strtoupper(trim((string) ($toAddress['city'] ?? '')));
+
+        preg_match('/^([A-Z]{1,2})/', $postcode, $matches);
+        $area = $matches[1] ?? '';
+
+        if (in_array($area, ['BT'], true)) {
+            return $surcharges['ni'];
+        }
+
+        if (in_array($area, ['AB', 'HS', 'IV', 'KW', 'PA', 'PH', 'ZE', 'IM'], true)) {
+            return $surcharges['highlands'];
+        }
+
+        if (in_array($area, ['DD', 'DG', 'EH', 'FK', 'G', 'KA', 'KY', 'ML', 'TD'], true)
+            || str_contains($city, 'GLASGOW')
+            || str_contains($city, 'EDINBURGH')) {
+            return $surcharges['scotland'];
+        }
+
+        if (in_array($area, ['E', 'EC', 'N', 'NW', 'SE', 'SW', 'W', 'WC'], true)
+            || str_contains($city, 'LONDON')) {
+            return $surcharges['london'];
+        }
+
+        return $surcharges['default'];
     }
 
     public function createLabel(Order $order, array $context = []): array
@@ -657,8 +755,7 @@ class EasyPostGateway implements ShippingGateway
         $sortedDimensions = collect([$lengthInches, $widthInches, $heightInches])->sortDesc()->values();
         $longestSide = (float) ($sortedDimensions[0] ?? 0);
         $secondLongestSide = (float) ($sortedDimensions[1] ?? 0);
-        $requiresAdditionalHandling = in_array($shippingClass, ['bulky', 'oversized'], true)
-            || $longestSide > 60
+        $requiresAdditionalHandling = $longestSide > 60
             || $secondLongestSide > 30
             || $weightOunces > 1120;
 

@@ -14,7 +14,10 @@ import { getStandardizedDisplayPrice, parseMoneyValue } from '@/lib/pricing';
 import { stripHtml, truncateText, buildBreadcrumbJsonLd, buildProductJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-const API = `${(import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '')}/v1`;
+const apiBase = ['127.0.0.1', 'localhost'].includes(Astro.url.hostname)
+  ? 'http://127.0.0.1:8000/api'
+  : (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
+const API = `${apiBase}/v1`;
 const { slug } = Astro.params;
 
 // Cache headers: CDN caches for 5 min, serves stale while revalidating for 1 hour

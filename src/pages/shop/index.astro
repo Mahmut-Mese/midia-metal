@@ -1,68 +1,205 @@
 ---
 /**
- * shop/index.astro — Shop page (SSR)
+ * shop/index.astro — Shop page (SSR, Astro-first)
  *
- * Server-rendered: fetches fresh products, categories, and tags on every request.
- * Products appear instantly in the HTML — no waiting for JS bundle + API call.
- * ShopIsland hydrates over the server-rendered content for interactive filters.
- *
- * Query params are read from the URL server-side and passed to the island.
+ * Filters and product grid render from URL params on the server so the first
+ * visit paints complete HTML immediately without waiting for the Shop island.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import ShopIsland from '@/islands/ShopIsland';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
+import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
+import { getVariantAttributes, getProductVariantMode } from '@/lib/variants';
+
+type VariantFilters = Record<string, string[]>;
+type VariantFacet = {
+  key: string;
+  option: string;
+  values: Array<{ value: string; count: number }>;
+};
+
+const DEFAULT_PRICE_RANGE: [number, number] = [0, 5000];
+
+const parsePriceValue = (price: unknown): number => {
+  if (typeof price === 'number') return price;
+  return parseFloat(String(price ?? '').replace(/[^\d.]/g, '')) || 0;
+};
+
+const normalizeVariantKey = (value: string): string => value.trim().toLowerCase().replace(/\s+/g, ' ');
+
+const parseVariantFiltersFromParams = (params: URLSearchParams): VariantFilters => {
+  const next: VariantFilters = {};
+  for (const raw of params.getAll('variant')) {
+    const [option, value] = raw.split('::');
+    const optionKey = normalizeVariantKey(option || '');
+    if (!optionKey || !value) continue;
+    if (!next[optionKey]) next[optionKey] = [];
+    if (!next[optionKey].includes(value)) next[optionKey].push(value);
+  }
+  return next;
+};
+
+const buildVariantFacets = (items: any[]): VariantFacet[] => {
+  const optionMap = new Map<string, { label: string; values: Map<string, number> }>();
+
+  items.forEach((product) => {
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+
+    variants.forEach((variant: any) => {
+      if (getProductVariantMode(product) === 'combination') {
+        Object.entries(getVariantAttributes(variant)).forEach(([option, value]) => {
+          const optionKey = normalizeVariantKey(option);
+          if (!optionKey || !value) return;
+          if (!optionMap.has(optionKey)) optionMap.set(optionKey, { label: option.toUpperCase(), values: new Map() });
+          const entry = optionMap.get(optionKey)!;
+          entry.values.set(String(value), (entry.values.get(String(value)) || 0) + 1);
+        });
+        return;
+      }
+
+      const option = String(variant?.option ?? '').trim();
+      const value = String(variant?.value ?? '').trim();
+      const optionKey = normalizeVariantKey(option);
+      if (!optionKey || !value) return;
+      if (!optionMap.has(optionKey)) optionMap.set(optionKey, { label: option.toUpperCase(), values: new Map() });
+      const entry = optionMap.get(optionKey)!;
+      entry.values.set(value, (entry.values.get(value) || 0) + 1);
+    });
+  });
+
+  return Array.from(optionMap.entries())
+    .map(([key, entry]) => ({
+      key,
+      option: entry.label,
+      values: Array.from(entry.values.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => a.value.localeCompare(b.value)),
+    }))
+    .sort((a, b) => a.option.localeCompare(b.option));
+};
+
+const matchesVariantFilters = (product: any, filters: VariantFilters): boolean => {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+
+  if (getProductVariantMode(product) === 'combination') {
+    return Object.entries(filters).every(([optionKey, selectedValues]) => {
+      if (selectedValues.length === 0) return true;
+
+      return variants.some((variant: any) => {
+        const attributes = getVariantAttributes(variant);
+        const productValue = Object.entries(attributes).find(([option]) => normalizeVariantKey(option) === optionKey)?.[1];
+        return productValue ? selectedValues.includes(String(productValue)) : false;
+      });
+    });
+  }
+
+  return Object.entries(filters).every(([optionKey, selectedValues]) => {
+    if (selectedValues.length === 0) return true;
+    const productValues = variants
+      .filter((variant: any) => normalizeVariantKey(String(variant?.option ?? '')) === optionKey)
+      .map((variant: any) => String(variant?.value ?? '').trim());
+    return selectedValues.some((value) => productValues.includes(value));
+  });
+};
+
+const normalizeImage = (value: unknown, fallback = '/logo.png') => {
+  if (typeof value !== 'string' || value.trim().length === 0) return fallback;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('/uploads/')) return `/storage${trimmed}`;
+  if (trimmed.startsWith('uploads/')) return `/storage/${trimmed}`;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) return trimmed;
+  return `/${trimmed}`;
+};
 
 const siteUrl = import.meta.env.SITE;
-const API = `${(import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '')}/v1`;
+const apiBase = ['127.0.0.1', 'localhost'].includes(Astro.url.hostname)
+  ? 'http://127.0.0.1:8000/api'
+  : (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
+const API = `${apiBase}/v1`;
 
 const settings = await fetchSettings();
 const pageTitle = getPageTitle(settings, undefined, 'Shop');
 const pageDescription = getPageDescription(settings, undefined, 'Browse our range of commercial kitchen equipment, ventilation systems, and stainless steel products.');
 
-// Pre-fetch products, categories and tags at request time (SSR)
+const searchParams = Astro.url.searchParams;
+const searchParam = searchParams.get('search') || '';
+const categoryParam = searchParams.get('category') || '';
+const sortBy = searchParams.get('sort') || 'latest';
+const selectedTags = searchParams.getAll('tag');
+const inStockOnly = searchParams.get('stock') === '1';
+const selectedVariantFilters = parseVariantFiltersFromParams(searchParams);
+const minPrice = Math.max(DEFAULT_PRICE_RANGE[0], Number(searchParams.get('min_price') || DEFAULT_PRICE_RANGE[0]));
+const maxPrice = Math.min(DEFAULT_PRICE_RANGE[1], Number(searchParams.get('max_price') || DEFAULT_PRICE_RANGE[1]));
+
 let products: any[] = [];
 let categories: any[] = [];
 let tags: string[] = [];
 
-// Read search params from the request URL
-const searchParam = Astro.url.searchParams.get('search') || '';
-const categoryParam = Astro.url.searchParams.get('category') || '';
-
 try {
-  // Build products API query
   const query = new URLSearchParams();
   if (searchParam) query.set('search', searchParam);
   if (categoryParam) query.set('category', categoryParam);
+  if (inStockOnly) query.set('in_stock', '1');
   const queryStr = query.toString();
 
   const [productsRes, catsRes, tagsRes] = await Promise.all([
-    fetch(`${API}/products${queryStr ? `?${queryStr}` : ''}`).then(r => r.ok ? r.json() : { data: [] }),
-    fetch(`${API}/product-categories`).then(r => r.ok ? r.json() : []),
-    fetch(`${API}/products/tags`).then(r => r.ok ? r.json() : []),
+    fetch(`${API}/products${queryStr ? `?${queryStr}` : ''}`).then((r) => r.ok ? r.json() : { data: [] }),
+    fetch(`${API}/product-categories`).then((r) => r.ok ? r.json() : []),
+    fetch(`${API}/products/tags`).then((r) => r.ok ? r.json() : []),
   ]);
 
   products = productsRes.data || [];
   categories = Array.isArray(catsRes) ? catsRes : catsRes.data || [];
-  tags = tagsRes || [];
+  tags = Array.isArray(tagsRes) ? tagsRes : [];
 } catch (e) {
   console.error('Failed to fetch shop data:', e);
 }
 
-// Pass the initial search params string to the island
-const initialSearchParams = Astro.url.search || '';
+let filteredProducts = products;
 
-// Cache headers: CDN caches for 5 min
+if (selectedTags.length > 0) {
+  filteredProducts = filteredProducts.filter((product: any) => {
+    const productTags = Array.isArray(product?.tags) ? product.tags : [];
+    return selectedTags.some((tag) => productTags.includes(tag));
+  });
+}
+
+filteredProducts = filteredProducts.filter((product: any) => {
+  const price = parsePriceValue(getStandardizedDisplayPrice(product));
+  const matchesPrice = price >= minPrice && price <= maxPrice;
+  const matchesStock = !inStockOnly || !product.track_stock || Number(product.stock_quantity ?? 0) > 0;
+  return matchesPrice && matchesStock;
+});
+
+const variantFacets = buildVariantFacets(filteredProducts);
+filteredProducts = filteredProducts.filter((product: any) => matchesVariantFilters(product, selectedVariantFilters));
+
+filteredProducts = filteredProducts.slice().sort((a: any, b: any) => {
+  const priceA = parsePriceValue(getStandardizedDisplayPrice(a));
+  const priceB = parsePriceValue(getStandardizedDisplayPrice(b));
+  if (sortBy === 'price-low') return priceA - priceB;
+  if (sortBy === 'price-high') return priceB - priceA;
+  return 0;
+});
+
+const hasActiveSidebarFilters = Boolean(
+  categoryParam ||
+  selectedTags.length > 0 ||
+  inStockOnly ||
+  minPrice !== DEFAULT_PRICE_RANGE[0] ||
+  maxPrice !== DEFAULT_PRICE_RANGE[1] ||
+  Object.keys(selectedVariantFilters).length > 0
+);
+
 Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
 
-// ItemList JSON-LD for the product listing
 const shopUrl = `${siteUrl}/shop`;
-const itemListJsonLd = products.length > 0
+const itemListJsonLd = filteredProducts.length > 0
   ? buildItemListJsonLd({
       name: 'Shop',
       description: pageDescription,
       url: shopUrl,
-      items: products.slice(0, 50).map((p: any) => ({
+      items: filteredProducts.slice(0, 50).map((p: any) => ({
         url: `${siteUrl}/shop/${p.slug || p.id}`,
         name: p.name,
       })),
@@ -82,12 +219,160 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
   structuredData={[breadcrumbJsonLd, ...(itemListJsonLd ? [itemListJsonLd] : [])]}
 >
   <div class="min-h-screen bg-[#eaf0f3]">
-    <ShopIsland
-      initialProducts={products}
-      initialCategories={categories}
-      initialTags={tags}
-      initialSearchParams={initialSearchParams}
-      client:idle
-    />
+    <form method="GET" class="container mx-auto px-4 lg:px-8 pt-16 md:pt-20 pb-20 md:pb-24">
+      <div class="shop-layout grid gap-6 md:gap-8 lg:gap-10 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_370px]">
+        <div>
+          <div class="flex items-center justify-between mb-8 gap-4">
+            <p class="text-[13px] text-[#9aa6bc]">Showing {filteredProducts.length} results</p>
+            <div class="relative">
+              <select
+                name="sort"
+                onchange="this.form?.requestSubmit()"
+                class="appearance-none bg-transparent pr-8 text-[14px] font-semibold text-primary outline-none"
+              >
+                <option value="latest" selected={sortBy === 'latest'}>Sort by latest</option>
+                <option value="price-low" selected={sortBy === 'price-low'}>Sort by price: low to high</option>
+                <option value="price-high" selected={sortBy === 'price-high'}>Sort by price: high to low</option>
+              </select>
+              <svg xmlns="http://www.w3.org/2000/svg" class="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/80 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+
+          {filteredProducts.length > 0 ? (
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 md:gap-x-8 gap-y-9">
+              {filteredProducts.map((product: any) => (
+                <a href={`/shop/${product.slug || product.id}`} class="group">
+                  <div class="bg-[#f7f8fa] mb-4">
+                    <img
+                      src={normalizeImage(product.image)}
+                      alt={product.name}
+                      width="400"
+                      height="400"
+                      loading="lazy"
+                      decoding="async"
+                      class="w-full aspect-square object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
+                  </div>
+                  <h3 class="font-sans text-[16px] md:text-[20px] leading-tight font-semibold text-orange transition-colors">
+                    {getStandardizedDisplayTitle(product)}
+                  </h3>
+                  <div class="flex items-baseline gap-2 mt-1">
+                    <p class="text-[14px] md:text-[20px] font-semibold text-[#1f2f52]">{getStandardizedDisplayPrice(product)}</p>
+                    {product.old_price && (
+                      <p class="text-[12px] md:text-[14px] text-[#9aa6bc] line-through font-normal">{product.old_price}</p>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div class="py-16 text-center text-[#6e7a92] bg-[#f4f5f7] border border-[#d5deea]">
+              No products found.
+            </div>
+          )}
+        </div>
+
+        <aside class="bg-[#f4f5f7] p-6 md:p-8 h-fit lg:self-start">
+          <div class="space-y-8">
+            <div>
+              <h3 class="text-[16px] leading-none font-semibold text-primary mb-5 font-sans">Search</h3>
+              <div class="relative">
+                <input
+                  type="text"
+                  name="search"
+                  placeholder="Search for products ..."
+                  value={searchParam}
+                  onchange="this.form?.requestSubmit()"
+                  class="w-full h-12 border border-[#d1dbe8] bg-transparent px-4 text-[14px] text-primary placeholder:text-[#9aa6bc] outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <h3 class="text-[16px] leading-none font-semibold text-primary mb-5 font-sans">Categories</h3>
+              <ul class="space-y-3">
+                {categories.map((category: any) => (
+                  <li>
+                    <label class={`text-[15px] inline-flex items-center gap-2 transition-colors cursor-pointer ${categoryParam === category.slug ? 'text-orange font-semibold' : 'text-primary hover:text-orange'}`}>
+                      <input type="radio" name="category" value={category.slug} checked={categoryParam === category.slug} onchange="this.form?.requestSubmit()" class="h-4 w-4 accent-orange" />
+                      {category.name} ({category.products_count})
+                    </label>
+                  </li>
+                ))}
+                <li>
+                  <label class={`text-[15px] inline-flex items-center gap-2 transition-colors cursor-pointer ${!categoryParam ? 'text-orange font-semibold' : 'text-primary hover:text-orange'}`}>
+                    <input type="radio" name="category" value="" checked={!categoryParam} onchange="this.form?.requestSubmit()" class="h-4 w-4 accent-orange" />
+                    All categories
+                  </label>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between gap-4 mb-5">
+                <h3 class="text-[16px] leading-none font-semibold text-primary font-sans">Filter</h3>
+                {hasActiveSidebarFilters && (
+                  <a href="/shop" class="text-[12px] font-semibold text-orange hover:text-orange-hover transition-colors">Clear all</a>
+                )}
+              </div>
+              <div class="h-1 bg-orange mb-4"></div>
+              <div class="grid grid-cols-2 gap-3">
+                <input type="number" name="min_price" min={DEFAULT_PRICE_RANGE[0]} max={DEFAULT_PRICE_RANGE[1]} value={minPrice} onchange="this.form?.requestSubmit()" class="w-full h-11 border border-[#d1dbe8] bg-transparent px-3 text-[14px] text-primary outline-none" />
+                <input type="number" name="max_price" min={DEFAULT_PRICE_RANGE[0]} max={DEFAULT_PRICE_RANGE[1]} value={maxPrice} onchange="this.form?.requestSubmit()" class="w-full h-11 border border-[#d1dbe8] bg-transparent px-3 text-[14px] text-primary outline-none" />
+              </div>
+              <p class="text-[15px] text-[#9aa6bc] mt-5">Price: £{minPrice} — £{maxPrice}</p>
+              <div class="mt-5 flex flex-wrap items-center gap-4">
+                <label class="inline-flex items-center gap-3 text-[14px] font-medium text-primary cursor-pointer">
+                  <input type="checkbox" name="stock" value="1" checked={inStockOnly} onchange="this.form?.requestSubmit()" class="h-4 w-4 accent-orange" />
+                  In stock only
+                </label>
+              </div>
+            </div>
+
+            {variantFacets.length > 0 && (
+              <div>
+                <h3 class="text-[16px] leading-none font-semibold text-primary mb-5 font-sans">Variants</h3>
+                <div class="space-y-5">
+                  {variantFacets.map((facet) => (
+                    <div>
+                      <p class="text-[12px] uppercase tracking-wide font-semibold text-[#6e7a92] mb-2">{facet.option}</p>
+                      <div class="space-y-2">
+                        {facet.values.map(({ value, count }) => {
+                          const checked = (selectedVariantFilters[facet.key] || []).includes(value);
+                          return (
+                            <label class="flex items-center justify-between gap-3 text-[14px] text-primary cursor-pointer">
+                              <span class="inline-flex items-center gap-2">
+                                <input type="checkbox" name="variant" value={`${facet.key}::${value}`} checked={checked} onchange="this.form?.requestSubmit()" class="h-4 w-4 accent-orange" />
+                                {value}
+                              </span>
+                              <span class="text-[12px] text-[#8f9bb2]">{count}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h3 class="text-[16px] leading-none font-semibold text-primary mb-5 font-sans">Tags</h3>
+              <div class="flex flex-wrap gap-2">
+                {tags.map((tag) => {
+                  const checked = selectedTags.includes(tag);
+                  return (
+                    <label class={`h-8 px-4 border text-[12px] transition-colors inline-flex items-center cursor-pointer ${checked ? 'bg-orange text-white border-orange' : 'border-[#d1dbe8] text-[#6e7a92] hover:text-orange hover:border-orange'}`}>
+                      <input type="checkbox" name="tag" value={tag} checked={checked} onchange="this.form?.requestSubmit()" class="sr-only" />
+                      {tag}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </form>
   </div>
 </BaseLayout>

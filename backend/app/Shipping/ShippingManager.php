@@ -49,7 +49,6 @@ class ShippingManager
 
         return $this->gateway()->quote($toAddress, $items, array_merge($context, $parcelPlan));
     }
-
     public function refreshTracking(Order $order): Order
     {
         $payload = $this->gateway()->track($order);

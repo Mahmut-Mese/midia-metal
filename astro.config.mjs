@@ -24,10 +24,11 @@ export default defineConfig({
 
   // Image optimization: allow remote images from the backend
   image: {
-    domains: ['127.0.0.1', 'localhost', 'midiammetal.com'],
+    domains: ['127.0.0.1', 'localhost', 'midiammetal.com', 'staging-api.midiawork.com'],
     remotePatterns: [
       { protocol: 'http', hostname: '127.0.0.1', port: '8000' },
       { protocol: 'https', hostname: 'midiammetal.com' },
+      { protocol: 'https', hostname: 'staging-api.midiawork.com' },
     ],
   },
 

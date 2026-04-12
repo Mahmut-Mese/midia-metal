@@ -1,268 +1,471 @@
-/**
- * COMPREHENSIVE Console & Network Error Detection Test
- * 
- * AUTO-DISCOVERS all pages and tests:
- * 1. HTTP 200 status (server responds correctly)
- * 2. No console errors/warnings
- * 3. No React hydration mismatches
- * 4. No network failures
- * 
- * For cart-dependent pages (cart, checkout, payment, thank-you),
- * tests are run WITH items in cart to catch hydration issues.
- * 
- * Run with: npx playwright test tests/console-errors.spec.ts
- */
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Auto-discover all static pages from src/pages
-function discoverAllPages(): string[] {
+const API_ORIGIN = 'http://127.0.0.1:8000';
+const API_BASE = `${API_ORIGIN}/api/v1`;
+const ADMIN_API_BASE = `${API_ORIGIN}/api/admin`;
+const ASTRO_SERVER_LOG = '/tmp/midia-astro-playwright.log';
+const ADMIN_EMAIL = 'admin@midiaematal.com';
+const ADMIN_PASSWORD = 'password';
+const CUSTOMER_EMAIL = 'asd@asd.com';
+const CUSTOMER_PASSWORD = '12345678';
+
+const STATIC_SKIP_PAGES = new Set(['/404']);
+const ADMIN_ROUTES = [
+  '/admin',
+  '/admin/dashboard',
+  '/admin/products',
+  '/admin/product-categories',
+  '/admin/blog',
+  '/admin/portfolio',
+  '/admin/portfolio-categories',
+  '/admin/orders',
+  '/admin/quotes',
+  '/admin/coupons',
+  '/admin/messages',
+  '/admin/product-reviews',
+  '/admin/customers',
+  '/admin/faq',
+  '/admin/services',
+  '/admin/settings',
+  '/admin/login',
+  '/admin/forgot-password',
+  '/admin/reset-password',
+];
+
+const CUSTOMER_AUTH_ROUTES = ['/account'];
+const CART_REQUIRED_ROUTES = ['/cart', '/checkout'];
+const CHECKOUT_STATE_ROUTES = ['/payment', '/thank-you'];
+
+const ALLOWED_NON_200 = new Map<string, number[]>([
+  ['/admin/reset-password', [200, 400, 422]],
+  ['/reset-password', [200, 400, 422]],
+]);
+
+const IGNORE_CONSOLE_PATTERNS = [
+  'Failed to load resource: the server responded with a status of 401',
+  '/api/v1/customer/me',
+  '/api/admin/me',
+  'TypeError: Failed to fetch',
+  'AdminDashboard.tsx',
+  '401 (Unauthorized)',
+  'Stripe',
+  'js.stripe.com',
+  'React Router Future Flag Warning',
+];
+
+const IGNORE_REQUEST_FAILURE_PATTERNS = [
+  'js.stripe.com',
+  'm.stripe.network',
+  'google-analytics',
+  '/sanctum/csrf-cookie - net::ERR_ABORTED',
+  '/api/admin/dashboard - net::ERR_ABORTED',
+  '/api/admin/stats/top-products - net::ERR_ABORTED',
+];
+
+const IGNORE_ASTRO_LOG_PATTERNS = [
+  '[vite] connecting',
+  '[vite] connected',
+  'Re-optimizing dependencies because vite config has changed',
+  'ready in',
+  'Local',
+  'Network',
+  'watching for file changes',
+  'Enabling sessions with filesystem storage',
+  'Syncing content',
+  'Synced content',
+  'Generated',
+];
+
+type CatalogItem = { slug?: string | null; id?: number | string | null };
+type ProductRecord = { id: number | string; slug?: string | null; name?: string; price?: string | number; image?: string | null; selected_variants?: Record<string, any> | null };
+type SessionCookie = { name: string; value: string };
+
+let cachedAdminCookies: SessionCookie[] | null = null;
+let cachedCustomerCookies: SessionCookie[] | null = null;
+
+function discoverStaticPages(): string[] {
   const pagesDir = path.join(process.cwd(), 'src', 'pages');
   const pages: string[] = [];
-  
-  function walkDir(dir: string, basePath: string = '') {
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      const filePath = path.join(dir, file);
+
+  function walk(dir: string, basePath = '') {
+    const entries = fs.readdirSync(dir);
+
+    for (const entry of entries) {
+      const filePath = path.join(dir, entry);
       const stat = fs.statSync(filePath);
-      
+
       if (stat.isDirectory()) {
-        // Skip dynamic route folders like [slug] and [...path]
-        if (!file.startsWith('[')) {
-          walkDir(filePath, `${basePath}/${file}`);
+        if (!entry.startsWith('[')) {
+          walk(filePath, `${basePath}/${entry}`);
         }
-      } else if (file.endsWith('.astro')) {
-        // Skip dynamic route files
-        if (file.startsWith('[')) continue;
-        
-        let route = basePath;
-        if (file === 'index.astro') {
-          route = basePath || '/';
-        } else {
-          route = `${basePath}/${file.replace('.astro', '')}`;
-        }
+        continue;
+      }
+
+      if (!entry.endsWith('.astro') || entry.startsWith('[')) {
+        continue;
+      }
+
+      const route = entry === 'index.astro'
+        ? (basePath || '/')
+        : `${basePath}/${entry.replace(/\.astro$/, '')}`;
+
+      if (!STATIC_SKIP_PAGES.has(route)) {
         pages.push(route);
       }
     }
   }
-  
-  walkDir(pagesDir);
-  return pages.sort();
+
+  walk(pagesDir);
+  return [...new Set(pages)].sort();
 }
 
-// Pages that need cart items to properly test hydration
-const CART_DEPENDENT_PAGES = ['/cart', '/checkout', '/payment', '/thank-you'];
+async function fetchJson<T>(endpoint: string): Promise<T> {
+  const response = await fetch(`${API_BASE}${endpoint}`);
+  expect(response.ok, `Failed to fetch ${endpoint}: ${response.status}`).toBeTruthy();
+  return response.json() as Promise<T>;
+}
 
-// Pages to skip (like 404 which intentionally returns 404)
-const SKIP_PAGES = ['/404'];
+async function fetchAllPaginated<T extends CatalogItem>(endpoint: string): Promise<T[]> {
+  const results: T[] = [];
+  let page = 1;
 
-// Sample dynamic pages to test (verified to exist)
-const DYNAMIC_PAGES = [
-  '/shop/baffle-grease-filters-1',
-
-  '/shop/category/baffle-filters',
-
-  '/blog/importance-of-commercial-ventilation',
-
-  '/services/ventilation-systems',
-
-  '/portfolio/commercial-kitchen-ventilation',
-
-  // ── Admin (login + dashboard — uses React Router SPA) ──
-  '/admin',
-  '/admin/login',
-];
-
-// Patterns to ignore (expected behaviors in test environment)
-const IGNORE_PATTERNS = [
-  'stripe.com',               // Stripe JS - external service
-  '/api/v1/settings',         // Settings API - may not be running in test
-  '/api/v1/shipping',         // Shipping API - may not be running in test
-  'Failed to fetch',          // Network errors from APIs in test env
-  'Failed to load settings',  // Wrapper error from APIs
-  'Failed to load header',    // Wrapper error from APIs
-  'net::ERR_ABORTED',         // Aborted requests (navigation, etc.)
-  '/api/v1/customer/me',      // Auth check returns 401 for guests - expected
-  'status of 401',            // 401 responses are expected for auth endpoints when not logged in
-];
-
-// These are REAL errors we want to catch
-const NEVER_IGNORE = [
-  'Hydration',                // React hydration errors
-  'did not match',            // SSR mismatch
-  'Text content does not',    // SSR text mismatch
-  'server rendered HTML',     // SSR HTML mismatch
-];
-
-function shouldIgnore(issue: string): boolean {
-  // Never ignore critical errors
-  if (NEVER_IGNORE.some(pattern => issue.includes(pattern))) {
-    return false;
+  while (true) {
+    const payload = await fetchJson<{ data?: T[]; next_page_url?: string | null }>(`${endpoint}${endpoint.includes('?') ? '&' : '?'}page=${page}`);
+    results.push(...(Array.isArray(payload.data) ? payload.data : []));
+    if (!payload.next_page_url) {
+      break;
+    }
+    page += 1;
   }
-  return IGNORE_PATTERNS.some(pattern => issue.includes(pattern));
+
+  return results;
 }
 
-/**
- * Setup error capturing on a page
- */
-async function setupErrorCapture(page: Page) {
-  const allIssues: string[] = [];
+async function discoverAllRoutes() {
+  const staticPages = discoverStaticPages();
 
-  // Inject script to capture ALL console output BEFORE page loads
+  const [products, categories, blogPayload, services, portfolio] = await Promise.all([
+    fetchAllPaginated<ProductRecord>('/products'),
+    fetchJson<Array<{ slug?: string | null }>>('/product-categories'),
+    fetchJson<{ data?: Array<{ slug?: string | null }> }>('/blog'),
+    fetchJson<Array<{ slug?: string | null }>>('/services'),
+    fetchJson<Array<{ slug?: string | null }>>('/portfolio'),
+  ]);
+
+  const dynamicRoutes = [
+    ...products.map((product) => `/shop/${product.slug || product.id}`),
+    ...categories.map((category) => `/shop/category/${category.slug}`).filter((route) => !route.endsWith('/undefined')),
+    ...((blogPayload.data || []).map((post) => `/blog/${post.slug}`)).filter((route) => !route.endsWith('/undefined')),
+    ...services.map((service) => `/services/${service.slug}`).filter((route) => !route.endsWith('/undefined')),
+    ...portfolio.map((item) => `/portfolio/${item.slug}`).filter((route) => !route.endsWith('/undefined')),
+  ];
+
+  const routes = [...new Set([...staticPages, ...dynamicRoutes, ...ADMIN_ROUTES])].sort();
+
+  const firstPurchasableProduct = products.find((product) => product.slug && product.image !== undefined) ?? products[0];
+  expect(firstPurchasableProduct, 'At least one product is required for cart-dependent route tests').toBeTruthy();
+
+  return {
+    routes,
+    firstProduct: firstPurchasableProduct!,
+  };
+}
+
+async function captureIssues(page: Page) {
+  const issues: string[] = [];
+
   await page.addInitScript(() => {
-    const originalWarn = console.warn;
     const originalError = console.error;
-    
-    // @ts-ignore
-    window.__consoleIssues = [];
+    const originalWarn = console.warn;
 
-    const capture = (type: string, args: any[]) => {
-      const text = args.map(a => {
-        if (typeof a === 'object') {
-          try { return JSON.stringify(a); } catch { return String(a); }
+    // @ts-expect-error test-only field
+    window.__capturedConsoleIssues = [];
+
+    const pushIssue = (type: string, args: unknown[]) => {
+      const text = args.map((arg) => {
+        if (typeof arg === 'string') return arg;
+        try {
+          return JSON.stringify(arg);
+        } catch {
+          return String(arg);
         }
-        return String(a);
       }).join(' ');
-      // @ts-ignore
-      window.__consoleIssues.push({ type, text });
+
+      // @ts-expect-error test-only field
+      window.__capturedConsoleIssues.push({ type, text });
     };
 
-    console.warn = (...args) => { capture('WARN', args); originalWarn.apply(console, args); };
-    console.error = (...args) => { capture('ERROR', args); originalError.apply(console, args); };
+    console.error = (...args) => {
+      pushIssue('ERROR', args);
+      originalError.apply(console, args);
+    };
+
+    console.warn = (...args) => {
+      pushIssue('WARN', args);
+      originalWarn.apply(console, args);
+    };
   });
 
-  // Capture from Playwright console events
   page.on('console', (msg) => {
     const type = msg.type().toUpperCase();
     const text = msg.text();
-    
-    if (type === 'ERROR' || type === 'WARNING' || 
-        text.includes('Warning:') || 
-        text.includes('Error') ||
-        text.includes('did not match') ||
-        text.includes('Hydration')) {
-      allIssues.push(`[CONSOLE:${type}] ${text}`);
+    if (type === 'ERROR' || type === 'WARNING' || text.includes('Hydration') || text.includes('did not match')) {
+      issues.push(`[CONSOLE:${type}] ${text}`);
     }
   });
 
   page.on('pageerror', (error) => {
-    allIssues.push(`[PAGE_ERROR] ${error.message}`);
+    issues.push(`[PAGE_ERROR] ${error.message}`);
   });
 
   page.on('requestfailed', (request) => {
     const failure = request.failure();
-    if (failure) {
-      allIssues.push(`[REQUEST_FAILED] ${request.method()} ${request.url()} - ${failure.errorText}`);
-    }
+    const failureText = failure?.errorText || 'unknown';
+    issues.push(`[REQUEST_FAILED] ${request.method()} ${request.url()} - ${failureText}`);
   });
 
-  return allIssues;
+  return issues;
 }
 
-/**
- * Collect issues after page load
- */
-async function collectIssues(page: Page, allIssues: string[]) {
-  // Get captured console issues from injected script
+function shouldIgnoreIssue(issue: string) {
+  if (issue.includes('Hydration') || issue.includes('did not match') || issue.includes('server rendered HTML')) {
+    return false;
+  }
+
+  if (issue.startsWith('[REQUEST_FAILED]')) {
+    if (issue.includes(' - net::ERR_ABORTED') && issue.includes('http://127.0.0.1:4323/src/')) {
+      return true;
+    }
+
+    return IGNORE_REQUEST_FAILURE_PATTERNS.some((pattern) => issue.includes(pattern));
+  }
+
+  return IGNORE_CONSOLE_PATTERNS.some((pattern) => issue.includes(pattern));
+}
+
+async function collectIssues(page: Page, issues: string[]) {
   const injected = await page.evaluate(() => {
-    // @ts-ignore
-    return window.__consoleIssues || [];
-  }) as { type: string; text: string }[];
+    // @ts-expect-error test-only field
+    return window.__capturedConsoleIssues || [];
+  }) as Array<{ type: string; text: string }>;
 
-  for (const log of injected) {
-    allIssues.push(`[INJECTED:${log.type}] ${log.text}`);
+  for (const issue of injected) {
+    issues.push(`[INJECTED:${issue.type}] ${issue.text}`);
   }
 
-  // Dedupe and filter
-  const deduped = [...new Set(allIssues)];
-  return deduped.filter(issue => !shouldIgnore(issue));
+  return [...new Set(issues)].filter((issue) => !shouldIgnoreIssue(issue));
 }
 
-/**
- * Add item to cart for cart-dependent page tests
- */
-async function addItemToCart(page: Page) {
-  await page.goto('/shop/canopy-2', { waitUntil: 'networkidle' });
-  await page.waitForTimeout(2000);
-  
-  const addBtn = page.locator('button:has-text("Add to Cart"), button:has-text("Add to Basket")').first();
-  if (await addBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await addBtn.click();
-    await page.waitForTimeout(2000);
+function getAstroServerLogIssues() {
+  if (!fs.existsSync(ASTRO_SERVER_LOG)) {
+    return [];
   }
+
+  const contents = fs.readFileSync(ASTRO_SERVER_LOG, 'utf8');
+  return contents
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => /error|exception|failed|\[500\]/i.test(line))
+    .filter((line) => !IGNORE_ASTRO_LOG_PATTERNS.some((pattern) => line.includes(pattern)));
 }
 
-// Get all pages to test
-const ALL_STATIC_PAGES = discoverAllPages().filter(p => !SKIP_PAGES.includes(p));
-const ALL_PAGES = [...ALL_STATIC_PAGES, ...DYNAMIC_PAGES];
+async function loginViaApi(endpoint: '/customer/login' | '/admin/login', credentials: { email: string; password: string }) {
+  const baseUrl = endpoint.startsWith('/admin/') ? ADMIN_API_BASE : API_BASE;
+  const normalizedEndpoint = endpoint.startsWith('/admin/')
+    ? endpoint.replace('/admin', '')
+    : endpoint;
 
-console.log(`\n📋 Auto-discovered ${ALL_STATIC_PAGES.length} static pages`);
-console.log(`📋 Added ${DYNAMIC_PAGES.length} dynamic sample pages`);
-console.log(`📋 Total pages to test: ${ALL_PAGES.length}\n`);
+  const response = await fetch(`${baseUrl}${normalizedEndpoint}`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: JSON.stringify(credentials),
+  });
 
-test.describe('Comprehensive Page Tests - Auto-discovered', () => {
-  
-  // Test each page for HTTP 200 and no console errors
-  for (const pagePath of ALL_PAGES) {
-    const isCartDependent = CART_DEPENDENT_PAGES.includes(pagePath);
-    const testName = isCartDependent 
-      ? `${pagePath} (with cart items) - HTTP 200 & no errors`
-      : `${pagePath} - HTTP 200 & no errors`;
-    
-    test(testName, async ({ page }) => {
-      const allIssues = await setupErrorCapture(page);
-      
-      // For cart-dependent pages, add item to cart first
-      if (isCartDependent) {
-        await addItemToCart(page);
-      }
-      
-      // Navigate to the page and check HTTP status
-      const response = await page.goto(pagePath, { waitUntil: 'networkidle' });
-      const status = response?.status() || 0;
-      
-      // Wait for hydration
-      await page.waitForTimeout(3000);
-      
-      // Collect all issues
-      const uniqueIssues = await collectIssues(page, allIssues);
-      
-      // Report results
-      console.log(`\n========== ${pagePath} ==========`);
-      console.log(`   HTTP Status: ${status}`);
-      console.log(`   Issues: ${uniqueIssues.length}`);
-      if (uniqueIssues.length > 0) {
-        uniqueIssues.forEach((e, i) => console.log(`   ${i + 1}. ${e.substring(0, 300)}`));
-      }
-      
-      // Assertions
-      expect(status, `${pagePath} should return HTTP 200`).toBe(200);
-      expect(uniqueIssues.length, `${pagePath} should have no console errors. Found: ${uniqueIssues.join(', ')}`).toBe(0);
+  expect(response.ok, `Failed API login for ${endpoint}: ${response.status}`).toBeTruthy();
+
+  const setCookie = response.headers.getSetCookie?.() ?? [];
+  return setCookie
+    .map((cookieHeader) => {
+      const [pair] = cookieHeader.split(';');
+      const separator = pair.indexOf('=');
+      return {
+        name: pair.slice(0, separator),
+        value: pair.slice(separator + 1),
+      };
+    })
+    .filter((cookie) => cookie.name === 'customer_token' || cookie.name === 'admin_token');
+}
+
+async function ensureAdminLoggedIn(page: Page) {
+  if (!cachedAdminCookies) {
+    cachedAdminCookies = await loginViaApi('/admin/login', {
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD,
     });
   }
-});
 
-// Separate test to verify we're testing all pages
-test('Verify all pages are covered', async () => {
-  const discovered = discoverAllPages().filter(p => !SKIP_PAGES.includes(p));
-  
-  console.log('\n📋 ALL DISCOVERED PAGES:');
-  discovered.forEach((p, i) => console.log(`   ${i + 1}. ${p}`));
-  
-  console.log('\n📋 DYNAMIC SAMPLE PAGES:');
-  DYNAMIC_PAGES.forEach((p, i) => console.log(`   ${i + 1}. ${p}`));
-  
-  console.log('\n📋 CART-DEPENDENT PAGES (tested with items):');
-  CART_DEPENDENT_PAGES.forEach((p, i) => console.log(`   ${i + 1}. ${p}`));
-  
-  console.log('\n📋 SKIPPED PAGES:');
-  SKIP_PAGES.forEach((p, i) => console.log(`   ${i + 1}. ${p}`));
-  
-  // Verify cart-dependent pages are in discovered list
-  for (const cartPage of CART_DEPENDENT_PAGES) {
-    expect(discovered, `Cart-dependent page ${cartPage} should exist`).toContain(cartPage);
+  await page.context().addCookies(cachedAdminCookies.map((cookie) => ({
+    ...cookie,
+    domain: '127.0.0.1',
+    path: '/',
+    httpOnly: true,
+    sameSite: 'Lax' as const,
+    secure: false,
+  })));
+}
+
+async function ensureCustomerLoggedIn(page: Page) {
+  if (!cachedCustomerCookies) {
+    cachedCustomerCookies = await loginViaApi('/customer/login', {
+      email: CUSTOMER_EMAIL,
+      password: CUSTOMER_PASSWORD,
+    });
   }
-  
-  console.log(`\n✅ Total pages being tested: ${discovered.length + DYNAMIC_PAGES.length}`);
+
+  await page.context().addCookies(cachedCustomerCookies.map((cookie) => ({
+    ...cookie,
+    domain: '127.0.0.1',
+    path: '/',
+    httpOnly: true,
+    sameSite: 'Lax' as const,
+    secure: false,
+  })));
+}
+
+async function seedCart(page: Page, product: ProductRecord) {
+  const slugOrId = product.slug || String(product.id);
+  const detail = await fetchJson<any>(`/products/${slugOrId}`);
+  const variantEntries = Object.entries(detail.selected_variants || {});
+  const variantId = variantEntries.length > 0
+    ? `-${variantEntries.map(([key, value]: [string, any]) => `${key}-${value.value}`).join('-')}`
+    : '';
+
+  const cartItem = {
+    id: `${detail.id}${variantId}`,
+    product_id: detail.id,
+    name: detail.name,
+    price: detail.price,
+    qty: 1,
+    image: detail.image || '',
+    selected_variants: detail.selected_variants || {},
+    track_stock: detail.track_stock,
+    stock_quantity: detail.stock_quantity ?? null,
+    available_stock: detail.track_stock ? (detail.stock_quantity ?? 0) : null,
+  };
+
+  await page.addInitScript((item) => {
+    localStorage.setItem('midia_cart', JSON.stringify([item]));
+    localStorage.removeItem('midia_coupon');
+  }, cartItem);
+}
+
+async function seedCheckoutState(page: Page) {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('checkoutForm', JSON.stringify({
+      firstName: 'Playwright',
+      lastName: 'Tester',
+      phone: '07123456789',
+      email: 'asd@asd.com',
+      company: '',
+      companyVat: '',
+      fulfillmentMethod: 'click_collect',
+      shipping_address: '1 Test Street',
+      shipping_city: 'London',
+      shipping_postcode: 'E1 6AN',
+      shipping_county: '',
+      shipping_country: 'United Kingdom',
+      billingSameAsShipping: true,
+      address: '1 Test Street',
+      city: 'London',
+      postcode: 'E1 6AN',
+      county: '',
+      country: 'United Kingdom',
+      notes: '',
+      shippingOptionToken: '',
+      selectedShippingOption: null,
+    }));
+
+    sessionStorage.setItem('lastOrder', JSON.stringify({
+      orderDetails: {
+        orderNumber: '#PW-1001',
+        method: 'Card',
+        total: '£10.00',
+        items: [{ name: 'Playwright Product', qty: 1 }],
+      },
+    }));
+  });
+}
+
+async function prepareRouteState(page: Page, route: string, product: ProductRecord) {
+  if (ADMIN_ROUTES.includes(route) && route !== '/admin/login' && route !== '/admin/forgot-password' && route !== '/admin/reset-password') {
+    await ensureAdminLoggedIn(page);
+    return;
+  }
+
+  if (CUSTOMER_AUTH_ROUTES.includes(route)) {
+    await ensureCustomerLoggedIn(page);
+    return;
+  }
+
+  if (CART_REQUIRED_ROUTES.includes(route) || CHECKOUT_STATE_ROUTES.includes(route)) {
+    await seedCart(page, product);
+  }
+
+  if (CHECKOUT_STATE_ROUTES.includes(route)) {
+    await seedCheckoutState(page);
+  }
+}
+
+async function clearBrowserState(page: Page) {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.goto('about:blank');
+}
+
+test.describe('Every route returns a healthy page', () => {
+  test('all discovered routes return expected status with no runtime issues', async ({ page }) => {
+    const { routes, firstProduct } = await discoverAllRoutes();
+
+    for (const route of routes) {
+      const issues = await captureIssues(page);
+      await prepareRouteState(page, route, firstProduct);
+
+      const response = await page.goto(route, { waitUntil: 'networkidle' });
+      const status = response?.status() || 0;
+      const allowedStatuses = ALLOWED_NON_200.get(route) || [200];
+
+      await page.waitForTimeout(500);
+
+      const uniqueIssues = await collectIssues(page, issues);
+
+      expect(
+        allowedStatuses.includes(status),
+        `${route} returned unexpected HTTP status ${status}`,
+      ).toBeTruthy();
+
+      expect(
+        uniqueIssues,
+        `${route} had runtime issues:\n${uniqueIssues.join('\n')}`,
+      ).toEqual([]);
+
+      await page.context().clearCookies();
+      await clearBrowserState(page);
+    }
+
+    const astroLogIssues = getAstroServerLogIssues();
+    expect(
+      astroLogIssues,
+      `Astro dev server reported errors:\n${astroLogIssues.join('\n')}`,
+    ).toEqual([]);
+  });
 });

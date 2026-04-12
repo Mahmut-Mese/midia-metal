@@ -270,15 +270,24 @@ class CheckoutCalculator
             return $matchedPrice > 0 ? round($matchedPrice, 2) : $basePrice;
         }
 
-        $variantPrices = collect($variantDetails)
-            ->map(fn ($detail) => $this->parseMoney($detail['price'] ?? null))
-            ->filter(fn ($price) => $price > 0)
-            ->map(fn ($price) => number_format((float) $price, 2, '.', ''))
-            ->unique()
-            ->values();
+        $sizeVariant = collect($variantDetails)
+            ->first(function ($detail) {
+                $option = strtolower(trim((string) ($detail['option'] ?? '')));
 
-        if ($variantPrices->count() === 1) {
-            return (float) $variantPrices->first();
+                return in_array($option, ['size', 'olcu', 'ebat'], true);
+            });
+
+        $sizePrice = $this->parseMoney($sizeVariant['price'] ?? null);
+        if ($sizePrice > 0) {
+            return round($sizePrice, 2);
+        }
+
+        $variantPrice = collect($variantDetails)
+            ->map(fn ($detail) => $this->parseMoney($detail['price'] ?? null))
+            ->first(fn ($price) => $price > 0);
+
+        if ($variantPrice) {
+            return round((float) $variantPrice, 2);
         }
 
         return $basePrice;

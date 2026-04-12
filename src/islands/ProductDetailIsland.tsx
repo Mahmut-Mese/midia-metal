@@ -691,7 +691,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
     });
   };
 
-  if (loading) {
+  if (loading && !product) {
     return (
       <section className="container mx-auto px-4 lg:px-8 py-20 text-center">
         <p className="text-[#6e7a92]">Loading...</p>

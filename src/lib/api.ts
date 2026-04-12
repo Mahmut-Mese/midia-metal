@@ -1,11 +1,13 @@
 export const API_URL = import.meta.env.PUBLIC_API_URL || "/api";
 
+const isLocalApiUrl = (value: string) => value.startsWith("http://127.0.0.1:") || value.startsWith("http://localhost:");
+
 const getResolvedApiUrl = () => {
     if (typeof window === "undefined") {
         return API_URL;
     }
 
-    if (API_URL.startsWith("http://127.0.0.1:") || API_URL.startsWith("http://localhost:")) {
+    if (isLocalApiUrl(API_URL)) {
         return "/api";
     }
 
@@ -40,6 +42,10 @@ export const removeAuthToken = () => {
 const getApiOrigin = () => {
     if (typeof window === "undefined") {
         return "";
+    }
+
+    if (isLocalApiUrl(API_URL)) {
+        return window.location.origin;
     }
 
     if (API_URL.startsWith("http://") || API_URL.startsWith("https://")) {

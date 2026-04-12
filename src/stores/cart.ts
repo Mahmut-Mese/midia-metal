@@ -94,6 +94,9 @@ export const $discount = computed($coupon, (c) => c?.discount ?? 0);
 export const $vatAmount = computed(
   [$subtotal, $discount, $vatEnabled, $vatRate],
   (subtotal, discount, vatEnabled, vatRate) => {
+    // NOTE: This is a cart-page estimate only — shipping cost is not yet known.
+    // The authoritative VAT (including shipping) is computed in CheckoutIsland
+    // and PaymentIsland once a shipping option is selected.
     const taxableAmount = Math.max(0, subtotal - discount);
     return vatEnabled ? Math.round(taxableAmount * (vatRate / 100) * 100) / 100 : 0;
   }

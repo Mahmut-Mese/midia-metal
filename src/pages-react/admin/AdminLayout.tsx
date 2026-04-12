@@ -46,16 +46,27 @@ export default function AdminLayout() {
 
     useEffect(() => {
         let cancelled = false;
-        apiFetch("/admin/me")
-            .then(() => {
+
+        const verifyAdminSession = async (attempt = 0) => {
+            try {
+                await apiFetch("/admin/me");
                 if (!cancelled) setAuthChecked(true);
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    removeAuthToken();
-                    navigate("/admin/login", { replace: true });
+            } catch {
+                if (cancelled) return;
+
+                if (attempt === 0) {
+                    window.setTimeout(() => {
+                        void verifyAdminSession(1);
+                    }, 250);
+                    return;
                 }
-            });
+
+                removeAuthToken();
+                navigate("/admin/login", { replace: true });
+            }
+        };
+
+        void verifyAdminSession();
         return () => { cancelled = true; };
     }, [navigate]);
 

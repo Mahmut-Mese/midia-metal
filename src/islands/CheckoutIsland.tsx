@@ -291,15 +291,20 @@ function CheckoutIsland() {
     }
     setIsSubmitting(true);
 
-    // Store checkout form in sessionStorage (replaces React Router state passing)
-    sessionStorage.setItem(
-      "checkoutForm",
-      JSON.stringify({
-        ...form,
-        selectedShippingOption,
-      })
-    );
-    window.location.href = "/payment";
+    try {
+      // Store checkout form in sessionStorage (replaces React Router state passing)
+      sessionStorage.setItem(
+        "checkoutForm",
+        JSON.stringify({
+          ...form,
+          selectedShippingOption,
+        })
+      );
+      window.location.href = "/payment";
+    } catch (err: any) {
+      toast.error(err?.message || "Unable to proceed to payment. Please try again.");
+      setIsSubmitting(false);
+    }
   };
 
   return (
