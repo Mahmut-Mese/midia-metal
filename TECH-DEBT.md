@@ -84,20 +84,23 @@ The web routes file contains full HTML template generation with inline closures,
 **Fix:** Move all rendering logic to controllers and Blade views.
 **Resolved:** Extracted `SeoMetaService` (612 lines), `BotContentService` (430 lines), `SpaController` (115 lines). `web.php` reduced from 975 → 25 lines (97.4% reduction). Commit `f58f346`.
 
-### 2.4 Duplicated freight/zone logic across gateways — **P2**
+### 2.4 Duplicated freight/zone logic across gateways — **P2** ✅ FIXED
 `EasyPostGateway.php` and `MockEasyPostGateway.php` both contain nearly identical postcode-zone detection and surcharge lookup logic (~50 lines each). Also duplicated: `aggregateTrackingStatus()` / `aggregateStatus()`.
 
 **Fix:** Extract `FreightZoneResolver` service and a shared base class or trait for common gateway methods.
+**Resolved:** Created `FreightZoneResolver` service (131 lines) with shared `resolve()`, `detectZone()`, `loadSurcharges()`, `matchesPrefix()`, `extractPostcodeArea()` methods. Both gateways now inject this service instead of duplicating logic (~120 lines of duplication removed). Uses instance property caching, not static. Commit `68b2c8a`.
 
-### 2.5 No service container bindings — **P2**
+### 2.5 No service container bindings — **P2** ✅ FIXED
 `AppServiceProvider` is empty. `ShippingManager` uses `new MockEasyPostGateway()` / `new EasyPostGateway()` directly. No interfaces are bound in the container.
 
 **Fix:** Bind `ShippingGateway` interface in `AppServiceProvider`. Resolve gateways from the container.
+**Resolved:** `AppServiceProvider` now registers `FreightZoneResolver` (singleton), `ShippingGateway` interface (bound to mock/live gateway based on config), and `ShippingManager` (singleton). `ShippingManager` uses constructor-injected gateway. Commit `68b2c8a`.
 
-### 2.6 No FormRequest classes — **P2**
+### 2.6 No FormRequest classes — **P2** ✅ FIXED
 Every controller uses inline `$request->validate([...])`. Validation rules are duplicated between `store()` and `update()` in ProductController, BlogController, PortfolioController, ServiceController.
 
 **Fix:** Create FormRequest classes for each resource. Share rules via a base request or rule method.
+**Resolved:** Created `SaveProductRequest`, `SaveBlogPostRequest`, `StoreCouponRequest`, `UpdateCouponRequest` in `app/Http/Requests/Admin/`. ProductController, BlogController, and CouponController updated to use FormRequest type-hints with `$request->validated()`. Removed duplicated 31-rule validation blocks. Commit `68b2c8a`.
 
 ### 2.7 No authorization policies — **P2**
 No Policy classes exist. Any authenticated admin can perform any action. There is no role-based access control beyond "is authenticated".
@@ -131,15 +134,17 @@ There are zero `.d.ts` or interface files for the data models. Every component i
 
 **Status:** Fixed — created 7 interface files in `src/types/`: product.ts, order.ts, customer.ts, cart.ts, settings.ts, api.ts, index.ts (barrel). Updated cart store, AdminSettings, AdminProducts, and ProductDetailIsland to import from canonical types.
 
-### 3.3 Duplicate toast systems — **P2**
+### 3.3 Duplicate toast systems — **P2** ✅ FIXED
 Both `sonner` (used in most places) and shadcn `Toaster` + `use-toast.ts` are installed and mounted. The shadcn toast system appears unused but its components are still imported.
 
 **Fix:** Remove `@/components/ui/toaster.tsx`, `@/components/ui/toast.tsx`, `@/hooks/use-toast.ts`. Keep only `sonner`.
+**Resolved:** Deleted `toaster.tsx`, `toast.tsx`, `use-toast.ts`, `use-toast.ts` (re-export). Removed shadcn `Toaster` import and JSX from `AdminApp.tsx`. Uninstalled `@radix-ui/react-toast` package. Only Sonner remains. Commit `68b2c8a`.
 
-### 3.4 Dead code in `api.ts` — **P2**
+### 3.4 Dead code in `api.ts` — **P2** ✅ FIXED
 `getAuthToken()`, `setAuthToken()`, `removeAuthToken()` in `src/lib/api.ts` are no-ops (they just call `clearLegacyTokens()` which removes old localStorage keys). The app uses cookie-based auth via Sanctum. These functions exist only for backward compatibility during the migration from token-based auth.
 
 **Fix:** Remove after confirming no callers depend on them (search for imports).
+**Resolved:** Removed `getAuthToken`, `setAuthToken`, `removeAuthToken` exports. Legacy token cleanup now runs once on module load via IIFE. Removed `removeAuthToken()` calls from `AdminLayout.tsx` (auth and logout handlers). Commit `68b2c8a`.
 
 ### 3.5 Native `confirm()` dialogs in admin — **P3**
 15 instances of `window.confirm()` across admin pages. The project already has `@radix-ui/react-alert-dialog` installed.
@@ -221,10 +226,11 @@ Vitest is configured with a single `assertTrue` placeholder. Zero tests for: car
 
 **Fix:** Parametrize with `test.describe` / individual `test()` per route group, or use soft assertions.
 
-### 5.6 Flaky `waitForTimeout` patterns — **P2**
+### 5.6 Flaky `waitForTimeout` patterns — **P2** ✅ FIXED
 3 instances of hardcoded delays (`waitForTimeout(1500)`) in `login.spec.ts` instead of event-driven waits.
 
 **Fix:** Replace with `waitForURL`, `waitForResponse`, or `expect.poll`.
+**Resolved:** Removed both `waitForTimeout(1500)` calls from `login.spec.ts`. The subsequent `expect.poll` already handles dynamic waiting. Commit `68b2c8a`.
 
 ### 5.7 Tests bypass auth middleware — **P2** ✅ FIXED
 `AdminProductValidationTest.php` calls `$this->withoutMiddleware()`, meaning the authentication layer is never exercised.
@@ -236,15 +242,17 @@ Vitest is configured with a single `assertTrue` placeholder. Zero tests for: car
 
 ## 6. CI/CD & Infrastructure
 
-### 6.1 No backend linting in CI — **P2**
+### 6.1 No backend linting in CI — **P2** ✅ FIXED
 Laravel Pint is installed but never run in CI. PHP formatting is unenforced.
 
 **Fix:** Add `composer pint:check` step to the CI workflow.
+**Resolved:** Added `./vendor/bin/pint --test` step to the `backend-test` CI job. Auto-fixed all existing violations (~120 files). Commit `68b2c8a`.
 
-### 6.2 No health check endpoint — **P2**
+### 6.2 No health check endpoint — **P2** ✅ FIXED
 No `/api/health` or similar endpoint. No post-deploy verification that the app is responding.
 
 **Fix:** Add a simple health endpoint that checks DB connectivity and returns 200.
+**Resolved:** Added `GET /api/health` endpoint in `routes/api.php`. Returns `{ status: "ok"|"degraded", database: bool, timestamp: string }` with 200/503 status. CI E2E job now uses `/api/health` for backend readiness check. Commit `68b2c8a`.
 
 ### 6.3 No production deployment pipeline — **P2**
 CI only deploys to staging (`staging` branch). Production deployment is undocumented.
@@ -305,10 +313,11 @@ Most model relationship methods (`belongsTo`, `hasMany`, etc.) lack return type 
 
 **Fix:** Replace with `instanceof` check.
 
-### 8.4 `static` variable caching in gateways — **P3**
+### 8.4 `static` variable caching in gateways — **P3** ✅ FIXED
 `EasyPostGateway.php` and `MockEasyPostGateway.php` use `static $cache = null;` for surcharge lookups. This persists across tests and in long-running processes (queues, Octane).
 
 **Fix:** Use request-scoped caching or the service container singleton pattern.
+**Resolved:** `FreightZoneResolver` uses instance property caching (not `static`). Registered as a singleton in the service container, so surcharges are loaded once per request but don't leak across tests/requests. Commit `68b2c8a`.
 
 ### 8.5 Typo in admin seeder email — **P3** ✅ FIXED
 `DatabaseSeeder.php:25` seeds `admin@midiaematal.com` — likely should be `admin@midiametal.com`.
@@ -349,9 +358,9 @@ The frontend requires `PUBLIC_API_URL` and `PUBLIC_STRIPE_KEY` but there's no `.
 |----------|-------|-------|-----------|---------------------|
 | **P0** | 4 | 3 ✅ | 1 | Test coverage (partially fixed) |
 | **P1** | 13 | 12 ✅ | 1 | String prices (4.1) |
-| **P2** | 17 | 4 ✅ | 13 | Duplicated logic, no FormRequests, data in migrations, flaky tests, no health check, docs |
-| **P3** | 11 | 2 ✅ | 9 | Confirm dialogs, unused deps, pre-commit hooks, Docker |
-| **Total** | **45** | **21 ✅** | **24** |
+| **P2** | 17 | 12 ✅ | 5 | Monolithic E2E scanner (5.5), production deploy docs (6.3), compiled assets in git (6.4), lazy images (7.1), useMemo (7.2) |
+| **P3** | 11 | 3 ✅ | 8 | Confirm dialogs, unused deps, pre-commit hooks, Docker |
+| **Total** | **45** | **30 ✅** | **15** |
 
 ### Recommended Attack Order (Updated)
 
@@ -359,5 +368,6 @@ The frontend requires `PUBLIC_API_URL` and `PUBLIC_STRIPE_KEY` but there's no `.
 2. ~~**Test foundation**: Create model factories, add checkout/payment tests, run E2E in CI, add frontend unit tests~~ ✅ Done
 3. ~~**Architecture**: Extract services from fat controllers (2.1), split AdminProducts.tsx (2.2), extract web.php (2.3)~~ ✅ Done
 4. ~~**TypeScript**: Create `src/types/` with shared interfaces (3.2), make `apiFetch` generic and type all call sites (3.1)~~ ✅ Done
-5. **Database**: Plan and execute price column migration (4.1), eliminate data-in-migrations pattern (4.3)
-6. **Code quality**: Replace remaining `any[]` state types with proper interfaces (3.1 continued), remove dead code (3.4), enable stricter linting
+5. ~~**Architecture cleanup**: Extract FreightZoneResolver (2.4), add DI bindings (2.5), create FormRequests (2.6), remove dead code (3.3, 3.4), add Pint to CI (6.1), health endpoint (6.2), fix flaky tests (5.6)~~ ✅ Done
+6. **Database**: Plan and execute price column migration (4.1), eliminate data-in-migrations pattern (4.3)
+7. **Code quality**: Replace remaining `any[]` state types with proper interfaces (3.1 continued), remove dead code (3.4), enable stricter linting
