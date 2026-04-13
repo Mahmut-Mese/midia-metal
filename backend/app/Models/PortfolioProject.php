@@ -19,8 +19,9 @@ class PortfolioProject extends Model
         'services_list',
         'gallery',
         'active',
-        'order'
+        'order',
     ];
+
     protected $casts = ['services_list' => 'array', 'gallery' => 'array', 'active' => 'boolean'];
 
     public function portfolioCategory()

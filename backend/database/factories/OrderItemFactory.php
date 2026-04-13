@@ -8,7 +8,7 @@ use App\Models\Product;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\OrderItem>
+ * @extends Factory<OrderItem>
  */
 class OrderItemFactory extends Factory
 {
@@ -20,7 +20,7 @@ class OrderItemFactory extends Factory
             'order_id' => Order::factory(),
             'product_id' => Product::factory(),
             'product_name' => fake()->words(3, true),
-            'product_price' => '£' . number_format(fake()->randomFloat(2, 10, 500), 2, '.', ''),
+            'product_price' => '£'.number_format(fake()->randomFloat(2, 10, 500), 2, '.', ''),
             'quantity' => fake()->numberBetween(1, 5),
         ];
     }

@@ -7,15 +7,13 @@ use App\Models\Order;
 use App\Shipping\ShippingManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Stripe\Stripe;
-use Stripe\Refund;
 use Stripe\Exception\ApiErrorException;
+use Stripe\Refund;
+use Stripe\Stripe;
 
 class OrderController extends Controller
 {
-    public function __construct(private ShippingManager $shippingManager)
-    {
-    }
+    public function __construct(private ShippingManager $shippingManager) {}
 
     public function index(Request $request)
     {
@@ -32,6 +30,7 @@ class OrderController extends Controller
         if ($request->status) {
             $query->where('status', $request->status);
         }
+
         return response()->json($query->latest()->paginate(15));
     }
 
@@ -49,12 +48,14 @@ class OrderController extends Controller
             'tracking_number' => 'nullable|string|max:255',
         ]);
         $order->update($validated);
+
         return response()->json($order->load(['items', 'customerRequests']));
     }
 
     public function destroy(Order $order)
     {
         $order->delete();
+
         return response()->json(['message' => 'Order deleted']);
     }
 
@@ -68,7 +69,7 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order is not paid or already fully refunded.'], 400);
         }
 
-        if (!$order->stripe_payment_intent_id) {
+        if (! $order->stripe_payment_intent_id) {
             return response()->json(['message' => 'No Stripe payment intent found for this order.'], 400);
         }
 
@@ -87,7 +88,7 @@ class OrderController extends Controller
             $refund = Refund::create($refundParams);
 
             if ($refund->status === 'succeeded' || $refund->status === 'pending') {
-                $isFullRefund = !isset($validated['amount']) || round($validated['amount'], 2) >= round($order->total, 2);
+                $isFullRefund = ! isset($validated['amount']) || round($validated['amount'], 2) >= round($order->total, 2);
                 $newStatus = $isFullRefund ? 'refunded' : 'partially_refunded';
 
                 $order->update([
@@ -96,11 +97,11 @@ class OrderController extends Controller
                 ]);
 
                 // Void the shipping label on full refund
-                if ($isFullRefund && ($order->shipping_shipment_id || !empty(data_get($order->shipping_metadata, 'shipments')))) {
+                if ($isFullRefund && ($order->shipping_shipment_id || ! empty(data_get($order->shipping_metadata, 'shipments')))) {
                     try {
                         $this->shippingManager->voidShipment($order);
                     } catch (\Throwable $e) {
-                        Log::warning("Failed to void shipment for refunded order {$order->order_number}: " . $e->getMessage());
+                        Log::warning("Failed to void shipment for refunded order {$order->order_number}: ".$e->getMessage());
                     }
                 }
 
@@ -116,4 +117,3 @@ class OrderController extends Controller
         }
     }
 }
-

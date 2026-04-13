@@ -13,11 +13,11 @@ class EnsureCustomerUser
     {
         $user = $request->user();
 
-        if (!$user instanceof Customer) {
+        if (! $user instanceof Customer) {
             abort(403, 'Customer access is required.');
         }
 
-        if ($user->currentAccessToken() && !$user->tokenCan('customer')) {
+        if ($user->currentAccessToken() && ! $user->tokenCan('customer')) {
             abort(403, 'Customer access is required.');
         }
 

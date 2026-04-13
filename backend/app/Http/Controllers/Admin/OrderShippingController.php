@@ -10,9 +10,7 @@ use Illuminate\Support\Facades\Storage;
 
 class OrderShippingController extends Controller
 {
-    public function __construct(private ShippingManager $shippingManager)
-    {
-    }
+    public function __construct(private ShippingManager $shippingManager) {}
 
     public function createLabel(Request $request, Order $order)
     {
@@ -60,7 +58,7 @@ class OrderShippingController extends Controller
             ], 422);
         }
 
-        if (!$order->shipping_shipment_id && empty(data_get($order->shipping_metadata, 'shipments'))) {
+        if (! $order->shipping_shipment_id && empty(data_get($order->shipping_metadata, 'shipments'))) {
             return response()->json([
                 'message' => 'No shipping label has been created for this order.',
             ], 422);
@@ -101,7 +99,7 @@ class OrderShippingController extends Controller
         }
 
         $path = parse_url($url, PHP_URL_PATH);
-        if (!$path || !is_string($path)) {
+        if (! $path || ! is_string($path)) {
             return null;
         }
 

@@ -2,18 +2,19 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 use App\Models\AdminUser;
+use App\Models\BlogPost;
 use App\Models\HeroSlide;
-use App\Models\ProductCategory;
-use App\Models\Product;
-use App\Models\Service;
 use App\Models\PortfolioCategory;
 use App\Models\PortfolioProject;
-use App\Models\BlogPost;
+use App\Models\Product;
+use App\Models\ProductCategory;
+use App\Models\Service;
 use App\Models\SiteSetting;
 use App\Models\Testimonial;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -66,7 +67,7 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Brushed Stainless Panel', 'price' => '£830.00', 'image' => '/images/wall-cladding.jpg', 'product_category_id' => 6, 'tags' => ['Available', 'Simple'], 'featured' => false],
         ];
         foreach ($products as $i => $p) {
-            Product::create(array_merge($p, ['slug' => \Illuminate\Support\Str::slug($p['name']) . '-' . ($i + 1), 'active' => true, 'order' => $i + 1]));
+            Product::create(array_merge($p, ['slug' => Str::slug($p['name']).'-'.($i + 1), 'active' => true, 'order' => $i + 1]));
         }
 
         // Services

@@ -17,27 +17,13 @@ const getResolvedApiUrl = () => {
 const CSRF_COOKIE_NAME = "XSRF-TOKEN";
 let csrfBootstrapPromise: Promise<void> | null = null;
 
-const clearLegacyTokens = () => {
-    if (typeof window === "undefined") {
-        return;
-    }
-
+// One-time cleanup: remove legacy localStorage tokens from pre-Sanctum auth.
+// Sanctum uses httpOnly cookies — no tokens needed.
+(() => {
+    if (typeof window === "undefined") return;
     localStorage.removeItem("admin_token");
     localStorage.removeItem("customer_token");
-};
-
-export const getAuthToken = () => {
-    clearLegacyTokens();
-    return null;
-};
-
-export const setAuthToken = (_token: string) => {
-    clearLegacyTokens();
-};
-
-export const removeAuthToken = () => {
-    clearLegacyTokens();
-};
+})();
 
 const getApiOrigin = () => {
     if (typeof window === "undefined") {
@@ -144,7 +130,6 @@ export const apiFetch = async <T = unknown>(endpoint: string, options: RequestIn
 
     if (!response.ok) {
         if (response.status === 401 && endpoint.startsWith("/admin")) {
-            removeAuthToken();
             if (!window.location.pathname.startsWith("/admin/login")) {
                 window.location.href = "/admin/login";
             }

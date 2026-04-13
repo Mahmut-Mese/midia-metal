@@ -11,11 +11,11 @@ class UseCustomerTokenCookie
     public function handle(Request $request, Closure $next): Response
     {
         if (
-            !$request->bearerToken()
+            ! $request->bearerToken()
             && $request->is('api/v1/*')
             && $request->cookie('customer_token')
         ) {
-            $request->headers->set('Authorization', 'Bearer ' . urldecode((string) $request->cookie('customer_token')));
+            $request->headers->set('Authorization', 'Bearer '.urldecode((string) $request->cookie('customer_token')));
         }
 
         return $next($request);

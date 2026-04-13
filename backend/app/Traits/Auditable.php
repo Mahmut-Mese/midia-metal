@@ -9,7 +9,7 @@ trait Auditable
 {
     public static function bootAuditable()
     {
-        if (app()->runningInConsole() && !app()->runningUnitTests()) {
+        if (app()->runningInConsole() && ! app()->runningUnitTests()) {
             return;
         }
 
@@ -29,7 +29,7 @@ trait Auditable
     protected static function logAction($action, $model)
     {
         $adminUserId = null;
-        
+
         // Attempt to capture the logged-in admin user via Sanctum or session
         $user = Auth::guard('sanctum')->user() ?? Auth::guard('admin_web')->user();
         if ($user && get_class($user) === 'App\Models\AdminUser') {

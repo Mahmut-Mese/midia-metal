@@ -9,11 +9,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            if (!Schema::hasColumn('products', 'frontend_variant_layout')) {
+            if (! Schema::hasColumn('products', 'frontend_variant_layout')) {
                 $table->string('frontend_variant_layout')->default('default')->after('variant_options');
             }
 
-            if (!Schema::hasColumn('products', 'selection_table_config')) {
+            if (! Schema::hasColumn('products', 'selection_table_config')) {
                 $table->json('selection_table_config')->nullable()->after('frontend_variant_layout');
             }
         });

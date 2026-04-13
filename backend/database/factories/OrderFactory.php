@@ -2,13 +2,13 @@
 
 namespace Database\Factories;
 
-use App\Models\Order;
 use App\Models\Customer;
+use App\Models\Order;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Order>
+ * @extends Factory<Order>
  */
 class OrderFactory extends Factory
 {
@@ -21,7 +21,7 @@ class OrderFactory extends Factory
         $total = round($subtotal + $shipping, 2);
 
         return [
-            'order_number' => 'ORD-' . strtoupper(Str::random(8)),
+            'order_number' => 'ORD-'.strtoupper(Str::random(8)),
             'customer_name' => fake()->name(),
             'customer_email' => fake()->safeEmail(),
             'customer_phone' => fake()->phoneNumber(),
@@ -51,7 +51,7 @@ class OrderFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'payment_status' => 'paid',
             'payment_method' => 'stripe',
-            'stripe_payment_intent_id' => 'pi_' . fake()->bothify('????????????????????????'),
+            'stripe_payment_intent_id' => 'pi_'.fake()->bothify('????????????????????????'),
         ]);
     }
 

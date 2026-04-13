@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Customer>
+ * @extends Factory<Customer>
  */
 class CustomerFactory extends Factory
 {
@@ -35,14 +35,14 @@ class CustomerFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'is_business' => true,
             'company_name' => fake()->company(),
-            'company_vat_number' => 'GB' . fake()->numerify('#########'),
+            'company_vat_number' => 'GB'.fake()->numerify('#########'),
         ]);
     }
 
     public function withStripe(): static
     {
         return $this->state(fn (array $attributes) => [
-            'stripe_customer_id' => 'cus_' . fake()->bothify('??????????????'),
+            'stripe_customer_id' => 'cus_'.fake()->bothify('??????????????'),
         ]);
     }
 }

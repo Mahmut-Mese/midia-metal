@@ -21,25 +21,25 @@ class HtmlSanitizer
             $safeStyles = [];
 
             foreach ($allowedProps as $prop) {
-                if (!preg_match('/(?:^|;)\s*' . preg_quote($prop, '/') . '\s*:\s*([^;]+)/i', $rawStyle, $match)) {
+                if (! preg_match('/(?:^|;)\s*'.preg_quote($prop, '/').'\s*:\s*([^;]+)/i', $rawStyle, $match)) {
                     continue;
                 }
 
                 $value = trim($match[1]);
-                if (!preg_match('/^[a-zA-Z0-9\s%.,#()_-]+$/', $value)) {
+                if (! preg_match('/^[a-zA-Z0-9\s%.,#()_-]+$/', $value)) {
                     continue;
                 }
 
-                $safeStyles[] = $prop . ':' . $value;
+                $safeStyles[] = $prop.':'.$value;
             }
 
-            return $safeStyles ? implode('; ', $safeStyles) . ';' : '';
+            return $safeStyles ? implode('; ', $safeStyles).';' : '';
         };
 
         $extractStyle = static function (string $attributes) use ($sanitizeStyle): string {
             if (
-                !preg_match('/style\s*=\s*"([^"]*)"/i', $attributes, $styleMatch) &&
-                !preg_match("/style\s*=\s*'([^']*)'/i", $attributes, $styleMatch)
+                ! preg_match('/style\s*=\s*"([^"]*)"/i', $attributes, $styleMatch) &&
+                ! preg_match("/style\s*=\s*'([^']*)'/i", $attributes, $styleMatch)
             ) {
                 return '';
             }
@@ -87,7 +87,8 @@ class HtmlSanitizer
             }
 
             $style = $extractStyle($attrs);
-            return $style ? '<div style="' . e($style) . '">' : '<div>';
+
+            return $style ? '<div style="'.e($style).'">' : '<div>';
         }, $content) ?? '';
 
         $content = preg_replace_callback('/<font\b([^>]*)>/i', function ($matches) {
@@ -96,7 +97,7 @@ class HtmlSanitizer
             if (preg_match('/color\s*=\s*"([^"]+)"/i', $attributes, $colorMatch) ||
                 preg_match("/color\s*=\s*'([^']+)'/i", $attributes, $colorMatch) ||
                 preg_match('/color\s*=\s*([^\s>]+)/i', $attributes, $colorMatch)) {
-                return '<span style="color:' . e(trim($colorMatch[1])) . '">';
+                return '<span style="color:'.e(trim($colorMatch[1])).'">';
             }
 
             return '<span>';
@@ -116,21 +117,23 @@ class HtmlSanitizer
             }
 
             $style = $extractStyle($attrs);
-            return $style ? '<div style="' . e($style) . '">' : '<div>';
+
+            return $style ? '<div style="'.e($style).'">' : '<div>';
         }, $content) ?? '';
 
         foreach (['p', 'h1', 'h2', 'h3', 'h4', 'table', 'thead', 'tbody', 'tr', 'td', 'th'] as $tagName) {
-            $content = preg_replace_callback('/<' . $tagName . '\b([^>]*)>/i', function ($matches) use ($tagName, $extractStyle) {
+            $content = preg_replace_callback('/<'.$tagName.'\b([^>]*)>/i', function ($matches) use ($tagName, $extractStyle) {
                 $style = $extractStyle($matches[1] ?? '');
-                return $style ? '<' . $tagName . ' style="' . e($style) . '">' : '<' . $tagName . '>';
+
+                return $style ? '<'.$tagName.' style="'.e($style).'">' : '<'.$tagName.'>';
             }, $content) ?? '';
         }
 
         $content = preg_replace_callback('/<a\b([^>]*)>/i', function ($matches) {
             $attributes = $matches[1] ?? '';
 
-            if (!preg_match('/href\s*=\s*"([^"]+)"/i', $attributes, $hrefMatch) &&
-                !preg_match("/href\s*=\s*'([^']+)'/i", $attributes, $hrefMatch)) {
+            if (! preg_match('/href\s*=\s*"([^"]+)"/i', $attributes, $hrefMatch) &&
+                ! preg_match("/href\s*=\s*'([^']+)'/i", $attributes, $hrefMatch)) {
                 return '<a>';
             }
 
@@ -140,37 +143,37 @@ class HtmlSanitizer
                 return '<a>';
             }
 
-            return '<a href="' . e($href) . '" target="_blank" rel="noopener noreferrer">';
+            return '<a href="'.e($href).'" target="_blank" rel="noopener noreferrer">';
         }, $content) ?? '';
 
         $content = preg_replace_callback('/<span\b([^>]*)>/i', function ($matches) {
             $attributes = $matches[1] ?? '';
 
-            if (!preg_match('/style\s*=\s*"([^"]*)"/i', $attributes, $styleMatch) &&
-                !preg_match("/style\s*=\s*'([^']*)'/i", $attributes, $styleMatch)) {
+            if (! preg_match('/style\s*=\s*"([^"]*)"/i', $attributes, $styleMatch) &&
+                ! preg_match("/style\s*=\s*'([^']*)'/i", $attributes, $styleMatch)) {
                 return '<span>';
             }
 
             $style = $styleMatch[1] ?? '';
 
-            if (!preg_match('/(?:^|;)\s*color\s*:\s*([^;]+)/i', $style, $colorMatch)) {
+            if (! preg_match('/(?:^|;)\s*color\s*:\s*([^;]+)/i', $style, $colorMatch)) {
                 return '<span>';
             }
 
             $color = trim($colorMatch[1]);
 
-            if (!preg_match('/^(#[0-9a-fA-F]{3,8}|rgb(a)?\([^)]+\)|hsl(a)?\([^)]+\)|[a-zA-Z]+)$/', $color)) {
+            if (! preg_match('/^(#[0-9a-fA-F]{3,8}|rgb(a)?\([^)]+\)|hsl(a)?\([^)]+\)|[a-zA-Z]+)$/', $color)) {
                 return '<span>';
             }
 
-            return '<span style="color:' . e($color) . '">';
+            return '<span style="color:'.e($color).'">';
         }, $content) ?? '';
 
         $content = preg_replace_callback('/<img\b([^>]*)>/i', function ($matches) use ($sanitizeStyle) {
             $attributes = $matches[1] ?? '';
 
-            if (!preg_match('/src\s*=\s*"([^"]+)"/i', $attributes, $srcMatch) &&
-                !preg_match("/src\s*=\s*'([^']+)'/i", $attributes, $srcMatch)) {
+            if (! preg_match('/src\s*=\s*"([^"]+)"/i', $attributes, $srcMatch) &&
+                ! preg_match("/src\s*=\s*'([^']+)'/i", $attributes, $srcMatch)) {
                 return '';
             }
 
@@ -178,7 +181,7 @@ class HtmlSanitizer
 
             if (
                 preg_match('/^\s*javascript:/i', $src) ||
-                !preg_match('/^(https?:\/\/|\/|data:image\/)/i', $src)
+                ! preg_match('/^(https?:\/\/|\/|data:image\/)/i', $src)
             ) {
                 return '';
             }
@@ -210,11 +213,11 @@ class HtmlSanitizer
                 ]);
             }
 
-            if (!$style) {
+            if (! $style) {
                 $style = 'max-width:100%;height:auto;display:inline-block;margin:5px;';
             }
 
-            return '<img src="' . e($src) . '" alt="' . e($alt) . '" loading="lazy" style="' . $style . '" />';
+            return '<img src="'.e($src).'" alt="'.e($alt).'" loading="lazy" style="'.$style.'" />';
         }, $content) ?? '';
 
         return $content;

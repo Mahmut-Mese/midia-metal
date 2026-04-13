@@ -18,7 +18,7 @@ import {
     HelpCircle,
     Loader2
 } from "lucide-react";
-import { removeAuthToken, apiFetch } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 const navigation = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -61,7 +61,6 @@ export default function AdminLayout() {
                     return;
                 }
 
-                removeAuthToken();
                 navigate("/admin/login", { replace: true });
             }
         };
@@ -76,7 +75,6 @@ export default function AdminLayout() {
         } catch (e) {
             // ignore
         }
-        removeAuthToken();
         navigate("/admin/login");
     };
 

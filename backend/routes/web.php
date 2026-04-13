@@ -15,7 +15,7 @@ Route::get('/robots.txt', function (Request $request) {
     $content = implode("\n", [
         'User-agent: *',
         'Allow: /',
-        'Sitemap: ' . $baseUrl . '/sitemap.xml',
+        'Sitemap: '.$baseUrl.'/sitemap.xml',
         '',
     ]);
 

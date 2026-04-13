@@ -19,7 +19,7 @@ class FaqController extends Controller
             'question' => 'required|string|max:255',
             'answer' => 'required|string',
             'order' => 'integer',
-            'active' => 'boolean'
+            'active' => 'boolean',
         ]);
 
         return response()->json(Faq::create($validated), 201);
@@ -36,16 +36,18 @@ class FaqController extends Controller
             'question' => 'required|string|max:255',
             'answer' => 'required|string',
             'order' => 'integer',
-            'active' => 'boolean'
+            'active' => 'boolean',
         ]);
 
         $faq->update($validated);
+
         return response()->json($faq);
     }
 
     public function destroy(Faq $faq)
     {
         $faq->delete();
+
         return response()->json(['message' => 'FAQ deleted']);
     }
 }

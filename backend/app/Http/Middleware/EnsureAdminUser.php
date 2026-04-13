@@ -13,11 +13,11 @@ class EnsureAdminUser
     {
         $user = $request->user();
 
-        if (!$user instanceof AdminUser) {
+        if (! $user instanceof AdminUser) {
             abort(403, 'Admin access is required.');
         }
 
-        if ($user->currentAccessToken() && !$user->tokenCan('admin')) {
+        if ($user->currentAccessToken() && ! $user->tokenCan('admin')) {
             abort(403, 'Admin access is required.');
         }
 

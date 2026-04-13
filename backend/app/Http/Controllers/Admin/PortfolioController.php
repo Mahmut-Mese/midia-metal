@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\PortfolioProject;
 use App\Models\PortfolioCategory;
+use App\Models\PortfolioProject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -19,6 +19,7 @@ class PortfolioController extends Controller
         if ($request->category_id) {
             $query->where('portfolio_category_id', $request->category_id);
         }
+
         return response()->json($query->orderBy('order')->latest()->paginate(15));
     }
 
@@ -38,7 +39,8 @@ class PortfolioController extends Controller
             'active' => 'boolean',
             'order' => 'integer',
         ]);
-        $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(4);
+        $validated['slug'] = Str::slug($validated['title']).'-'.Str::random(4);
+
         return response()->json(PortfolioProject::create($validated)->load('portfolioCategory'), 201);
     }
 
@@ -64,12 +66,14 @@ class PortfolioController extends Controller
             'order' => 'integer',
         ]);
         $portfolio->update($validated);
+
         return response()->json($portfolio->load('portfolioCategory'));
     }
 
     public function destroy(PortfolioProject $portfolio)
     {
         $portfolio->delete();
+
         return response()->json(['message' => 'Project deleted']);
     }
 
@@ -82,6 +86,7 @@ class PortfolioController extends Controller
     {
         $validated = $request->validate(['name' => 'required|string|max:255']);
         $validated['slug'] = Str::slug($validated['name']);
+
         return response()->json(PortfolioCategory::create($validated), 201);
     }
 
@@ -90,12 +95,14 @@ class PortfolioController extends Controller
         $validated = $request->validate(['name' => 'required|string|max:255']);
         $validated['slug'] = Str::slug($validated['name']);
         $portfolioCategory->update($validated);
+
         return response()->json($portfolioCategory);
     }
 
     public function destroyCategory(PortfolioCategory $portfolioCategory)
     {
         $portfolioCategory->delete();
+
         return response()->json(['message' => 'Category deleted']);
     }
 }

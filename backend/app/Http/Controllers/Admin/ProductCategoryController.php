@@ -24,6 +24,7 @@ class ProductCategoryController extends Controller
             'order' => 'integer',
         ]);
         $validated['slug'] = Str::slug($validated['name']);
+
         return response()->json(ProductCategory::create($validated), 201);
     }
 
@@ -42,12 +43,14 @@ class ProductCategoryController extends Controller
             'order' => 'integer',
         ]);
         $productCategory->update($validated);
+
         return response()->json($productCategory);
     }
 
     public function destroy(ProductCategory $productCategory)
     {
         $productCategory->delete();
+
         return response()->json(['message' => 'Category deleted']);
     }
 }

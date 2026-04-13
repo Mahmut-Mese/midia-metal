@@ -3,30 +3,17 @@
 namespace App\Shipping;
 
 use App\Models\Order;
-use RuntimeException;
 
 class ShippingManager
 {
-    public function __construct(private ParcelBuilder $parcelBuilder)
-    {
-    }
+    public function __construct(
+        private ParcelBuilder $parcelBuilder,
+        private ShippingGateway $gateway,
+    ) {}
 
     public function gateway(): ShippingGateway
     {
-        $provider = (string) config('services.shipping.provider', 'easypost');
-        $mock = (bool) config('services.shipping.mock', true);
-
-        if ($mock) {
-            return match ($provider) {
-                'easypost' => new MockEasyPostGateway(),
-                default => throw new RuntimeException("Unsupported mock shipping provider [{$provider}]."),
-            };
-        }
-
-        return match ($provider) {
-            'easypost' => new EasyPostGateway(),
-            default => throw new RuntimeException("Unsupported shipping provider [{$provider}]."),
-        };
+        return $this->gateway;
     }
 
     public function createLabel(Order $order): Order
@@ -49,6 +36,7 @@ class ShippingManager
 
         return $this->gateway()->quote($toAddress, $items, array_merge($context, $parcelPlan));
     }
+
     public function refreshTracking(Order $order): Order
     {
         $payload = $this->gateway()->track($order);

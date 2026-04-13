@@ -17,14 +17,16 @@ class BlogController extends Controller
         if ($request->search) {
             $query->where('title', 'like', "%{$request->search}%");
         }
+
         return response()->json($query->latest('published_at')->paginate(9));
     }
 
     public function show($slug)
     {
         $post = BlogPost::where('active', true)
-            ->where(fn($q) => $q->where('slug', $slug)->orWhere('id', $slug))
+            ->where(fn ($q) => $q->where('slug', $slug)->orWhere('id', $slug))
             ->firstOrFail();
+
         return response()->json($post);
     }
 

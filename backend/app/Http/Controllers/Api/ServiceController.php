@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Service;
-use Illuminate\Http\Request;
 
 class ServiceController extends Controller
 {
@@ -16,8 +15,9 @@ class ServiceController extends Controller
     public function show($slug)
     {
         $service = Service::where('active', true)
-            ->where(fn($q) => $q->where('slug', $slug)->orWhere('id', $slug))
+            ->where(fn ($q) => $q->where('slug', $slug)->orWhere('id', $slug))
             ->firstOrFail();
+
         return response()->json($service);
     }
 }

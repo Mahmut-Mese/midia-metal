@@ -7,16 +7,14 @@ use App\Models\Customer;
 use App\Models\CustomerPaymentMethod;
 use App\Support\CheckoutCalculator;
 use Illuminate\Http\Request;
-use Stripe\Stripe;
-use Stripe\PaymentIntent;
 use Stripe\Customer as StripeCustomer;
+use Stripe\PaymentIntent;
 use Stripe\PaymentMethod as StripePaymentMethod;
+use Stripe\Stripe;
 
 class PaymentController extends Controller
 {
-    public function __construct(private CheckoutCalculator $checkoutCalculator)
-    {
-    }
+    public function __construct(private CheckoutCalculator $checkoutCalculator) {}
 
     /**
      * Create a Stripe PaymentIntent for the given amount.
@@ -52,11 +50,11 @@ class PaymentController extends Controller
 
         // If user is logged in, attach to a Stripe Customer
         $customer = auth('sanctum')->user();
-        if (!$customer instanceof Customer) {
+        if (! $customer instanceof Customer) {
             $customer = null;
         }
         if ($customer) {
-            if (!$customer->stripe_customer_id) {
+            if (! $customer->stripe_customer_id) {
                 // Create new Stripe Customer
                 $stripeCust = StripeCustomer::create([
                     'email' => $customer->email,
@@ -82,11 +80,11 @@ class PaymentController extends Controller
     public function listSavedCards(Request $request)
     {
         $customer = auth('sanctum')->user();
-        if (!$customer instanceof Customer) {
+        if (! $customer instanceof Customer) {
             return response()->json([]);
         }
 
-        if (!$customer || !$customer->stripe_customer_id) {
+        if (! $customer || ! $customer->stripe_customer_id) {
             return response()->json([]);
         }
 
@@ -127,7 +125,7 @@ class PaymentController extends Controller
     public function deleteSavedCard(Request $request, $id)
     {
         $customer = auth('sanctum')->user();
-        if (!$customer instanceof Customer) {
+        if (! $customer instanceof Customer) {
             abort(403);
         }
 
@@ -144,6 +142,7 @@ class PaymentController extends Controller
         }
 
         $method->delete();
+
         return response()->json(['message' => 'Card removed successfully']);
     }
 }

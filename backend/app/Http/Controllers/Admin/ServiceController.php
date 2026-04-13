@@ -16,6 +16,7 @@ class ServiceController extends Controller
         if ($request->search) {
             $query->where('title', 'like', "%{$request->search}%");
         }
+
         return response()->json($query->orderBy('order')->paginate(15));
     }
 
@@ -32,7 +33,8 @@ class ServiceController extends Controller
             'order' => 'integer',
         ]);
         $validated['content'] = HtmlSanitizer::richText($validated['content'] ?? null);
-        $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(4);
+        $validated['slug'] = Str::slug($validated['title']).'-'.Str::random(4);
+
         return response()->json(Service::create($validated), 201);
     }
 
@@ -55,12 +57,14 @@ class ServiceController extends Controller
         ]);
         $validated['content'] = HtmlSanitizer::richText($validated['content'] ?? null);
         $service->update($validated);
+
         return response()->json($service);
     }
 
     public function destroy(Service $service)
     {
         $service->delete();
+
         return response()->json(['message' => 'Service deleted']);
     }
 }

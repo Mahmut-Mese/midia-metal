@@ -1,14 +1,33 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\Api;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
 */
+
+// Health check (no auth, no throttle)
+Route::get('/health', function () {
+    try {
+        DB::connection()->getPdo();
+        $dbOk = true;
+    } catch (Throwable) {
+        $dbOk = false;
+    }
+
+    $status = $dbOk ? 'ok' : 'degraded';
+
+    return response()->json([
+        'status' => $status,
+        'database' => $dbOk,
+        'timestamp' => now()->toIso8601String(),
+    ], $dbOk ? 200 : 503);
+});
 
 // Public API Routes (Frontend)
 Route::prefix('v1')->group(function () {

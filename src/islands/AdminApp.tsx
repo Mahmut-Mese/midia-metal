@@ -7,12 +7,11 @@
  *
  * Wraps with:
  * - QueryClientProvider (react-query for admin data fetching)
- * - TooltipProvider, Toaster, Sonner (shadcn/ui)
+ * - TooltipProvider, Sonner (shadcn/ui)
  * - BrowserRouter (React Router for admin sub-routes)
  * - Suspense (lazy-loaded admin pages)
  */
 import { Suspense, lazy } from "react";
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -51,7 +50,6 @@ export default function AdminApp() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
         <Sonner />
         <BrowserRouter>
           <Suspense fallback={<RouteLoader />}>

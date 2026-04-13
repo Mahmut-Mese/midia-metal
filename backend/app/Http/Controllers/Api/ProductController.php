@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\HeroSlide;
 use App\Models\Product;
 use App\Models\ProductCategory;
-use App\Models\HeroSlide;
 use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 
@@ -14,13 +14,13 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         $request->validate([
-            'search' => 'nullable|string|max:200'
+            'search' => 'nullable|string|max:200',
         ]);
 
         $query = Product::with('category')->where('active', true);
 
         if ($request->category) {
-            $query->whereHas('category', fn($q) => $q->where('slug', $request->category));
+            $query->whereHas('category', fn ($q) => $q->where('slug', $request->category));
         }
         if ($request->search) {
             $query->where('name', 'like', "%{$request->search}%");
@@ -45,28 +45,28 @@ class ProductController extends Controller
     public function show($id)
     {
         $product = Product::with(['category', 'reviews.customer'])->where('active', true)
-            ->where(fn($q) => $q->where('id', $id)->orWhere('slug', $id))
+            ->where(fn ($q) => $q->where('id', $id)->orWhere('slug', $id))
             ->firstOrFail();
 
         $configuredFrontendUrl = rtrim((string) config('app.frontend_url'), '/');
-        $frontendUrl = $configuredFrontendUrl !== '' && !preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i', $configuredFrontendUrl)
+        $frontendUrl = $configuredFrontendUrl !== '' && ! preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i', $configuredFrontendUrl)
             ? $configuredFrontendUrl
             : rtrim((string) request()->getSchemeAndHttpHost(), '/');
-        $productPath = '/shop/' . ($product->slug ?: $product->id);
-        $shareUrl = $frontendUrl . $productPath;
-        $shareText = $product->name . ' | Midia M Metal';
+        $productPath = '/shop/'.($product->slug ?: $product->id);
+        $shareUrl = $frontendUrl.$productPath;
+        $shareText = $product->name.' | Midia M Metal';
 
         $instagramUrl = trim((string) SiteSetting::where('key', 'social_instagram')->value('value'));
-        if ($instagramUrl !== '' && !preg_match('/^https?:\/\//i', $instagramUrl)) {
-            $instagramUrl = 'https://' . $instagramUrl;
+        if ($instagramUrl !== '' && ! preg_match('/^https?:\/\//i', $instagramUrl)) {
+            $instagramUrl = 'https://'.$instagramUrl;
         }
 
         $payload = $product->toArray();
         $payload['share_url'] = $shareUrl;
         $payload['share_links'] = [
-            'facebook' => 'https://www.facebook.com/sharer/sharer.php?u=' . urlencode($shareUrl),
-            'twitter' => 'https://twitter.com/intent/tweet?url=' . urlencode($shareUrl) . '&text=' . urlencode($shareText),
-            'whatsapp' => 'https://wa.me/?text=' . urlencode($shareText . ' ' . $shareUrl),
+            'facebook' => 'https://www.facebook.com/sharer/sharer.php?u='.urlencode($shareUrl),
+            'twitter' => 'https://twitter.com/intent/tweet?url='.urlencode($shareUrl).'&text='.urlencode($shareText),
+            'whatsapp' => 'https://wa.me/?text='.urlencode($shareText.' '.$shareUrl),
             'instagram' => $instagramUrl !== '' ? $instagramUrl : 'https://www.instagram.com/',
         ];
 
@@ -103,7 +103,7 @@ class ProductController extends Controller
     {
         return response()->json(
             ProductCategory::where('active', true)
-                ->withCount(['products' => fn($q) => $q->where('active', true)])
+                ->withCount(['products' => fn ($q) => $q->where('active', true)])
                 ->orderBy('order')
                 ->get()
         );

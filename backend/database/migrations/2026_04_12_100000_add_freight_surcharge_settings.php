@@ -10,33 +10,33 @@ return new class extends Migration
         $now = now();
         $settings = [
             [
-                'key'   => 'freight_surcharge_highlands',
+                'key' => 'freight_surcharge_highlands',
                 'value' => '7.00',
-                'type'  => 'number',
+                'type' => 'number',
                 'group' => 'shipping-freight',
             ],
             [
-                'key'   => 'freight_surcharge_ni',
+                'key' => 'freight_surcharge_ni',
                 'value' => '4.50',
-                'type'  => 'number',
+                'type' => 'number',
                 'group' => 'shipping-freight',
             ],
             [
-                'key'   => 'freight_surcharge_scotland',
+                'key' => 'freight_surcharge_scotland',
                 'value' => '2.00',
-                'type'  => 'number',
+                'type' => 'number',
                 'group' => 'shipping-freight',
             ],
             [
-                'key'   => 'freight_surcharge_london',
+                'key' => 'freight_surcharge_london',
                 'value' => '0.00',
-                'type'  => 'number',
+                'type' => 'number',
                 'group' => 'shipping-freight',
             ],
             [
-                'key'   => 'freight_surcharge_default',
+                'key' => 'freight_surcharge_default',
                 'value' => '1.00',
-                'type'  => 'number',
+                'type' => 'number',
                 'group' => 'shipping-freight',
             ],
         ];

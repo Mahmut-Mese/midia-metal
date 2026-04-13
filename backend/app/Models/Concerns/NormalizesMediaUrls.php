@@ -6,7 +6,7 @@ trait NormalizesMediaUrls
 {
     protected function normalizeMediaUrl(?string $value): ?string
     {
-        if (!$value) {
+        if (! $value) {
             return $value;
         }
 
@@ -19,28 +19,28 @@ trait NormalizesMediaUrls
         }
 
         if (str_starts_with($value, 'storage/')) {
-            return url('/' . ltrim($value, '/'));
+            return url('/'.ltrim($value, '/'));
         }
 
         if (str_starts_with($value, 'uploads/')) {
-            return url('/storage/' . ltrim($value, '/'));
+            return url('/storage/'.ltrim($value, '/'));
         }
 
-        if (!preg_match('#^https?://#i', $value)) {
+        if (! preg_match('#^https?://#i', $value)) {
             return $value;
         }
 
         $parts = parse_url($value);
         $path = $parts['path'] ?? null;
 
-        if (!$path || !str_starts_with($path, '/storage/')) {
+        if (! $path || ! str_starts_with($path, '/storage/')) {
             return $value;
         }
 
         $normalized = url($path);
 
-        if (!empty($parts['query'])) {
-            $normalized .= '?' . $parts['query'];
+        if (! empty($parts['query'])) {
+            $normalized .= '?'.$parts['query'];
         }
 
         return $normalized;
@@ -54,7 +54,7 @@ trait NormalizesMediaUrls
 
         $items = is_array($value) ? $value : json_decode((string) $value, true);
 
-        if (!is_array($items)) {
+        if (! is_array($items)) {
             return $value;
         }
 

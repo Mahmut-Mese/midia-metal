@@ -40,18 +40,21 @@ class ContactController extends Controller
     public function show(ContactMessage $contactMessage)
     {
         $contactMessage->update(['read' => true]);
+
         return response()->json($contactMessage->load('order:id,order_number'));
     }
 
     public function markRead(ContactMessage $contactMessage)
     {
         $contactMessage->update(['read' => true]);
+
         return response()->json($contactMessage->load('order:id,order_number'));
     }
 
     public function destroy(ContactMessage $contactMessage)
     {
         $contactMessage->delete();
+
         return response()->json(['message' => 'Message deleted']);
     }
 
@@ -71,7 +74,7 @@ class ContactController extends Controller
             $validated['request_status'] === 'approved' &&
             $contactMessage->request_type === 'cancel_refund' &&
             $order->payment_status === 'paid' &&
-            !$order->stripe_payment_intent_id
+            ! $order->stripe_payment_intent_id
         ) {
             return response()->json([
                 'message' => 'This paid order has no Stripe payment attached, so an automatic refund cannot be started.',

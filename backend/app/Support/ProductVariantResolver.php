@@ -26,7 +26,7 @@ class ProductVariantResolver
      */
     public static function optionNames(Product|array|null $product): array
     {
-        if (!self::usesCombinationMode($product)) {
+        if (! self::usesCombinationMode($product)) {
             return collect(data_get($product, 'variants', []))
                 ->map(fn ($variant) => trim((string) data_get($variant, 'option')))
                 ->filter()
@@ -80,7 +80,7 @@ class ProductVariantResolver
      */
     public static function findMatchingCombinationVariant(Product|array|null $product, ?array $selectedVariants): ?array
     {
-        if (!self::usesCombinationMode($product)) {
+        if (! self::usesCombinationMode($product)) {
             return null;
         }
 
@@ -88,13 +88,13 @@ class ProductVariantResolver
         $normalizedSelections = self::normalizeSelections($selectedVariants);
 
         foreach ($requiredOptions as $option) {
-            if (!array_key_exists($option, $normalizedSelections) || $normalizedSelections[$option] === '') {
+            if (! array_key_exists($option, $normalizedSelections) || $normalizedSelections[$option] === '') {
                 return null;
             }
         }
 
         $match = collect(data_get($product, 'variants', []))->first(function ($variant) use ($requiredOptions, $normalizedSelections) {
-            if (!is_array($variant)) {
+            if (! is_array($variant)) {
                 return false;
             }
 
@@ -118,7 +118,7 @@ class ProductVariantResolver
     public static function attributesForVariant(array $variant): array
     {
         $attributes = $variant['attributes'] ?? null;
-        if (!is_array($attributes)) {
+        if (! is_array($attributes)) {
             return [];
         }
 

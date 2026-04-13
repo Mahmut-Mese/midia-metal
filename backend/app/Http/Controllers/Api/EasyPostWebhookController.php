@@ -11,7 +11,7 @@ class EasyPostWebhookController extends Controller
     public function handle(Request $request)
     {
         $secret = config('services.easypost.webhook_secret');
-        if ($secret && !$this->verifySignature($request, (string) $secret)) {
+        if ($secret && ! $this->verifySignature($request, (string) $secret)) {
             return response()->json(['message' => 'Invalid webhook signature'], 401);
         }
 
@@ -23,7 +23,7 @@ class EasyPostWebhookController extends Controller
         $eventType = data_get($payload, 'description') ?? data_get($payload, 'type');
         $result = data_get($payload, 'result') ?? data_get($payload, 'data.result');
 
-        if (!is_array($result)) {
+        if (! is_array($result)) {
             return response()->json(['received' => true, 'event' => $eventType]);
         }
 
@@ -39,11 +39,11 @@ class EasyPostWebhookController extends Controller
         if ($trackingCode) {
             $order = Order::where('tracking_number', $trackingCode)->latest()->first();
         }
-        if (!$order && $shipmentId) {
+        if (! $order && $shipmentId) {
             $order = Order::where('shipping_shipment_id', $shipmentId)->latest()->first();
         }
 
-        if (!$order) {
+        if (! $order) {
             return response()->json(['received' => true, 'event' => $eventType]);
         }
 
@@ -93,7 +93,7 @@ class EasyPostWebhookController extends Controller
     {
         $signature = $request->header('x-hmac-signature');
 
-        if (!$signature) {
+        if (! $signature) {
             return false;
         }
 

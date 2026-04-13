@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -21,7 +20,7 @@ class CustomerPasswordReset extends Mailable
         if (empty($frontendUrl)) {
             $frontendUrl = request()->getSchemeAndHttpHost();
         }
-        $this->resetUrl = $frontendUrl . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
+        $this->resetUrl = $frontendUrl.'/reset-password?token='.$token.'&email='.urlencode($user->email);
     }
 
     public function envelope(): Envelope

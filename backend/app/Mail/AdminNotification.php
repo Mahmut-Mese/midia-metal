@@ -3,8 +3,8 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -14,6 +14,7 @@ class AdminNotification extends Mailable
     use Queueable, SerializesModels;
 
     public $title;
+
     public $description;
 
     /**
@@ -31,7 +32,7 @@ class AdminNotification extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Midia Metal: ' . $this->title,
+            subject: 'Midia Metal: '.$this->title,
         );
     }
 
@@ -45,7 +46,7 @@ class AdminNotification extends Mailable
             with: [
                 'title' => $this->title,
                 'description' => $this->description,
-                'url' => config('app.frontend_url') . '/admin',
+                'url' => config('app.frontend_url').'/admin',
             ],
         );
     }
@@ -53,7 +54,7 @@ class AdminNotification extends Mailable
     /**
      * Get the attachments for the message.
      *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     * @return array<int, Attachment>
      */
     public function attachments(): array
     {

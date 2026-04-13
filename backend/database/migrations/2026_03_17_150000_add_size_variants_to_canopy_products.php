@@ -60,7 +60,7 @@ return new class extends Migration
 
         foreach ($products as $product) {
             $variants = json_decode((string) ($product->variants ?? ''), true);
-            if (!is_array($variants) || count($variants) !== count($this->lengthVariants)) {
+            if (! is_array($variants) || count($variants) !== count($this->lengthVariants)) {
                 continue;
             }
 
@@ -70,7 +70,7 @@ return new class extends Migration
                     && in_array($variant['value'] ?? null, $allowedValues, true);
             });
 
-            if (!$matchesGeneratedTemplate) {
+            if (! $matchesGeneratedTemplate) {
                 continue;
             }
 

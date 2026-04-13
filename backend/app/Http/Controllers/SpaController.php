@@ -9,6 +9,7 @@ use App\Models\ProductCategory;
 use App\Models\Service;
 use App\Services\BotContentService;
 use App\Services\SeoMetaService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -65,7 +66,7 @@ class SpaController extends Controller
         } elseif (preg_match('#^shop/([^/]+)$#', $path, $matches)) {
             $identifier = $matches[1];
             $isValid = Product::where('active', true)
-                ->where(fn($query) => $query->where('slug', $identifier)->orWhere('id', $identifier))
+                ->where(fn ($query) => $query->where('slug', $identifier)->orWhere('id', $identifier))
                 ->exists();
         } elseif (preg_match('#^services/([^/]+)$#', $path, $matches)) {
             $isValid = Service::where('active', true)->where('slug', $matches[1])->exists();
@@ -73,7 +74,7 @@ class SpaController extends Controller
             $isValid = PortfolioProject::where('active', true)->where('slug', $matches[1])->exists();
         } elseif (preg_match('#^blog/([^/]+)$#', $path, $matches)) {
             $isValid = BlogPost::where('active', true)
-                ->where(fn($query) => $query->where('slug', $matches[1])->orWhere('id', $matches[1]))
+                ->where(fn ($query) => $query->where('slug', $matches[1])->orWhere('id', $matches[1]))
                 ->exists();
         }
 
@@ -88,7 +89,7 @@ class SpaController extends Controller
         $meta = $meta ?: $this->seoMeta->buildSeoMeta($request, $status);
 
         // buildSeoMeta may return a RedirectResponse (for slug canonicalization)
-        if ($meta instanceof \Illuminate\Http\RedirectResponse) {
+        if ($meta instanceof RedirectResponse) {
             return $meta;
         }
 

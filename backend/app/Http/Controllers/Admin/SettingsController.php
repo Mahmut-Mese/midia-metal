@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\SiteSetting;
 use App\Models\HeroSlide;
+use App\Models\SiteSetting;
 use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
 
@@ -28,7 +28,7 @@ class SettingsController extends Controller
         $updated = [];
         foreach ($settings as $key => $value) {
             $setting = SiteSetting::where('key', $key)->first();
-            if (!$setting || !in_array($setting->group, $editableGroups, true)) {
+            if (! $setting || ! in_array($setting->group, $editableGroups, true)) {
                 continue;
             }
 
@@ -39,6 +39,7 @@ class SettingsController extends Controller
             ]);
             $updated[] = $key;
         }
+
         return response()->json(['message' => 'Settings updated', 'updated' => $updated]);
     }
 
@@ -56,6 +57,7 @@ class SettingsController extends Controller
             'order' => 'integer',
             'active' => 'boolean',
         ]);
+
         return response()->json(HeroSlide::create($validated), 201);
     }
 
@@ -68,12 +70,14 @@ class SettingsController extends Controller
             'active' => 'boolean',
         ]);
         $heroSlide->update($validated);
+
         return response()->json($heroSlide);
     }
 
     public function destroyHeroSlide(HeroSlide $heroSlide)
     {
         $heroSlide->delete();
+
         return response()->json(['message' => 'Slide deleted']);
     }
 }

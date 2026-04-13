@@ -23,7 +23,6 @@ test('Customer can login with valid credentials', async ({ page }) => {
   // Click login button
   await page.click('button[type="submit"]');
 
-  await page.waitForTimeout(1500);
   await expect.poll(() => page.url(), { timeout: 15000 }).toContain('/account');
   await expect(page.getByRole('heading', { name: 'Order History' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible({ timeout: 10000 });
@@ -36,7 +35,6 @@ test('Customer can logout', async ({ page }) => {
   await page.fill('input[type="email"]', 'asd@asd.com');
   await page.fill('input[type="password"]', '12345678');
   await page.click('button[type="submit"]');
-  await page.waitForTimeout(1500);
   await expect.poll(() => page.url(), { timeout: 15000 }).toContain('/account');
   await expect(page.getByRole('heading', { name: 'Order History' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible({ timeout: 10000 });

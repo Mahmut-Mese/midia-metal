@@ -28,18 +28,20 @@ class QuoteController extends Controller
             'quoted_valid_until' => 'nullable|date',
         ]);
         $quote->update($validated);
+
         return response()->json($quote->fresh());
     }
 
     public function destroy(QuoteRequest $quote)
     {
         $quote->delete();
+
         return response()->json(['message' => 'Quote request deleted']);
     }
 
     public function sendResponse(QuoteRequest $quote)
     {
-        if (!$quote->response_message && !$quote->quoted_valid_until) {
+        if (! $quote->response_message && ! $quote->quoted_valid_until) {
             return response()->json([
                 'message' => 'Add a response message or valid-until date before sending.',
             ], 422);

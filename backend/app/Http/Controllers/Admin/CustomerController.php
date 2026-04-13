@@ -27,13 +27,14 @@ class CustomerController extends Controller
         return response()->json($customer->load([
             'orders' => function ($q) {
                 $q->latest();
-            }
+            },
         ]));
     }
 
     public function destroy(Customer $customer)
     {
         $customer->delete();
+
         return response()->json(['message' => 'Customer deleted successfully']);
     }
 }

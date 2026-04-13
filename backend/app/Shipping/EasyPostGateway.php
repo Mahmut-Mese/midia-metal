@@ -3,7 +3,8 @@
 namespace App\Shipping;
 
 use App\Models\Order;
-use App\Models\SiteSetting;
+use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -11,6 +12,8 @@ use Throwable;
 
 class EasyPostGateway implements ShippingGateway
 {
+    public function __construct(private readonly FreightZoneResolver $zoneResolver = new FreightZoneResolver) {}
+
     public function provider(): string
     {
         return 'easypost';
@@ -51,8 +54,8 @@ class EasyPostGateway implements ShippingGateway
     private function buildFreightOption(array $freightPlan, array $context, array $toAddress = []): array
     {
         $parcelSummary = is_array($context['parcel_summary'] ?? null) ? $context['parcel_summary'] : [];
-        $estimatedDate = \Carbon\CarbonImmutable::now('Europe/London')->addWeekdays(5)->format('Y-m-d');
-        $surcharge = $this->resolveFreightSurcharge($toAddress);
+        $estimatedDate = CarbonImmutable::now('Europe/London')->addWeekdays(5)->format('Y-m-d');
+        $surcharge = $this->zoneResolver->resolve($toAddress);
 
         return [
             'provider' => $this->provider(),
@@ -72,61 +75,6 @@ class EasyPostGateway implements ShippingGateway
             'parcel_summary' => $parcelSummary,
             'freight_plan' => $freightPlan,
         ];
-    }
-
-    /**
-     * Determine the freight zone surcharge for the given address,
-     * reading values from the site_settings table (with a per-request static cache).
-     *
-     * @param  array<string, mixed>  $toAddress
-     */
-    private function resolveFreightSurcharge(array $toAddress): float
-    {
-        static $surcharges = null;
-        if ($surcharges === null) {
-            $rows = SiteSetting::whereIn('key', [
-                'freight_surcharge_highlands',
-                'freight_surcharge_ni',
-                'freight_surcharge_scotland',
-                'freight_surcharge_london',
-                'freight_surcharge_default',
-            ])->pluck('value', 'key');
-
-            $surcharges = [
-                'highlands' => (float) ($rows['freight_surcharge_highlands'] ?? 7.00),
-                'ni'        => (float) ($rows['freight_surcharge_ni']        ?? 4.50),
-                'scotland'  => (float) ($rows['freight_surcharge_scotland']  ?? 2.00),
-                'london'    => (float) ($rows['freight_surcharge_london']    ?? 0.00),
-                'default'   => (float) ($rows['freight_surcharge_default']   ?? 1.00),
-            ];
-        }
-
-        $postcode = strtoupper(preg_replace('/\s+/', '', (string) ($toAddress['postcode'] ?? '')) ?: '');
-        $city = strtoupper(trim((string) ($toAddress['city'] ?? '')));
-
-        preg_match('/^([A-Z]{1,2})/', $postcode, $matches);
-        $area = $matches[1] ?? '';
-
-        if (in_array($area, ['BT'], true)) {
-            return $surcharges['ni'];
-        }
-
-        if (in_array($area, ['AB', 'HS', 'IV', 'KW', 'PA', 'PH', 'ZE', 'IM'], true)) {
-            return $surcharges['highlands'];
-        }
-
-        if (in_array($area, ['DD', 'DG', 'EH', 'FK', 'G', 'KA', 'KY', 'ML', 'TD'], true)
-            || str_contains($city, 'GLASGOW')
-            || str_contains($city, 'EDINBURGH')) {
-            return $surcharges['scotland'];
-        }
-
-        if (in_array($area, ['E', 'EC', 'N', 'NW', 'SE', 'SW', 'W', 'WC'], true)
-            || str_contains($city, 'LONDON')) {
-            return $surcharges['london'];
-        }
-
-        return $surcharges['default'];
     }
 
     public function createLabel(Order $order, array $context = []): array
@@ -250,7 +198,7 @@ class EasyPostGateway implements ShippingGateway
             'carrier' => $order->shipping_carrier,
         ], $order);
 
-        if (!is_array($tracked)) {
+        if (! is_array($tracked)) {
             throw new RuntimeException('Tracking information is not available for this shipment yet.');
         }
 
@@ -371,7 +319,7 @@ class EasyPostGateway implements ShippingGateway
             // If address validation fails, don't block the order — just report it
             return [
                 'valid' => true,
-                'messages' => ['Address validation unavailable: ' . $e->getMessage()],
+                'messages' => ['Address validation unavailable: '.$e->getMessage()],
                 'verified_address' => null,
             ];
         }
@@ -388,7 +336,7 @@ class EasyPostGateway implements ShippingGateway
     private function resolveParcels(array $context): array
     {
         $parcels = $context['parcels'] ?? [];
-        if (!is_array($parcels) || count($parcels) === 0) {
+        if (! is_array($parcels) || count($parcels) === 0) {
             return [[
                 'reference' => 'parcel_1',
                 'length' => (float) config('services.shipping.default_parcel.length', 30),
@@ -424,7 +372,7 @@ class EasyPostGateway implements ShippingGateway
                 'shipment' => $shipmentPayload,
             ]);
 
-            $shipment['parcel_reference'] = (string) ($parcel['reference'] ?? ('parcel_' . ($index + 1)));
+            $shipment['parcel_reference'] = (string) ($parcel['reference'] ?? ('parcel_'.($index + 1)));
             $shipment['parcel_input'] = $parcel;
 
             return $shipment;
@@ -442,7 +390,7 @@ class EasyPostGateway implements ShippingGateway
 
         foreach ($shipments as $shipment) {
             $rates = collect(data_get($shipment, 'rates', []))
-                ->filter(fn ($rate) => is_array($rate) && !empty($rate['id']) && is_numeric($rate['rate'] ?? null))
+                ->filter(fn ($rate) => is_array($rate) && ! empty($rate['id']) && is_numeric($rate['rate'] ?? null))
                 ->values();
 
             if ($rates->isEmpty()) {
@@ -457,12 +405,14 @@ class EasyPostGateway implements ShippingGateway
                 foreach ($indexed as $key => $rate) {
                     $rateBuckets[$key] = [[$shipment, $rate]];
                 }
+
                 continue;
             }
 
             foreach (array_keys($rateBuckets) as $key) {
-                if (!array_key_exists($key, $indexed)) {
+                if (! array_key_exists($key, $indexed)) {
                     unset($rateBuckets[$key]);
+
                     continue;
                 }
 
@@ -524,7 +474,7 @@ class EasyPostGateway implements ShippingGateway
     private function selectRateForShipment(array $shipment, array $selectedOption): array
     {
         $rates = collect(data_get($shipment, 'rates', []))
-            ->filter(fn ($rate) => is_array($rate) && !empty($rate['id']) && is_numeric($rate['rate'] ?? null))
+            ->filter(fn ($rate) => is_array($rate) && ! empty($rate['id']) && is_numeric($rate['rate'] ?? null))
             ->values();
 
         if ($rates->isEmpty()) {
@@ -553,7 +503,7 @@ class EasyPostGateway implements ShippingGateway
         }
 
         $cheapest = $rates->sortBy(fn (array $rate) => (float) ($rate['rate'] ?? 0))->first();
-        if (!is_array($cheapest)) {
+        if (! is_array($cheapest)) {
             throw new RuntimeException('Could not select a carrier rate for this shipment.');
         }
 
@@ -572,14 +522,14 @@ class EasyPostGateway implements ShippingGateway
         $carrier = (string) ($shipmentRecord['carrier'] ?? $order->shipping_carrier ?? '');
 
         if ($shipmentId !== '') {
-            $shipment = $this->request('get', '/shipments/' . $shipmentId);
+            $shipment = $this->request('get', '/shipments/'.$shipmentId);
             $shipmentTracker = data_get($shipment, 'tracker');
             if (is_array($shipmentTracker)) {
                 $tracker = $shipmentTracker;
             }
         }
 
-        if (!$tracker && $trackingNumber !== '') {
+        if (! $tracker && $trackingNumber !== '') {
             $trackerResponse = $this->request('post', '/trackers', [
                 'tracker' => [
                     'tracking_code' => $trackingNumber,
@@ -590,7 +540,7 @@ class EasyPostGateway implements ShippingGateway
             $tracker = is_array($trackerResponse) ? $trackerResponse : null;
         }
 
-        if (!is_array($tracker)) {
+        if (! is_array($tracker)) {
             return null;
         }
 
@@ -616,7 +566,7 @@ class EasyPostGateway implements ShippingGateway
         }
 
         $baseUrl = rtrim((string) config('services.easypost.base_url', 'https://api.easypost.com/v2'), '/');
-        $url = $baseUrl . '/' . ltrim($path, '/');
+        $url = $baseUrl.'/'.ltrim($path, '/');
 
         try {
             $response = Http::withBasicAuth($apiKey, '')
@@ -628,9 +578,10 @@ class EasyPostGateway implements ShippingGateway
                 ->throw();
 
             $data = $response->json();
+
             return is_array($data) ? $data : [];
         } catch (Throwable $e) {
-            throw new RuntimeException('Courier service temporarily unavailable: ' . $e->getMessage());
+            throw new RuntimeException('Courier service temporarily unavailable: '.$e->getMessage());
         }
     }
 
@@ -641,7 +592,7 @@ class EasyPostGateway implements ShippingGateway
         }
 
         try {
-            return \Carbon\Carbon::parse($value)->toDateString();
+            return Carbon::parse($value)->toDateString();
         } catch (Throwable) {
             return null;
         }
@@ -649,7 +600,7 @@ class EasyPostGateway implements ShippingGateway
 
     private function formatServiceLabel(string $carrier, string $service): string
     {
-        return trim($carrier . ' - ' . $service);
+        return trim($carrier.' - '.$service);
     }
 
     private function normalizeServiceCode(string $service): string
@@ -662,7 +613,7 @@ class EasyPostGateway implements ShippingGateway
      */
     private function rateKey(array $rate): string
     {
-        return strtolower(trim((string) ($rate['carrier'] ?? ''))) . '|' . $this->normalizeServiceCode((string) ($rate['service'] ?? ''));
+        return strtolower(trim((string) ($rate['carrier'] ?? ''))).'|'.$this->normalizeServiceCode((string) ($rate['service'] ?? ''));
     }
 
     /**

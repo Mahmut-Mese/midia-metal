@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Mail\AdminNotification;
+use App\Mail\CustomerOrderConfirmation;
+use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -11,7 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use App\Mail\AdminNotification;
 
 /**
  * Orchestrates order placement: calculates totals, creates the order + items
@@ -30,12 +32,11 @@ class OrderService
      * Place a new order from validated checkout data.
      *
      * @param  array  $validated  The validated request data from FormController
-     * @param  \App\Models\Customer|null  $authenticatedCustomer
-     * @return Order  The created order
+     * @return Order The created order
      *
-     * @throws PaymentVerificationException  If Stripe verification fails
+     * @throws PaymentVerificationException If Stripe verification fails
      */
-    public function place(array $validated, ?\App\Models\Customer $authenticatedCustomer = null): Order
+    public function place(array $validated, ?Customer $authenticatedCustomer = null): Order
     {
         // 1. Calculate totals via CheckoutCalculator
         $totals = $this->checkoutCalculator->calculate(
@@ -54,7 +55,7 @@ class OrderService
         $receiptUrl = null;
 
         // 2. Verify Stripe payment if provided
-        if (!empty($validated['stripe_payment_intent_id'])) {
+        if (! empty($validated['stripe_payment_intent_id'])) {
             $result = $this->stripeVerifier->verify(
                 $validated['stripe_payment_intent_id'],
                 $total
@@ -143,11 +144,11 @@ class OrderService
         $this->sendCustomerConfirmation($order);
 
         // 6. Handle card save/detach
-        if ($authenticatedCustomer && !empty($validated['stripe_payment_intent_id'])) {
+        if ($authenticatedCustomer && ! empty($validated['stripe_payment_intent_id'])) {
             $this->stripeVerifier->handlePostCheckoutCard(
                 $authenticatedCustomer,
                 $validated['stripe_payment_intent_id'],
-                !empty($validated['save_card'])
+                ! empty($validated['save_card'])
             );
         }
 
@@ -160,13 +161,13 @@ class OrderService
     private function generateOrderNumber(): string
     {
         for ($attempt = 0; $attempt < 5; $attempt++) {
-            $candidate = 'ORD-' . strtoupper(Str::random(8));
-            if (!Order::where('order_number', $candidate)->exists()) {
+            $candidate = 'ORD-'.strtoupper(Str::random(8));
+            if (! Order::where('order_number', $candidate)->exists()) {
                 return $candidate;
             }
         }
 
-        return 'ORD-' . strtoupper(Str::random(12));
+        return 'ORD-'.strtoupper(Str::random(12));
     }
 
     /**
@@ -179,8 +180,8 @@ class OrderService
             ?: 'mahmutmese.uk@gmail.com');
 
         Mail::to($adminEmail)->send(new AdminNotification(
-            'New Order Received: ' . $order->order_number,
-            "A new order has been placed by {$order->customer_name} ({$order->customer_email}).\n\nOrder Number: {$order->order_number}\nTotal: £" . number_format($order->total, 2) . "\n\nCheck the admin panel for more details."
+            'New Order Received: '.$order->order_number,
+            "A new order has been placed by {$order->customer_name} ({$order->customer_email}).\n\nOrder Number: {$order->order_number}\nTotal: £".number_format($order->total, 2)."\n\nCheck the admin panel for more details."
         ));
     }
 
@@ -190,9 +191,9 @@ class OrderService
     private function sendCustomerConfirmation(Order $order): void
     {
         try {
-            Mail::to($order->customer_email)->send(new \App\Mail\CustomerOrderConfirmation($order));
+            Mail::to($order->customer_email)->send(new CustomerOrderConfirmation($order));
         } catch (\Exception $e) {
-            Log::error("Failed to send order confirmation email: " . $e->getMessage());
+            Log::error('Failed to send order confirmation email: '.$e->getMessage());
         }
     }
 }

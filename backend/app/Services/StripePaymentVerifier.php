@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Customer;
+use App\Models\CustomerPaymentMethod;
 use Illuminate\Support\Facades\Log;
 use Stripe\PaymentIntent;
 use Stripe\PaymentMethod as StripePaymentMethod;
@@ -20,7 +22,7 @@ class StripePaymentVerifier
      * Verify a PaymentIntent succeeded and its amount matches the order total.
      *
      * @param  string  $paymentIntentId  The Stripe PaymentIntent ID
-     * @param  float   $expectedTotal    The order total in GBP (e.g. 150.00)
+     * @param  float  $expectedTotal  The order total in GBP (e.g. 150.00)
      * @return array{status: string, receipt_url: string|null}
      *
      * @throws \App\Exceptions\PaymentVerificationException
@@ -54,7 +56,7 @@ class StripePaymentVerifier
         } catch (PaymentVerificationException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Payment Intent Verification Failed: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            Log::error('Payment Intent Verification Failed: '.$e->getMessage()."\n".$e->getTraceAsString());
             throw PaymentVerificationException::verificationFailed($e);
         }
     }
@@ -62,16 +64,14 @@ class StripePaymentVerifier
     /**
      * After checkout, either save or detach the payment method depending on the user's choice.
      *
-     * @param  \App\Models\Customer  $customer
-     * @param  string  $paymentIntentId
-     * @param  bool    $saveCard  Whether the customer opted to save the card
+     * @param  bool  $saveCard  Whether the customer opted to save the card
      */
     public function handlePostCheckoutCard(
-        \App\Models\Customer $customer,
+        Customer $customer,
         string $paymentIntentId,
         bool $saveCard
     ): void {
-        if (!$customer->stripe_customer_id) {
+        if (! $customer->stripe_customer_id) {
             return;
         }
 
@@ -79,17 +79,17 @@ class StripePaymentVerifier
             Stripe::setApiKey(config('services.stripe.secret'));
             $intent = PaymentIntent::retrieve($paymentIntentId);
 
-            if (!$intent->payment_method) {
+            if (! $intent->payment_method) {
                 return;
             }
 
-            if (!$saveCard) {
+            if (! $saveCard) {
                 // Detach the card unless it's already saved locally
-                $isAlreadySaved = \App\Models\CustomerPaymentMethod::where('stripe_payment_method_id', $intent->payment_method)
+                $isAlreadySaved = CustomerPaymentMethod::where('stripe_payment_method_id', $intent->payment_method)
                     ->where('customer_id', $customer->id)
                     ->exists();
 
-                if (!$isAlreadySaved) {
+                if (! $isAlreadySaved) {
                     $pm = StripePaymentMethod::retrieve($intent->payment_method);
                     if ($pm->customer) {
                         $pm->detach();
@@ -98,7 +98,7 @@ class StripePaymentVerifier
             } else {
                 // Save the card locally so it shows immediately in the dashboard
                 $pm = StripePaymentMethod::retrieve($intent->payment_method);
-                \App\Models\CustomerPaymentMethod::updateOrCreate(
+                CustomerPaymentMethod::updateOrCreate(
                     ['stripe_payment_method_id' => $pm->id],
                     [
                         'customer_id' => $customer->id,
@@ -110,7 +110,7 @@ class StripePaymentVerifier
                 );
             }
         } catch (\Exception $e) {
-            Log::error("Failed to save or detach card: " . $e->getMessage());
+            Log::error('Failed to save or detach card: '.$e->getMessage());
         }
     }
 }

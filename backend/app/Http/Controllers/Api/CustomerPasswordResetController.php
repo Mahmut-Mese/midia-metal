@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\Hash;
+use App\Mail\CustomerPasswordReset;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 
 class CustomerPasswordResetController extends Controller
@@ -18,8 +20,8 @@ class CustomerPasswordResetController extends Controller
         $status = Password::broker('customers')->sendResetLink(
             $request->only('email'),
             function ($user, $token) {
-                \Illuminate\Support\Facades\Mail::to($user->email)->send(
-                    new \App\Mail\CustomerPasswordReset($user, $token)
+                Mail::to($user->email)->send(
+                    new CustomerPasswordReset($user, $token)
                 );
             }
         );
@@ -41,7 +43,7 @@ class CustomerPasswordResetController extends Controller
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password) {
                 $user->forceFill([
-                    'password' => Hash::make($password)
+                    'password' => Hash::make($password),
                 ])->setRememberToken(Str::random(60));
 
                 $user->save();

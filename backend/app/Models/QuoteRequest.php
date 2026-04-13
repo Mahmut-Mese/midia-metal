@@ -18,6 +18,7 @@ class QuoteRequest extends Model
         'response_message',
         'quoted_valid_until',
     ];
+
     protected $casts = [
         'files' => 'array',
         'quoted_valid_until' => 'date',

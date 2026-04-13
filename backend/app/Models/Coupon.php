@@ -14,8 +14,9 @@ class Coupon extends Model
         'max_uses',
         'used_count',
         'expires_at',
-        'active'
+        'active',
     ];
+
     protected $casts = [
         'active' => 'boolean',
         'expires_at' => 'datetime',
@@ -25,14 +26,19 @@ class Coupon extends Model
 
     public function isValid(float $orderAmount): bool
     {
-        if (!$this->active)
+        if (! $this->active) {
             return false;
-        if ($this->expires_at && $this->expires_at->isPast())
+        }
+        if ($this->expires_at && $this->expires_at->isPast()) {
             return false;
-        if ($this->max_uses !== null && $this->used_count >= $this->max_uses)
+        }
+        if ($this->max_uses !== null && $this->used_count >= $this->max_uses) {
             return false;
-        if ($orderAmount < $this->min_order_amount)
+        }
+        if ($orderAmount < $this->min_order_amount) {
             return false;
+        }
+
         return true;
     }
 
@@ -41,6 +47,7 @@ class Coupon extends Model
         if ($this->type === 'percentage') {
             return round($orderAmount * ($this->value / 100), 2);
         }
+
         return min($this->value, $orderAmount);
     }
 }

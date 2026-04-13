@@ -18,7 +18,7 @@ return new class extends Migration
 
         foreach ($products as $product) {
             $variants = json_decode((string) $product->variants, true);
-            if (!is_array($variants)) {
+            if (! is_array($variants)) {
                 continue;
             }
 

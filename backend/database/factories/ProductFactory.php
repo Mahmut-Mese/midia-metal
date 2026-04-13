@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Product>
+ * @extends Factory<Product>
  */
 class ProductFactory extends Factory
 {
@@ -21,7 +21,7 @@ class ProductFactory extends Factory
         return [
             'name' => ucwords($name),
             'slug' => Str::slug($name),
-            'price' => '£' . number_format(fake()->randomFloat(2, 10, 2000), 2, '.', ''),
+            'price' => '£'.number_format(fake()->randomFloat(2, 10, 2000), 2, '.', ''),
             'image' => 'https://example.com/product.jpg',
             'description' => fake()->paragraph(),
             'active' => true,

@@ -11,6 +11,7 @@ class ProductCategory extends Model
     use HasFactory, NormalizesMediaUrls;
 
     protected $fillable = ['name', 'slug', 'image', 'description', 'order', 'active'];
+
     protected $casts = ['active' => 'boolean'];
 
     public function getImageAttribute($value)

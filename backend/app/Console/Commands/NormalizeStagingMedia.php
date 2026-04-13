@@ -17,9 +17,13 @@ class NormalizeStagingMedia extends Command
     protected $description = 'Normalize media URLs in the staging database: download files from production if needed, then rewrite DB fields to relative paths';
 
     private string $productionHost;
+
     private int $rewritten = 0;
+
     private int $downloaded = 0;
+
     private array $missing = [];
+
     private array $errors = [];
 
     public function handle(): int
@@ -30,8 +34,8 @@ class NormalizeStagingMedia extends Command
 
         $this->info('=== Staging Media Normalization ===');
         $this->info("Production host: {$this->productionHost}");
-        $this->info('Dry run: ' . ($isDryRun ? 'YES' : 'NO'));
-        $this->info('Download missing: ' . ($shouldDownload ? 'YES' : 'NO'));
+        $this->info('Dry run: '.($isDryRun ? 'YES' : 'NO'));
+        $this->info('Download missing: '.($shouldDownload ? 'YES' : 'NO'));
         $this->newLine();
 
         // Process product_categories.image
@@ -67,6 +71,7 @@ class NormalizeStagingMedia extends Command
             foreach ($this->errors as $e) {
                 $this->error("  - {$e}");
             }
+
             return self::FAILURE;
         }
 
@@ -75,10 +80,12 @@ class NormalizeStagingMedia extends Command
         $remaining = $this->auditRemainingProductionUrls();
         if ($remaining > 0) {
             $this->error("AUDIT FAILED: {$remaining} production URL(s) still in database!");
+
             return self::FAILURE;
         }
 
         $this->info('AUDIT PASSED: 0 production URLs remain in database.');
+
         return self::SUCCESS;
     }
 
@@ -103,13 +110,13 @@ class NormalizeStagingMedia extends Command
 
                 if ($isJson) {
                     $items = json_decode($raw, true);
-                    if (!is_array($items)) {
+                    if (! is_array($items)) {
                         continue;
                     }
 
                     $changed = false;
                     foreach ($items as $i => $url) {
-                        if (!is_string($url)) {
+                        if (! is_string($url)) {
                             continue;
                         }
                         $normalized = $this->normalizeUrl($url, $shouldDownload, $isDryRun);
@@ -131,15 +138,15 @@ class NormalizeStagingMedia extends Command
             }
 
             if (count($updates) > 0) {
-                $updateDesc = collect($updates)->map(fn($v, $k) => "{$k}: {$v}")->implode(', ');
+                $updateDesc = collect($updates)->map(fn ($v, $k) => "{$k}: {$v}")->implode(', ');
                 $this->line("  Row #{$row->id}: {$updateDesc}");
 
-                if (!$isDryRun) {
+                if (! $isDryRun) {
                     DB::table($table)->where('id', $row->id)->update($updates);
                     $this->rewritten++;
                 } else {
                     $this->rewritten++;
-                    $this->line("    (dry-run — not saved)");
+                    $this->line('    (dry-run — not saved)');
                 }
             }
         }
@@ -168,6 +175,7 @@ class NormalizeStagingMedia extends Command
 
             if ($relativePath === null) {
                 $this->warn("  Cannot parse path from URL: {$url}");
+
                 return $url;
             }
 
@@ -181,18 +189,20 @@ class NormalizeStagingMedia extends Command
         if (preg_match('#^/?storage/(.+)$#', $url, $m)) {
             $relativePath = $m[1];
             $storagePath = "public/{$relativePath}";
-            if (!Storage::exists($storagePath)) {
+            if (! Storage::exists($storagePath)) {
                 $this->missing[] = "{$url} (local file not found at storage/app/{$storagePath})";
             }
+
             return $relativePath;
         }
 
         // Case 3: Already a clean relative path like "uploads/foo.webp"
         if (str_starts_with($url, 'uploads/')) {
             $storagePath = "public/{$url}";
-            if (!Storage::exists($storagePath)) {
+            if (! Storage::exists($storagePath)) {
                 $this->missing[] = "{$url} (local file not found at storage/app/{$storagePath})";
             }
+
             return $url;
         }
 
@@ -219,6 +229,7 @@ class NormalizeStagingMedia extends Command
         if (preg_match('#^/?storage/(.+)$#', $path, $m)) {
             return $m[1];
         }
+
         return null;
     }
 
@@ -234,13 +245,15 @@ class NormalizeStagingMedia extends Command
             return;
         }
 
-        if (!$shouldDownload) {
+        if (! $shouldDownload) {
             $this->missing[] = "{$relativePath} (not in staging storage; use --download to fetch from production)";
+
             return;
         }
 
         if ($isDryRun) {
             $this->line("    Would download: {$sourceUrl} → storage/app/{$storagePath}");
+
             return;
         }
 

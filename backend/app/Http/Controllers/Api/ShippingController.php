@@ -13,8 +13,7 @@ class ShippingController extends Controller
     public function __construct(
         private ShippingManager $shippingManager,
         private ShippingQuoteStore $shippingQuoteStore,
-    ) {
-    }
+    ) {}
 
     public function options(Request $request)
     {

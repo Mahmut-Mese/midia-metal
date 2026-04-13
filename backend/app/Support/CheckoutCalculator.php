@@ -6,22 +6,18 @@ use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\SiteSetting;
 use App\Shipping\ShippingQuoteStore;
-use App\Support\ProductVariantResolver;
 use Illuminate\Validation\ValidationException;
 
 class CheckoutCalculator
 {
-    public function __construct(private ShippingQuoteStore $shippingQuoteStore)
-    {
-    }
+    public function __construct(private ShippingQuoteStore $shippingQuoteStore) {}
 
     public function calculate(
         array $items,
         ?string $couponCode = null,
         string $fulfilmentMethod = 'delivery',
         ?string $shippingOptionToken = null,
-    ): array
-    {
+    ): array {
         if (count($items) === 0) {
             throw ValidationException::withMessages([
                 'items' => ['At least one item is required.'],
@@ -31,7 +27,7 @@ class CheckoutCalculator
         $productIds = collect($items)
             ->pluck('product_id')
             ->filter()
-            ->map(fn($id) => (int) $id)
+            ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
 
@@ -49,7 +45,7 @@ class CheckoutCalculator
             /** @var Product|null $product */
             $product = $products->get($productId);
 
-            if (!$product || !$product->active) {
+            if (! $product || ! $product->active) {
                 throw ValidationException::withMessages([
                     "items.$index.product_id" => ['This product is no longer available.'],
                 ]);
@@ -80,7 +76,7 @@ class CheckoutCalculator
         $selectedShippingOption = null;
 
         if ($subtotal > 0 && $fulfilmentMethod !== 'click_collect') {
-            if (!$shippingOptionToken) {
+            if (! $shippingOptionToken) {
                 throw ValidationException::withMessages([
                     'shipping_option_token' => ['Please choose a delivery option.'],
                 ]);
@@ -88,7 +84,7 @@ class CheckoutCalculator
 
             $selectedShippingOption = $this->shippingQuoteStore->resolve($shippingOptionToken);
 
-            if (!$selectedShippingOption) {
+            if (! $selectedShippingOption) {
                 throw ValidationException::withMessages([
                     'shipping_option_token' => ['The selected delivery option has expired. Please choose a delivery option again.'],
                 ]);
@@ -104,7 +100,7 @@ class CheckoutCalculator
         if ($couponCode) {
             $coupon = Coupon::where('code', strtoupper(trim($couponCode)))->first();
 
-            if (!$coupon || !$coupon->isValid($subtotal)) {
+            if (! $coupon || ! $coupon->isValid($subtotal)) {
                 throw ValidationException::withMessages([
                     'coupon_code' => ['This coupon is expired, inactive, or the order does not meet the minimum amount.'],
                 ]);
@@ -138,7 +134,7 @@ class CheckoutCalculator
             return null;
         }
 
-        if (!is_array($selectedVariants)) {
+        if (! is_array($selectedVariants)) {
             $selectedVariants = [];
         }
 
@@ -147,7 +143,7 @@ class CheckoutCalculator
             $normalizedSelections = ProductVariantResolver::normalizeSelections($selectedVariants);
 
             $missingOptions = $requiredOptions->filter(
-                fn (string $option) => !array_key_exists($option, $normalizedSelections) || $normalizedSelections[$option] === ''
+                fn (string $option) => ! array_key_exists($option, $normalizedSelections) || $normalizedSelections[$option] === ''
             )->values();
 
             if ($missingOptions->isNotEmpty()) {
@@ -161,7 +157,7 @@ class CheckoutCalculator
             }
 
             $matchedVariant = ProductVariantResolver::findMatchingCombinationVariant($product, $selectedVariants);
-            if (!$matchedVariant) {
+            if (! $matchedVariant) {
                 throw ValidationException::withMessages([
                     "items.$index.selected_variants" => ['Invalid variant selection.'],
                 ]);
@@ -197,7 +193,8 @@ class CheckoutCalculator
 
         $missingOptions = $requiredOptions->filter(function (string $option) use ($selectedVariants) {
             $selection = $selectedVariants[$option] ?? null;
-            return !is_array($selection) || trim((string) ($selection['value'] ?? '')) === '';
+
+            return ! is_array($selection) || trim((string) ($selection['value'] ?? '')) === '';
         })->values();
 
         if ($missingOptions->isNotEmpty()) {
@@ -225,7 +222,7 @@ class CheckoutCalculator
                     && (string) ($candidate['value'] ?? '') === (string) $value;
             });
 
-            if (!$variant) {
+            if (! $variant) {
                 throw ValidationException::withMessages([
                     "items.$index.selected_variants" => ["The selected {$option} option is no longer available."],
                 ]);
@@ -259,7 +256,7 @@ class CheckoutCalculator
     {
         $basePrice = round($this->parseMoney($product->price), 2);
 
-        if (!$variantDetails || count($variantDetails) === 0) {
+        if (! $variantDetails || count($variantDetails) === 0) {
             return $basePrice;
         }
 
@@ -304,6 +301,6 @@ class CheckoutCalculator
 
     private function formatMoney(float $value): string
     {
-        return '£' . number_format($value, 2, '.', '');
+        return '£'.number_format($value, 2, '.', '');
     }
 }

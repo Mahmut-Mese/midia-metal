@@ -8,7 +8,9 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\Service;
 use App\Models\SiteSetting;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -21,7 +23,7 @@ class SeoMetaService
     {
         $configuredFrontendUrl = rtrim((string) config('app.frontend_url'), '/');
 
-        return $configuredFrontendUrl !== '' && !preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i', $configuredFrontendUrl)
+        return $configuredFrontendUrl !== '' && ! preg_match('/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i', $configuredFrontendUrl)
             ? $configuredFrontendUrl
             : rtrim($request->getSchemeAndHttpHost(), '/');
     }
@@ -39,15 +41,15 @@ class SeoMetaService
      */
     public function absoluteUrl(string $baseUrl, ?string $path = null): string
     {
-        if (!$path) {
-            return $baseUrl . '/';
+        if (! $path) {
+            return $baseUrl.'/';
         }
 
         if (preg_match('/^https?:\/\//i', $path)) {
             return $path;
         }
 
-        return $baseUrl . '/' . ltrim($path, '/');
+        return $baseUrl.'/'.ltrim($path, '/');
     }
 
     /**
@@ -74,7 +76,7 @@ class SeoMetaService
      *
      * May return a RedirectResponse for slug canonicalization (product/blog numeric IDs → slugs).
      *
-     * @return array|\Illuminate\Http\RedirectResponse
+     * @return array|RedirectResponse
      */
     public function buildSeoMeta(Request $request, int $status = 200)
     {
@@ -89,21 +91,21 @@ class SeoMetaService
         $contactEmail = $settings->get('contact_email') ?: $settings->get('company_email');
         $contactAddress = $settings->get('contact_address') ?: $settings->get('company_address');
         $twitterHandle = trim((string) $settings->get('social_twitter', '@midiametal'));
-        if ($twitterHandle !== '' && !Str::startsWith($twitterHandle, '@')) {
-            $twitterHandle = preg_match('~twitter\.com/([^/?#]+)~i', $twitterHandle, $matches) ? '@' . $matches[1] : '@midiametal';
+        if ($twitterHandle !== '' && ! Str::startsWith($twitterHandle, '@')) {
+            $twitterHandle = preg_match('~twitter\.com/([^/?#]+)~i', $twitterHandle, $matches) ? '@'.$matches[1] : '@midiametal';
         }
 
         $meta = [
-            'title' => $settings->get('meta_title', $siteName . ' | Commercial Kitchen Ventilation & Fabrication'),
+            'title' => $settings->get('meta_title', $siteName.' | Commercial Kitchen Ventilation & Fabrication'),
             'description' => $this->normalizeText($settings->get('meta_description', 'Commercial kitchen ventilation, stainless steel fabrication, canopy systems, and custom metalwork across the UK.')),
-            'canonical' => $path === '' ? $baseUrl . '/' : $this->absoluteUrl($baseUrl, $path),
+            'canonical' => $path === '' ? $baseUrl.'/' : $this->absoluteUrl($baseUrl, $path),
             'type' => 'website',
             'image' => $defaultImage,
             'robots' => $status === 404 ? 'noindex, nofollow' : 'index, follow',
             'siteName' => $siteName,
             'twitterSite' => $twitterHandle !== '' ? $twitterHandle : '@midiametal',
             'jsonLd' => [$this->breadcrumbJsonLd([
-                ['name' => 'Home', 'url' => $baseUrl . '/'],
+                ['name' => 'Home', 'url' => $baseUrl.'/'],
             ])],
         ];
 
@@ -112,7 +114,7 @@ class SeoMetaService
                 '@context' => 'https://schema.org',
                 '@type' => 'LocalBusiness',
                 'name' => $siteName,
-                'url' => $baseUrl . '/',
+                'url' => $baseUrl.'/',
                 'image' => $defaultImage,
             ];
 
@@ -133,20 +135,20 @@ class SeoMetaService
 
             $meta['jsonLd'] = array_values(array_filter([
                 $this->breadcrumbJsonLd([
-                    ['name' => 'Home', 'url' => $baseUrl . '/'],
+                    ['name' => 'Home', 'url' => $baseUrl.'/'],
                 ]),
                 $organization,
                 [
                     '@context' => 'https://schema.org',
                     '@type' => 'WebSite',
                     'name' => $siteName,
-                    'url' => $baseUrl . '/',
+                    'url' => $baseUrl.'/',
                 ],
             ]));
         }
 
         if ($path === 'admin' || $path === 'admin/login' || Str::startsWith($path, 'admin/')) {
-            $meta['title'] = 'Admin | ' . $siteName;
+            $meta['title'] = 'Admin | '.$siteName;
             $meta['description'] = 'Admin dashboard access.';
             $meta['robots'] = 'noindex, nofollow';
             $meta['jsonLd'] = [];
@@ -173,12 +175,13 @@ class SeoMetaService
             }
 
             if ($path !== '') {
-                $pageName = Str::before($meta['title'], ' | ' . $siteName);
+                $pageName = Str::before($meta['title'], ' | '.$siteName);
                 $meta['jsonLd'] = [$this->breadcrumbJsonLd([
-                    ['name' => 'Home', 'url' => $baseUrl . '/'],
+                    ['name' => 'Home', 'url' => $baseUrl.'/'],
                     ['name' => $pageName !== '' ? $pageName : $meta['title'], 'url' => $meta['canonical']],
                 ])];
             }
+
             return $meta;
         }
 
@@ -208,7 +211,7 @@ class SeoMetaService
         }
 
         if ($status === 404) {
-            $meta['title'] = '404 Not Found | ' . $siteName;
+            $meta['title'] = '404 Not Found | '.$siteName;
             $meta['description'] = 'The page you requested could not be found.';
             $meta['robots'] = 'noindex, nofollow';
         }
@@ -221,7 +224,7 @@ class SeoMetaService
      */
     public function injectSpaMeta(string $html, array $meta): string
     {
-        $escape = fn(string $value) => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        $escape = fn (string $value) => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 
         $patterns = [
             '/<title>.*?<\/title>/is',
@@ -245,28 +248,28 @@ class SeoMetaService
         $html = preg_replace($patterns, '', $html) ?? $html;
 
         $tags = [
-            '<title>' . $escape($meta['title']) . '</title>',
-            '<meta name="description" content="' . $escape($meta['description']) . '">',
-            '<meta name="robots" content="' . $escape($meta['robots']) . '">',
-            '<link rel="canonical" href="' . $escape($meta['canonical']) . '">',
-            '<meta property="og:title" content="' . $escape($meta['title']) . '">',
-            '<meta property="og:description" content="' . $escape($meta['description']) . '">',
-            '<meta property="og:type" content="' . $escape($meta['type']) . '">',
-            '<meta property="og:url" content="' . $escape($meta['canonical']) . '">',
-            '<meta property="og:image" content="' . $escape($meta['image']) . '">',
-            '<meta property="og:site_name" content="' . $escape($meta['siteName'] ?? 'Midia M Metal') . '">',
+            '<title>'.$escape($meta['title']).'</title>',
+            '<meta name="description" content="'.$escape($meta['description']).'">',
+            '<meta name="robots" content="'.$escape($meta['robots']).'">',
+            '<link rel="canonical" href="'.$escape($meta['canonical']).'">',
+            '<meta property="og:title" content="'.$escape($meta['title']).'">',
+            '<meta property="og:description" content="'.$escape($meta['description']).'">',
+            '<meta property="og:type" content="'.$escape($meta['type']).'">',
+            '<meta property="og:url" content="'.$escape($meta['canonical']).'">',
+            '<meta property="og:image" content="'.$escape($meta['image']).'">',
+            '<meta property="og:site_name" content="'.$escape($meta['siteName'] ?? 'Midia M Metal').'">',
             '<meta name="twitter:card" content="summary_large_image">',
-            '<meta name="twitter:site" content="' . $escape($meta['twitterSite'] ?? '@midiametal') . '">',
-            '<meta name="twitter:title" content="' . $escape($meta['title']) . '">',
-            '<meta name="twitter:description" content="' . $escape($meta['description']) . '">',
-            '<meta name="twitter:image" content="' . $escape($meta['image']) . '">',
+            '<meta name="twitter:site" content="'.$escape($meta['twitterSite'] ?? '@midiametal').'">',
+            '<meta name="twitter:title" content="'.$escape($meta['title']).'">',
+            '<meta name="twitter:description" content="'.$escape($meta['description']).'">',
+            '<meta name="twitter:image" content="'.$escape($meta['image']).'">',
         ];
 
         foreach ($meta['jsonLd'] as $jsonLd) {
-            $tags[] = '<script type="application/ld+json" data-server-seo="true">' . json_encode($jsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '</script>';
+            $tags[] = '<script type="application/ld+json" data-server-seo="true">'.json_encode($jsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).'</script>';
         }
 
-        return preg_replace('/<\/head>/i', implode("\n", $tags) . "\n</head>", $html, 1) ?? $html;
+        return preg_replace('/<\/head>/i', implode("\n", $tags)."\n</head>", $html, 1) ?? $html;
     }
 
     /**
@@ -278,23 +281,24 @@ class SeoMetaService
             return $html;
         }
         $p = $meta['_product_noscript'];
-        $escape = fn(string $value) => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        $escape = fn (string $value) => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
         $lines = [
             '<noscript><div style="display:none" aria-hidden="true">',
-            '<h1>' . $escape($p['name']) . '</h1>',
-            '<p>' . $escape($p['description']) . '</p>',
+            '<h1>'.$escape($p['name']).'</h1>',
+            '<p>'.$escape($p['description']).'</p>',
         ];
         if ($p['price']) {
-            $lines[] = '<p>Price: &pound;' . $escape($p['price']) . ' GBP</p>';
+            $lines[] = '<p>Price: &pound;'.$escape($p['price']).' GBP</p>';
         }
         if ($p['availability']) {
-            $lines[] = '<p>Availability: ' . $escape($p['availability']) . '</p>';
+            $lines[] = '<p>Availability: '.$escape($p['availability']).'</p>';
         }
         if ($p['category']) {
-            $lines[] = '<p>Category: ' . $escape($p['category']) . '</p>';
+            $lines[] = '<p>Category: '.$escape($p['category']).'</p>';
         }
         $lines[] = '</div></noscript>';
-        return preg_replace('/<\/body>/i', implode('', $lines) . '</body>', $html, 1) ?? $html;
+
+        return preg_replace('/<\/body>/i', implode('', $lines).'</body>', $html, 1) ?? $html;
     }
 
     // =========================================================================
@@ -304,109 +308,109 @@ class SeoMetaService
     /**
      * Build the static meta map for known pages.
      */
-    private function buildStaticMeta(\Illuminate\Support\Collection $settings, string $siteName): array
+    private function buildStaticMeta(Collection $settings, string $siteName): array
     {
         return [
             'about' => [
-                'title' => 'About Us | ' . $siteName,
+                'title' => 'About Us | '.$siteName,
                 'description' => $this->normalizeText($settings->get('about_subtitle') ?: $settings->get('about_content_1')),
             ],
             'contact' => [
-                'title' => 'Contact | ' . $siteName,
+                'title' => 'Contact | '.$siteName,
                 'description' => $this->normalizeText($settings->get('contact_welcome', 'Get in touch with Midia M Metal for custom metal fabrication and ventilation enquiries.')),
             ],
             'shop' => [
-                'title' => 'Shop | ' . $siteName,
+                'title' => 'Shop | '.$siteName,
                 'description' => 'Browse commercial kitchen products, grease filters, canopies, ventilation parts, and stainless steel fabrication items.',
             ],
             'services' => [
-                'title' => 'Services | ' . $siteName,
+                'title' => 'Services | '.$siteName,
                 'description' => $this->normalizeText($settings->get('services_hero_desc', 'Commercial kitchen ventilation, stainless steel welding, custom fabrication, and canopy installation services.')),
             ],
             'portfolio' => [
-                'title' => 'Portfolio | ' . $siteName,
+                'title' => 'Portfolio | '.$siteName,
                 'description' => 'View recent commercial kitchen ventilation, stainless steel fabrication, canopy installation, and custom metalwork projects.',
             ],
             'blog' => [
-                'title' => 'Blog | ' . $siteName,
+                'title' => 'Blog | '.$siteName,
                 'description' => 'Read insights on commercial kitchen ventilation, stainless steel fabrication, hygiene, and maintenance.',
             ],
             'get-a-quote' => [
-                'title' => 'Request a Quote | ' . $siteName,
+                'title' => 'Request a Quote | '.$siteName,
                 'description' => 'Request a quote for canopies, ventilation systems, custom fabrication, and stainless steel catering equipment.',
             ],
             'faq' => [
-                'title' => ($settings->get('faq_page_title') ?: 'Frequently Asked Questions') . ' | ' . $siteName,
+                'title' => ($settings->get('faq_page_title') ?: 'Frequently Asked Questions').' | '.$siteName,
                 'description' => $this->normalizeText($settings->get('faq_page_content')),
             ],
             'privacy-policy' => [
-                'title' => ($settings->get('privacy_policy_title') ?: 'Privacy Policy') . ' | ' . $siteName,
+                'title' => ($settings->get('privacy_policy_title') ?: 'Privacy Policy').' | '.$siteName,
                 'description' => $this->normalizeText($settings->get('privacy_policy_content')),
             ],
             'terms-of-service' => [
-                'title' => ($settings->get('terms_conditions_title') ?: 'Terms & Conditions') . ' | ' . $siteName,
+                'title' => ($settings->get('terms_conditions_title') ?: 'Terms & Conditions').' | '.$siteName,
                 'description' => $this->normalizeText($settings->get('terms_conditions_content')),
             ],
             'returns-policy' => [
-                'title' => ($settings->get('returns_refunds_title') ?: 'Returns & Refunds') . ' | ' . $siteName,
+                'title' => ($settings->get('returns_refunds_title') ?: 'Returns & Refunds').' | '.$siteName,
                 'description' => $this->normalizeText($settings->get('returns_refunds_content')),
             ],
             'cookies' => [
-                'title' => ($settings->get('cookies_page_title') ?: 'Cookies Page') . ' | ' . $siteName,
+                'title' => ($settings->get('cookies_page_title') ?: 'Cookies Page').' | '.$siteName,
                 'description' => $this->normalizeText($settings->get('cookies_page_content')),
             ],
             'cart' => [
-                'title' => 'Basket | ' . $siteName,
+                'title' => 'Basket | '.$siteName,
                 'description' => 'Review the products in your basket before checkout.',
                 'robots' => 'noindex, nofollow',
             ],
             'checkout' => [
-                'title' => 'Checkout | ' . $siteName,
+                'title' => 'Checkout | '.$siteName,
                 'description' => 'Complete your checkout securely.',
                 'robots' => 'noindex, nofollow',
             ],
             'payment' => [
-                'title' => 'Payment | ' . $siteName,
+                'title' => 'Payment | '.$siteName,
                 'description' => 'Secure payment page.',
                 'robots' => 'noindex, nofollow',
             ],
             'thank-you' => [
-                'title' => 'Order Confirmation | ' . $siteName,
+                'title' => 'Order Confirmation | '.$siteName,
                 'description' => 'Your order confirmation page.',
                 'robots' => 'noindex, nofollow',
             ],
             'login' => [
-                'title' => 'Customer Login | ' . $siteName,
+                'title' => 'Customer Login | '.$siteName,
                 'description' => 'Log in to your customer account.',
                 'robots' => 'noindex, nofollow',
             ],
             'register' => [
-                'title' => 'Create Account | ' . $siteName,
+                'title' => 'Create Account | '.$siteName,
                 'description' => 'Register for a customer account.',
                 'robots' => 'noindex, nofollow',
             ],
             'account' => [
-                'title' => 'My Account | ' . $siteName,
+                'title' => 'My Account | '.$siteName,
                 'description' => 'Manage your orders, quotes, and saved details.',
                 'robots' => 'noindex, nofollow',
             ],
             'forgot-password' => [
-                'title' => 'Forgot Password | ' . $siteName,
+                'title' => 'Forgot Password | '.$siteName,
                 'description' => 'Reset your customer account password.',
                 'robots' => 'noindex, nofollow',
             ],
             'reset-password' => [
-                'title' => 'Reset Password | ' . $siteName,
+                'title' => 'Reset Password | '.$siteName,
                 'description' => 'Set a new password for your customer account.',
                 'robots' => 'noindex, nofollow',
             ],
             'admin/forgot-password' => [
-                'title' => 'Admin Forgot Password | ' . $siteName,
+                'title' => 'Admin Forgot Password | '.$siteName,
                 'description' => 'Admin password reset.',
                 'robots' => 'noindex, nofollow',
             ],
             'admin/reset-password' => [
-                'title' => 'Admin Reset Password | ' . $siteName,
+                'title' => 'Admin Reset Password | '.$siteName,
                 'description' => 'Admin password reset.',
                 'robots' => 'noindex, nofollow',
             ],
@@ -420,52 +424,53 @@ class SeoMetaService
     {
         $category = ProductCategory::where('active', true)->where('slug', $slug)->first();
         if ($category) {
-            $meta['title'] = $category->name . ' Products | ' . $siteName;
-            $meta['description'] = $this->normalizeText($category->description ?: ('Browse ' . $category->name . ' products from ' . $siteName . '.'));
+            $meta['title'] = $category->name.' Products | '.$siteName;
+            $meta['description'] = $this->normalizeText($category->description ?: ('Browse '.$category->name.' products from '.$siteName.'.'));
             $meta['image'] = $this->absoluteUrl($baseUrl, $category->image);
             $meta['jsonLd'] = [$this->breadcrumbJsonLd([
-                ['name' => 'Home', 'url' => $baseUrl . '/'],
+                ['name' => 'Home', 'url' => $baseUrl.'/'],
                 ['name' => 'Shop', 'url' => $this->absoluteUrl($baseUrl, 'shop')],
                 ['name' => $category->name, 'url' => $meta['canonical']],
             ])];
         }
+
         return $meta;
     }
 
     /**
      * Build SEO meta for a product page. Returns a RedirectResponse for numeric ID → slug.
      *
-     * @return array|\Illuminate\Http\RedirectResponse
+     * @return array|RedirectResponse
      */
     private function buildProductMeta(array $meta, string $identifier, string $baseUrl, string $siteName, string $defaultImage)
     {
         $product = Product::with('category')
             ->where('active', true)
-            ->where(fn($query) => $query->where('slug', $identifier)->orWhere('id', $identifier))
+            ->where(fn ($query) => $query->where('slug', $identifier)->orWhere('id', $identifier))
             ->first();
 
         if ($product) {
             // 301 redirect: numeric ID → canonical slug URL
             if ($product->slug && $identifier !== $product->slug && is_numeric($identifier)) {
-                return redirect($this->absoluteUrl($baseUrl, 'shop/' . $product->slug), 301);
+                return redirect($this->absoluteUrl($baseUrl, 'shop/'.$product->slug), 301);
             }
 
-            $canonicalUrl = $this->absoluteUrl($baseUrl, 'shop/' . ($product->slug ?: $identifier));
+            $canonicalUrl = $this->absoluteUrl($baseUrl, 'shop/'.($product->slug ?: $identifier));
             $meta['canonical'] = $canonicalUrl;
-            $meta['title'] = $product->name . ' | ' . $siteName;
+            $meta['title'] = $product->name.' | '.$siteName;
             $meta['description'] = $this->normalizeText($product->description ?: ($product->category->description ?? $product->name));
             $meta['type'] = 'product';
             $meta['image'] = $this->absoluteUrl($baseUrl, $product->image);
             $stockQuantity = (int) ($product->stock_quantity ?? 0);
             $trackStock = (bool) ($product->track_stock ?? false);
-            $availability = (!$trackStock || $stockQuantity > 0)
+            $availability = (! $trackStock || $stockQuantity > 0)
                 ? 'https://schema.org/InStock'
                 : 'https://schema.org/OutOfStock';
             $meta['jsonLd'] = [
                 $this->breadcrumbJsonLd(array_values(array_filter([
-                    ['name' => 'Home', 'url' => $baseUrl . '/'],
+                    ['name' => 'Home', 'url' => $baseUrl.'/'],
                     ['name' => 'Shop', 'url' => $this->absoluteUrl($baseUrl, 'shop')],
-                    $product->category ? ['name' => $product->category->name, 'url' => $this->absoluteUrl($baseUrl, 'shop/category/' . $product->category->slug)] : null,
+                    $product->category ? ['name' => $product->category->name, 'url' => $this->absoluteUrl($baseUrl, 'shop/category/'.$product->category->slug)] : null,
                     ['name' => $product->name, 'url' => $canonicalUrl],
                 ]))),
                 [
@@ -500,6 +505,7 @@ class SeoMetaService
                 'availability' => $trackStock ? ($stockQuantity > 0 ? 'In Stock' : 'Out of Stock') : 'Available',
             ];
         }
+
         return $meta;
     }
 
@@ -510,12 +516,12 @@ class SeoMetaService
     {
         $service = Service::where('active', true)->where('slug', $slug)->first();
         if ($service) {
-            $meta['title'] = $service->title . ' | ' . $siteName;
+            $meta['title'] = $service->title.' | '.$siteName;
             $meta['description'] = $this->normalizeText($service->excerpt ?: $service->content ?: $service->title);
             $meta['image'] = $service->image ? $this->absoluteUrl($baseUrl, $service->image) : $defaultImage;
             $meta['jsonLd'] = [
                 $this->breadcrumbJsonLd([
-                    ['name' => 'Home', 'url' => $baseUrl . '/'],
+                    ['name' => 'Home', 'url' => $baseUrl.'/'],
                     ['name' => 'Services', 'url' => $this->absoluteUrl($baseUrl, 'services')],
                     ['name' => $service->title, 'url' => $meta['canonical']],
                 ]),
@@ -527,11 +533,12 @@ class SeoMetaService
                     'provider' => [
                         '@type' => 'Organization',
                         'name' => $siteName,
-                        'url' => $baseUrl . '/',
+                        'url' => $baseUrl.'/',
                     ],
                 ],
             ];
         }
+
         return $meta;
     }
 
@@ -542,44 +549,45 @@ class SeoMetaService
     {
         $project = PortfolioProject::where('active', true)->where('slug', $slug)->first();
         if ($project) {
-            $meta['title'] = $project->title . ' | ' . $siteName;
+            $meta['title'] = $project->title.' | '.$siteName;
             $meta['description'] = $this->normalizeText($project->description ?: $project->title);
             $meta['image'] = $project->image ? $this->absoluteUrl($baseUrl, $project->image) : $defaultImage;
             $meta['jsonLd'] = [$this->breadcrumbJsonLd([
-                ['name' => 'Home', 'url' => $baseUrl . '/'],
+                ['name' => 'Home', 'url' => $baseUrl.'/'],
                 ['name' => 'Portfolio', 'url' => $this->absoluteUrl($baseUrl, 'portfolio')],
                 ['name' => $project->title, 'url' => $meta['canonical']],
             ])];
         }
+
         return $meta;
     }
 
     /**
      * Build SEO meta for a blog post page. Returns a RedirectResponse for numeric ID → slug.
      *
-     * @return array|\Illuminate\Http\RedirectResponse
+     * @return array|RedirectResponse
      */
     private function buildBlogMeta(array $meta, string $identifier, string $baseUrl, string $siteName, string $defaultImage)
     {
         $post = BlogPost::where('active', true)
-            ->where(fn($query) => $query->where('slug', $identifier)->orWhere('id', $identifier))
+            ->where(fn ($query) => $query->where('slug', $identifier)->orWhere('id', $identifier))
             ->first();
 
         if ($post) {
             // 301 redirect: numeric ID → canonical slug URL
             if ($post->slug && $identifier !== $post->slug && is_numeric($identifier)) {
-                return redirect($this->absoluteUrl($baseUrl, 'blog/' . $post->slug), 301);
+                return redirect($this->absoluteUrl($baseUrl, 'blog/'.$post->slug), 301);
             }
 
-            $canonicalUrl = $this->absoluteUrl($baseUrl, 'blog/' . ($post->slug ?: $identifier));
+            $canonicalUrl = $this->absoluteUrl($baseUrl, 'blog/'.($post->slug ?: $identifier));
             $meta['canonical'] = $canonicalUrl;
-            $meta['title'] = $post->title . ' | ' . $siteName;
+            $meta['title'] = $post->title.' | '.$siteName;
             $meta['description'] = $this->normalizeText($post->excerpt ?: $post->content ?: $post->title);
             $meta['type'] = 'article';
             $meta['image'] = $post->image ? $this->absoluteUrl($baseUrl, $post->image) : $defaultImage;
             $meta['jsonLd'] = [
                 $this->breadcrumbJsonLd([
-                    ['name' => 'Home', 'url' => $baseUrl . '/'],
+                    ['name' => 'Home', 'url' => $baseUrl.'/'],
                     ['name' => 'Blog', 'url' => $this->absoluteUrl($baseUrl, 'blog')],
                     ['name' => $post->title, 'url' => $canonicalUrl],
                 ]),
@@ -607,6 +615,7 @@ class SeoMetaService
                 ],
             ];
         }
+
         return $meta;
     }
 }

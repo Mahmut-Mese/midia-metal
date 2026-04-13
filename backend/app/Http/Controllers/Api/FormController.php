@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AdminNotification;
 use App\Models\ContactMessage;
 use App\Models\Coupon;
 use App\Models\Customer;
@@ -13,15 +14,11 @@ use App\Services\OrderService;
 use App\Services\PaymentVerificationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
-use App\Mail\AdminNotification;
 use Illuminate\Support\Str;
 
 class FormController extends Controller
 {
-    public function __construct(private OrderService $orderService)
-    {
-    }
+    public function __construct(private OrderService $orderService) {}
 
     protected function getAdminNotificationEmail(): string
     {
@@ -44,7 +41,7 @@ class FormController extends Controller
 
         Mail::to($this->getAdminNotificationEmail())->send(new AdminNotification(
             'New Contact Message',
-            "You have received a new message from {$validated['name']} ({$validated['email']}).\n\nSubject: " . ($validated['subject'] ?? 'No Subject') . "\n\nMessage:\n{$validated['message']}"
+            "You have received a new message from {$validated['name']} ({$validated['email']}).\n\nSubject: ".($validated['subject'] ?? 'No Subject')."\n\nMessage:\n{$validated['message']}"
         ));
 
         return response()->json(['message' => 'Message sent successfully'], 201);
@@ -74,17 +71,17 @@ class FormController extends Controller
         if ($request->hasFile('files')) {
             $storedFiles = collect($request->file('files'))
                 ->map(function ($file) {
-                    $filename = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+                    $filename = time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
                     $path = $file->storeAs('quote-attachments', $filename, 'public');
 
-                    return asset('storage/' . $path);
+                    return asset('storage/'.$path);
                 })
                 ->values()
                 ->all();
         }
 
         $authenticatedCustomer = auth('sanctum')->user();
-        if (!$authenticatedCustomer instanceof Customer) {
+        if (! $authenticatedCustomer instanceof Customer) {
             $authenticatedCustomer = null;
         }
         $customerId = $authenticatedCustomer?->id ?? null;
@@ -95,7 +92,7 @@ class FormController extends Controller
 
         Mail::to($this->getAdminNotificationEmail())->send(new AdminNotification(
             'New Quote Request',
-            "You have received a new quote request from {$validated['name']} ({$validated['email']}).\n\nService: " . ($validated['service'] ?? 'N/A') . "\n\nDescription:\n{$validated['description']}"
+            "You have received a new quote request from {$validated['name']} ({$validated['email']}).\n\nService: ".($validated['service'] ?? 'N/A')."\n\nDescription:\n{$validated['description']}"
         ));
 
         return response()->json(['message' => 'Quote request submitted successfully'], 201);
@@ -104,7 +101,7 @@ class FormController extends Controller
     public function refundRequest(Request $request)
     {
         $authenticatedCustomer = auth('sanctum')->user();
-        if (!$authenticatedCustomer instanceof Customer) {
+        if (! $authenticatedCustomer instanceof Customer) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
@@ -120,19 +117,19 @@ class FormController extends Controller
             ->where('customer_id', $authenticatedCustomer->id)
             ->first();
 
-        if (!$order) {
+        if (! $order) {
             return response()->json([
                 'message' => 'We could not find that order on your account.',
             ], 404);
         }
 
         $requestType = $validated['request_type'] ?? 'cancel_refund';
-        $subject = ($requestType === 'cancel' ? 'Order Cancellation Request - ' : 'Cancellation & Refund Request - ') . $order->order_number;
+        $subject = ($requestType === 'cancel' ? 'Order Cancellation Request - ' : 'Cancellation & Refund Request - ').$order->order_number;
         $message = implode("\n\n", [
             "Order Number: {$order->order_number}",
             "Customer: {$authenticatedCustomer->name} ({$authenticatedCustomer->email})",
             "Payment Method: {$order->payment_method}",
-            "Request Type: " . ($requestType === 'cancel' ? 'Cancel Order' : 'Cancel and Refund'),
+            'Request Type: '.($requestType === 'cancel' ? 'Cancel Order' : 'Cancel and Refund'),
             "Reason: {$validated['reason']}",
             "Details:\n{$validated['details']}",
         ]);
@@ -172,11 +169,11 @@ class FormController extends Controller
 
         $coupon = Coupon::where('code', strtoupper($request->code))->first();
 
-        if (!$coupon) {
+        if (! $coupon) {
             return response()->json(['message' => 'Coupon code not found'], 404);
         }
 
-        if (!$coupon->isValid($request->order_amount)) {
+        if (! $coupon->isValid($request->order_amount)) {
             return response()->json(['message' => 'This coupon is expired, inactive, or your order does not meet the minimum amount'], 422);
         }
 
@@ -197,7 +194,7 @@ class FormController extends Controller
     public function order(Request $request)
     {
         $authenticatedCustomer = auth('sanctum')->user();
-        if (!$authenticatedCustomer instanceof Customer) {
+        if (! $authenticatedCustomer instanceof Customer) {
             $authenticatedCustomer = null;
         }
 

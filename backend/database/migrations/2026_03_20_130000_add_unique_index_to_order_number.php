@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -9,23 +10,23 @@ return new class extends Migration
     public function up(): void
     {
         // Fix existing duplicates before adding the unique constraint
-        $duplicates = \Illuminate\Support\Facades\DB::table('orders')
+        $duplicates = DB::table('orders')
             ->select('order_number')
             ->groupBy('order_number')
             ->havingRaw('COUNT(id) > 1')
             ->pluck('order_number');
 
         foreach ($duplicates as $orderNumber) {
-            $orders = \Illuminate\Support\Facades\DB::table('orders')
+            $orders = DB::table('orders')
                 ->where('order_number', $orderNumber)
                 ->orderBy('created_at')
                 ->get();
 
             // Skip the first one, update the rest
             foreach ($orders->skip(1) as $order) {
-                \Illuminate\Support\Facades\DB::table('orders')
+                DB::table('orders')
                     ->where('id', $order->id)
-                    ->update(['order_number' => $orderNumber . '-' . $order->id]);
+                    ->update(['order_number' => $orderNumber.'-'.$order->id]);
             }
         }
 
@@ -33,7 +34,7 @@ return new class extends Migration
             Schema::table('orders', function (Blueprint $table) {
                 $table->unique('order_number');
             });
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Index likely already exists
         }
     }

@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
-use App\Support\CheckoutCalculator;
 use App\Shipping\ShippingQuoteStore;
+use App\Support\CheckoutCalculator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

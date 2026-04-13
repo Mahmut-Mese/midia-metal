@@ -36,8 +36,8 @@ class ParcelBuilder
                 $productId = (int) ($item['product_id'] ?? 0);
                 $product = $products->get($productId);
 
-                if (!$product instanceof Product || !$product->active) {
-                    throw new RuntimeException("Product on line " . ($index + 1) . " is unavailable for shipping.");
+                if (! $product instanceof Product || ! $product->active) {
+                    throw new RuntimeException('Product on line '.($index + 1).' is unavailable for shipping.');
                 }
 
                 return [
@@ -59,8 +59,8 @@ class ParcelBuilder
         $order->loadMissing('items.product');
 
         $lines = $order->items->map(function ($item, int $index) {
-            if (!$item->product instanceof Product) {
-                throw new RuntimeException("Shipping profile is missing for ordered item #" . ($index + 1) . '.');
+            if (! $item->product instanceof Product) {
+                throw new RuntimeException('Shipping profile is missing for ordered item #'.($index + 1).'.');
             }
 
             return [
@@ -105,6 +105,7 @@ class ParcelBuilder
                         'quantity' => 1,
                     ];
                 }
+
                 continue;
             }
 
@@ -127,6 +128,7 @@ class ParcelBuilder
                     ->groupBy('product_id')
                     ->map(function ($group) {
                         $first = $group->first();
+
                         return [
                             'product_id' => $first['product_id'],
                             'product_name' => $first['product_name'],
@@ -164,12 +166,13 @@ class ParcelBuilder
         foreach ($units as $unit) {
             if ($unit['ships_separately']) {
                 $draftParcels[] = $this->createDraftParcel($unit);
+
                 continue;
             }
 
             $placed = false;
             foreach ($draftParcels as $index => $parcel) {
-                if ($parcel['locked'] || !$this->canAddUnit($parcel, $unit)) {
+                if ($parcel['locked'] || ! $this->canAddUnit($parcel, $unit)) {
                     continue;
                 }
 
@@ -178,7 +181,7 @@ class ParcelBuilder
                 break;
             }
 
-            if (!$placed) {
+            if (! $placed) {
                 $draftParcels[] = $this->createDraftParcel($unit);
             }
         }
@@ -347,7 +350,7 @@ class ParcelBuilder
             ->all();
 
         return [
-            'reference' => 'parcel_' . $index,
+            'reference' => 'parcel_'.$index,
             'length' => (float) $parcel['length'],
             'width' => (float) $parcel['width'],
             'height' => (float) $parcel['height'],
@@ -365,7 +368,7 @@ class ParcelBuilder
      */
     private function variantShippingOverride(Product $product, ?array $selectedVariants): array
     {
-        if (!$selectedVariants || count($selectedVariants) === 0) {
+        if (! $selectedVariants || count($selectedVariants) === 0) {
             return [
                 'weight_kg' => null,
                 'length_cm' => null,
@@ -433,7 +436,7 @@ class ParcelBuilder
         $numbers = collect($values)
             ->filter(fn ($value) => $value !== null && $value !== '')
             ->map(function ($value) use ($min, $max, $precision) {
-                if (!is_numeric($value)) {
+                if (! is_numeric($value)) {
                     return null;
                 }
 

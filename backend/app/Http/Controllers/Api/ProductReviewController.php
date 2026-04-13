@@ -3,18 +3,19 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AdminNotification;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\ProductReview;
 use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\AdminNotification;
 
 class ProductReviewController extends Controller
 {
     public function canReview(Request $request, $productId)
     {
-        $product = \App\Models\Product::where('id', $productId)->orWhere('slug', $productId)->firstOrFail();
+        $product = Product::where('id', $productId)->orWhere('slug', $productId)->firstOrFail();
         $productId = $product->id;
 
         $customerId = $request->user()->id;
@@ -25,7 +26,7 @@ class ProductReviewController extends Controller
                 $query->where('product_id', $productId);
             })->exists();
 
-        if (!$hasPurchased) {
+        if (! $hasPurchased) {
             return response()->json(['can_review' => false, 'reason' => 'not_delivered']);
         }
 
@@ -39,12 +40,12 @@ class ProductReviewController extends Controller
 
     public function store(Request $request, $productId)
     {
-        $product = \App\Models\Product::where('id', $productId)->orWhere('slug', $productId)->firstOrFail();
+        $product = Product::where('id', $productId)->orWhere('slug', $productId)->firstOrFail();
         $productId = $product->id;
 
         $request->validate([
             'rating' => 'required|integer|min:1|max:5',
-            'comment' => 'nullable|string'
+            'comment' => 'nullable|string',
         ]);
 
         $customerId = $request->user()->id;
@@ -56,7 +57,7 @@ class ProductReviewController extends Controller
                 $query->where('product_id', $productId);
             })->exists();
 
-        if (!$hasPurchased) {
+        if (! $hasPurchased) {
             return response()->json(['message' => 'You can only review products after they have been delivered.'], 403);
         }
 
@@ -70,7 +71,7 @@ class ProductReviewController extends Controller
             'product_id' => $productId,
             'customer_id' => $customerId,
             'rating' => $request->rating,
-            'comment' => $request->comment
+            'comment' => $request->comment,
         ]);
 
         $review->load('customer:id,name');
@@ -81,7 +82,7 @@ class ProductReviewController extends Controller
 
         Mail::to($adminEmail)->send(new AdminNotification(
             'New Product Review',
-            "A new review has been posted for product #{$productId} by {$review->customer->name}.\n\nRating: {$review->rating}/5 stars\nComment:\n" . ($review->comment ?? 'No comment')
+            "A new review has been posted for product #{$productId} by {$review->customer->name}.\n\nRating: {$review->rating}/5 stars\nComment:\n".($review->comment ?? 'No comment')
         ));
 
         return response()->json($review, 201);

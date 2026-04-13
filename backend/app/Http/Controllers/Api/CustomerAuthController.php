@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\QuoteRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -43,7 +44,7 @@ class CustomerAuthController extends Controller
 
         $customer = Customer::where('email', $request->email)->first();
 
-        if (!$customer || !Hash::check($request->password, $customer->password)) {
+        if (! $customer || ! Hash::check($request->password, $customer->password)) {
             return response()->json(['message' => 'Invalid email or password'], 401);
         }
 
@@ -102,12 +103,13 @@ class CustomerAuthController extends Controller
     public function customerQuotes(Request $request)
     {
         $customer = $request->user();
-        $quotes = \App\Models\QuoteRequest::where(function ($q) use ($customer) {
+        $quotes = QuoteRequest::where(function ($q) use ($customer) {
             $q->where('customer_id', $customer->id)
-              ->orWhere('email', $customer->email);
+                ->orWhere('email', $customer->email);
         })
             ->orderBy('created_at', 'desc')
             ->get();
+
         return response()->json($quotes);
     }
 
@@ -120,7 +122,7 @@ class CustomerAuthController extends Controller
 
         $customer = $request->user();
 
-        if (!Hash::check($request->current_password, $customer->password)) {
+        if (! Hash::check($request->current_password, $customer->password)) {
             return response()->json(['message' => 'Current password is incorrect'], 422);
         }
 

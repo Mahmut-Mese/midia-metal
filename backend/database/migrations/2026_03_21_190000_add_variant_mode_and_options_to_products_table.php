@@ -9,11 +9,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            if (!Schema::hasColumn('products', 'variant_mode')) {
+            if (! Schema::hasColumn('products', 'variant_mode')) {
                 $table->string('variant_mode')->default('legacy')->after('show_variant_in_title');
             }
 
-            if (!Schema::hasColumn('products', 'variant_options')) {
+            if (! Schema::hasColumn('products', 'variant_options')) {
                 $table->json('variant_options')->nullable()->after('variant_mode');
             }
         });

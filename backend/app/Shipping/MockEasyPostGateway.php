@@ -3,13 +3,14 @@
 namespace App\Shipping;
 
 use App\Models\Order;
-use App\Models\SiteSetting;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class MockEasyPostGateway implements ShippingGateway
 {
+    public function __construct(private readonly FreightZoneResolver $zoneResolver = new FreightZoneResolver) {}
+
     /**
      * EasyPost official test tracking codes from the tracker docs.
      *
@@ -173,11 +174,11 @@ class MockEasyPostGateway implements ShippingGateway
         for ($index = 0; $index < $packageCount; $index++) {
             $trackingNumber = $index === 0
                 ? trim((string) ($order->tracking_number ?: 'EZ1000000001'))
-                : 'EZ' . str_pad((string) random_int(1000000000, 9999999999), 10, '0', STR_PAD_LEFT);
+                : 'EZ'.str_pad((string) random_int(1000000000, 9999999999), 10, '0', STR_PAD_LEFT);
             $tracking = $this->resolveTracking($trackingNumber);
             $shipments[] = [
                 'tracking_number' => $trackingNumber,
-                'shipment_id' => ($order->shipping_shipment_id ?: 'mock_easypost_' . Str::lower(Str::random(18))) . '_' . ($index + 1),
+                'shipment_id' => ($order->shipping_shipment_id ?: 'mock_easypost_'.Str::lower(Str::random(18))).'_'.($index + 1),
                 'status' => $tracking['status'],
                 'detail' => $tracking['detail'],
                 'parcel' => $parcels[$index] ?? null,
@@ -187,7 +188,7 @@ class MockEasyPostGateway implements ShippingGateway
         $primaryShipment = $shipments[0];
         $trackingNumber = (string) $primaryShipment['tracking_number'];
         $tracking = $this->resolveTracking($trackingNumber);
-        $shipmentId = $order->shipping_shipment_id ?: 'mock_easypost_' . Str::lower(Str::random(18));
+        $shipmentId = $order->shipping_shipment_id ?: 'mock_easypost_'.Str::lower(Str::random(18));
         $labelPath = $this->writeLabel($order, $shipmentId, $trackingNumber);
 
         return [
@@ -321,14 +322,14 @@ class MockEasyPostGateway implements ShippingGateway
                 config('services.shipping.from_company'),
                 config('services.shipping.from_address_line1'),
                 config('services.shipping.from_address_line2'),
-                trim(config('services.shipping.from_city') . ' ' . config('services.shipping.from_postcode')),
+                trim(config('services.shipping.from_city').' '.config('services.shipping.from_postcode')),
                 config('services.shipping.from_county'),
             ],
             'toAddress' => [
                 $order->customer_name,
                 $order->shipping_address_line1 ?: $order->shipping_address,
                 $order->shipping_address_line2,
-                trim(($order->shipping_city ?: '') . ' ' . ($order->shipping_postcode ?: '')),
+                trim(($order->shipping_city ?: '').' '.($order->shipping_postcode ?: '')),
                 $order->shipping_county ?: '',
             ],
         ])->render();
@@ -344,114 +345,41 @@ class MockEasyPostGateway implements ShippingGateway
      */
     private function resolveDeliveryProfile(array $toAddress): array
     {
-        $postcode = strtoupper(trim((string) ($toAddress['postcode'] ?? '')));
-        $city = strtoupper(trim((string) ($toAddress['city'] ?? '')));
-        $surcharges = $this->freightSurcharges();
+        $zone = $this->zoneResolver->detectZone($toAddress);
+        $surcharges = $this->zoneResolver->loadSurcharges();
 
-        $isRemote = $this->matchesPrefix($postcode, ['AB', 'HS', 'IV', 'KW', 'PA', 'PH', 'ZE', 'IM']);
-        $isNorthernIreland = $this->matchesPrefix($postcode, ['BT']);
-        $isScotland = $this->matchesPrefix($postcode, ['DD', 'DG', 'EH', 'FK', 'G', 'KA', 'KY', 'ML', 'TD']) || str_contains($city, 'GLASGOW') || str_contains($city, 'EDINBURGH');
-        $isLondon = $this->matchesPrefix($postcode, ['E', 'EC', 'N', 'NW', 'SE', 'SW', 'W', 'WC']) || str_contains($city, 'LONDON');
-
-        if ($isNorthernIreland) {
-            return [
+        return match ($zone) {
+            'ni' => [
                 'tracked_48_days' => 3,
                 'tracked_24_days' => 2,
                 'rate_surcharge' => $surcharges['ni'],
                 'premium_surcharge' => 2.00,
-            ];
-        }
-
-        if ($isRemote) {
-            return [
+            ],
+            'highlands' => [
                 'tracked_48_days' => 4,
                 'tracked_24_days' => 3,
                 'rate_surcharge' => $surcharges['highlands'],
                 'premium_surcharge' => 3.50,
-            ];
-        }
-
-        if ($isScotland) {
-            return [
+            ],
+            'scotland' => [
                 'tracked_48_days' => 3,
                 'tracked_24_days' => 2,
                 'rate_surcharge' => $surcharges['scotland'],
                 'premium_surcharge' => 1.50,
-            ];
-        }
-
-        if ($isLondon) {
-            return [
+            ],
+            'london' => [
                 'tracked_48_days' => 2,
                 'tracked_24_days' => 1,
                 'rate_surcharge' => $surcharges['london'],
                 'premium_surcharge' => 0.00,
-            ];
-        }
-
-        // Default UK mainland
-        return [
-            'tracked_48_days' => 3,
-            'tracked_24_days' => 1,
-            'rate_surcharge' => $surcharges['default'],
-            'premium_surcharge' => 0.50,
-        ];
-    }
-
-    /**
-     * Load freight zone surcharges from the settings table, with a per-request cache.
-     *
-     * @return array{highlands:float,ni:float,scotland:float,london:float,default:float}
-     */
-    private function freightSurcharges(): array
-    {
-        static $cache = null;
-        if ($cache !== null) {
-            return $cache;
-        }
-
-        $rows = SiteSetting::whereIn('key', [
-            'freight_surcharge_highlands',
-            'freight_surcharge_ni',
-            'freight_surcharge_scotland',
-            'freight_surcharge_london',
-            'freight_surcharge_default',
-        ])->pluck('value', 'key');
-
-        $cache = [
-            'highlands' => (float) ($rows['freight_surcharge_highlands'] ?? 7.00),
-            'ni'        => (float) ($rows['freight_surcharge_ni']        ?? 4.50),
-            'scotland'  => (float) ($rows['freight_surcharge_scotland']  ?? 2.00),
-            'london'    => (float) ($rows['freight_surcharge_london']    ?? 0.00),
-            'default'   => (float) ($rows['freight_surcharge_default']   ?? 1.00),
-        ];
-
-        return $cache;
-    }
-
-    /**
-     * @param  array<int, string>  $prefixes
-     */
-    private function matchesPrefix(string $postcode, array $prefixes): bool
-    {
-        $clean = preg_replace('/\s+/', '', strtoupper($postcode));
-        if (!$clean) {
-            return false;
-        }
-
-        preg_match('/^([A-Z]{1,2})/', $clean, $matches);
-        $area = $matches[1] ?? '';
-        if ($area === '') {
-            return false;
-        }
-
-        foreach ($prefixes as $prefix) {
-            if ($area === strtoupper($prefix)) {
-                return true;
-            }
-        }
-
-        return false;
+            ],
+            default => [
+                'tracked_48_days' => 3,
+                'tracked_24_days' => 1,
+                'rate_surcharge' => $surcharges['default'],
+                'premium_surcharge' => 0.50,
+            ],
+        };
     }
 
     /**

@@ -42,6 +42,7 @@ class Product extends Model
         'variants',
         'variant_table_columns',
     ];
+
     protected $casts = [
         'show_variant_in_title' => 'boolean',
         'variant_options' => 'array',

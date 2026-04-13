@@ -21,18 +21,17 @@ class RefundStripePayment implements ShouldQueue
 
     public function __construct(
         public int $contactMessageId,
-    ) {
-    }
+    ) {}
 
     public function handle(): void
     {
         $contactMessage = ContactMessage::with('order')->find($this->contactMessageId);
-        if (!$contactMessage || $contactMessage->message_type !== 'order_request') {
+        if (! $contactMessage || $contactMessage->message_type !== 'order_request') {
             return;
         }
 
         $order = $contactMessage->order;
-        if (!$order || !$order->stripe_payment_intent_id) {
+        if (! $order || ! $order->stripe_payment_intent_id) {
             return;
         }
 
@@ -58,6 +57,7 @@ class RefundStripePayment implements ShouldQueue
 
             if (str_contains($message, 'already been refunded')) {
                 $order->update(['payment_status' => 'refunded']);
+
                 return;
             }
 

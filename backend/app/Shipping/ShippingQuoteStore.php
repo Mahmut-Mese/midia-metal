@@ -27,17 +27,17 @@ class ShippingQuoteStore
      */
     public function resolve(?string $token): ?array
     {
-        if (!$token) {
+        if (! $token) {
             return null;
         }
 
         $option = Cache::get($this->key($token));
+
         return is_array($option) ? $option : null;
     }
 
     private function key(string $token): string
     {
-        return 'shipping_quote:' . $token;
+        return 'shipping_quote:'.$token;
     }
 }
-

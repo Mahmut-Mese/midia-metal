@@ -13,14 +13,12 @@ class CustomerQuoteResponse extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public QuoteRequest $quote)
-    {
-    }
+    public function __construct(public QuoteRequest $quote) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Midia Metal Quote Update #' . $this->quote->id,
+            subject: 'Midia Metal Quote Update #'.$this->quote->id,
         );
     }
 
@@ -30,7 +28,7 @@ class CustomerQuoteResponse extends Mailable
             markdown: 'emails.customer-quote-response',
             with: [
                 'quote' => $this->quote,
-                'accountUrl' => config('app.frontend_url') . '/account',
+                'accountUrl' => config('app.frontend_url').'/account',
             ],
         );
     }

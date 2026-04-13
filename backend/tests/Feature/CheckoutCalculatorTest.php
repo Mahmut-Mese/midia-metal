@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
-use App\Models\ProductCategory;
 use App\Models\SiteSetting;
 use App\Shipping\ShippingQuoteStore;
 use App\Support\CheckoutCalculator;
