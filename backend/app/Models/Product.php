@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\NormalizesMediaUrls;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    use NormalizesMediaUrls;
+    use HasFactory, NormalizesMediaUrls;
 
     protected $fillable = [
         'name',
