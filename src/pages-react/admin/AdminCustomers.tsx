@@ -18,7 +18,7 @@ export default function AdminCustomers() {
 
     const loadCustomers = async () => {
         try {
-            const res = await apiFetch(`/admin/customers?search=${search}`);
+            const res = await apiFetch<{ data: any[] }>(`/admin/customers?search=${search}`);
             setCustomers(res.data);
         } catch (e) {
             toast.error("Failed to load customers");

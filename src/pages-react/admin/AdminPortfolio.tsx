@@ -24,7 +24,7 @@ export default function AdminPortfolio() {
 
     const loadProjects = async () => {
         try {
-            const res = await apiFetch("/admin/portfolio");
+            const res = await apiFetch<{ data: any[] }>("/admin/portfolio");
             setProjects(res.data);
         } catch (e) {
             toast.error("Failed to load portfolio projects");
@@ -35,7 +35,7 @@ export default function AdminPortfolio() {
 
     const loadCategories = async () => {
         try {
-            const res = await apiFetch("/admin/portfolio-categories");
+            const res = await apiFetch<any[]>("/admin/portfolio-categories");
             setCategories(res);
         } catch (e) {
             console.error(e);

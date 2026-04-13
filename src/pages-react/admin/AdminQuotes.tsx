@@ -20,7 +20,7 @@ export default function AdminQuotes() {
 
     const loadQuotes = async () => {
         try {
-            const res = await apiFetch("/admin/quotes");
+            const res = await apiFetch<any[]>("/admin/quotes");
             setQuotes(res);
         } catch { toast.error("Failed to load quote requests"); }
         finally { setLoading(false); }

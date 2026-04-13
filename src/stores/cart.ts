@@ -16,8 +16,9 @@ import { clampQuantityToStock, getAvailableStock } from '@/lib/stock';
 import { formatMoneyValue, resolveSelectedVariantUnitPrice } from '@/lib/pricing';
 
 // --- Types (re-exported from canonical types) ---
-export type { CartItem, AppliedCoupon } from '@/types/cart';
-import type { CartItem, AppliedCoupon } from '@/types/cart';
+export type { CartItem, AppliedCoupon, AddToCartProduct } from '@/types/cart';
+import type { CartItem, AppliedCoupon, AddToCartProduct } from '@/types/cart';
+import type { SiteSetting } from '@/types/settings';
 
 // --- Core state ---
 function loadCart(): CartItem[] {
@@ -105,7 +106,7 @@ async function showToast(message: string, type: 'success' | 'error' = 'error') {
   else toast.success(message);
 }
 
-export function addToCart(product: any, quantity: number = 1) {
+export function addToCart(product: AddToCartProduct, quantity: number = 1) {
   const cart = $cart.get();
 
   // Build unique ID from product + variant selection
@@ -209,14 +210,14 @@ export async function applyCoupon(code: string) {
   if (!code.trim()) return;
   try {
     const subtotal = $subtotal.get();
-    const res = await apiFetch('/v1/coupons/apply', {
+    const res = await apiFetch<AppliedCoupon>('/v1/coupons/apply', {
       method: 'POST',
       body: JSON.stringify({ code: code.trim().toUpperCase(), order_amount: subtotal }),
     });
     $coupon.set(res);
     showToast(res.message, 'success');
-  } catch (err: any) {
-    const msg = err?.message || 'Invalid or expired coupon code';
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Invalid or expired coupon code';
     showToast(msg);
   }
 }
@@ -235,9 +236,9 @@ export function setIsBusiness(value: boolean) {
 /** Load VAT settings from API. Call once on app load. */
 export async function loadVatSettings() {
   try {
-    const res = await apiFetch('/v1/settings');
-    const vatEnabledSetting = res.find((s: any) => s.key === 'vat_enabled');
-    const vatRateSetting = res.find((s: any) => s.key === 'vat_rate');
+    const res: SiteSetting[] = await apiFetch('/v1/settings');
+    const vatEnabledSetting = res.find((s) => s.key === 'vat_enabled');
+    const vatRateSetting = res.find((s) => s.key === 'vat_rate');
     $vatEnabled.set(
       vatEnabledSetting
         ? ['1', 'true', 'yes', 'on'].includes(String(vatEnabledSetting.value).toLowerCase())
@@ -264,10 +265,10 @@ export async function hydrateCartStock() {
 
   try {
     const products = await Promise.all(
-      uniqueProductIds.map((productId) => apiFetch(`/v1/products/${productId}`))
+      uniqueProductIds.map((productId) => apiFetch<Record<string, unknown>>(`/v1/products/${productId}`))
     );
 
-    const byId = new Map(products.map((product: Record<string, unknown>) => [String(product.id), product]));
+    const byId = new Map(products.map((product) => [String(product.id), product]));
 
     $cart.set(
       $cart.get().map((item) => {

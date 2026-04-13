@@ -21,7 +21,7 @@ export default function AdminProductCategories() {
 
     const loadCategories = async () => {
         try {
-            const res = await apiFetch("/admin/product-categories");
+            const res = await apiFetch<any[]>("/admin/product-categories");
             setCategories(res);
         } catch (e) {
             toast.error("Failed to load categories");

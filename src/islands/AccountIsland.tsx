@@ -6,7 +6,7 @@ import {
     MessageSquare, Lock, ChevronRight, ChevronUp, ShoppingCart,
     Trash2, RotateCcw, Clock, Truck, CheckCheck, MapPin, CreditCard
 } from "lucide-react";
-import { $customer, $isAuthLoading, fetchCurrentCustomer, logoutCustomer, updateCustomer } from "@/stores/auth";
+import { $customer, $isAuthLoading, fetchCurrentCustomer, logoutCustomer, updateCustomer, type Customer } from "@/stores/auth";
 import { $wishlist, removeFromWishlist } from "@/stores/wishlist";
 import { addToCart } from "@/stores/cart";
 import { apiFetch } from "@/lib/api";
@@ -295,7 +295,7 @@ function AccountIsland() {
         try {
             const submittedAt = new Date().toISOString();
             const submittedRequestType = isCashOnDeliveryPayment(requestDialogOrder.payment_method) ? "cancel" : "cancel_refund";
-            const response = await apiFetch("/v1/customer/refund-requests", {
+            const response = await apiFetch<{ message: string }>("/v1/customer/refund-requests", {
                 method: "POST",
                 body: JSON.stringify({
                     order_id: Number(requestDialogOrder.id),
@@ -326,8 +326,8 @@ function AccountIsland() {
             )));
             toast.success(response.message);
             handleCloseOrderRequestDialog();
-        } catch (error: any) {
-            toast.error(error.message);
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : "Failed to submit request");
         } finally {
             setSubmittingRequest(false);
         }
@@ -337,13 +337,13 @@ function AccountIsland() {
         e.preventDefault();
         setSavingProfile(true);
         try {
-            const updated = await apiFetch("/v1/customer/profile", {
+            const updated = await apiFetch<Customer>("/v1/customer/profile", {
                 method: "PUT",
                 body: JSON.stringify(form)
             });
             updateCustomer(updated);
             toast.success("Profile updated successfully!");
-        } catch (error: any) { toast.error(error.message); }
+        } catch (error: unknown) { toast.error(error instanceof Error ? error.message : "Failed to save profile"); }
         finally { setSavingProfile(false); }
     };
 

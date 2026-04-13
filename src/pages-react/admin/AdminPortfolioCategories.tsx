@@ -20,7 +20,7 @@ export default function AdminPortfolioCategories() {
 
     const loadCategories = async () => {
         try {
-            const res = await apiFetch("/admin/portfolio-categories");
+            const res = await apiFetch<any[]>("/admin/portfolio-categories");
             setCategories(res);
         } catch (e) {
             toast.error("Failed to load categories");

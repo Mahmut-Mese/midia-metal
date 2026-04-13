@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { loginCustomer } from "@/stores/auth";
 import { apiFetch } from "@/lib/api";
+import type { Customer } from "@/types/customer";
 
 export default function LoginIsland() {
     const [email, setEmail] = useState("");
@@ -12,7 +13,7 @@ export default function LoginIsland() {
         e.preventDefault();
         setLoading(true);
         try {
-            const data = await apiFetch("/v1/customer/login", {
+            const data = await apiFetch<{ customer: Customer }>("/v1/customer/login", {
                 method: "POST",
                 body: JSON.stringify({ email, password })
             });
@@ -20,8 +21,8 @@ export default function LoginIsland() {
             loginCustomer(data.customer);
             toast.success("Logged in successfully!");
             window.location.href = "/account";
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Login failed");
         } finally {
             setLoading(false);
         }

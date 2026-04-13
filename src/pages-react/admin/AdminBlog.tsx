@@ -23,7 +23,7 @@ export default function AdminBlog() {
 
     const loadPosts = async () => {
         try {
-            const res = await apiFetch("/admin/blog");
+            const res = await apiFetch<{ data: any[] }>("/admin/blog");
             setPosts(res.data);
         } catch (e) {
             toast.error("Failed to load blog posts");

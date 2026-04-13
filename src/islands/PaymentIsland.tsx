@@ -14,6 +14,7 @@ import { useState, useEffect } from "react";
 import { CreditCard, Building2, Wallet, Lock, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import type { SiteSetting } from "@/types/settings";
 import { useStore } from "@nanostores/react";
 import { $cart, $subtotal, $vatEnabled, $vatRate, $coupon, $isBusiness, clearCart } from "@/stores/cart";
 import { $customer } from "@/stores/auth";
@@ -220,10 +221,10 @@ function PaymentIsland() {
   } | null>(null);
 
   useEffect(() => {
-    apiFetch("/v1/settings")
-      .then((data: any[]) => {
+    apiFetch<SiteSetting[]>("/v1/settings")
+      .then((data) => {
         const lookup = (key: string) =>
-          data?.find?.((s: any) => s.key === key)?.value ?? "";
+          data?.find?.((s) => s.key === key)?.value ?? "";
         const acctName = lookup("bank_account_name");
         const sortCode = lookup("bank_sort_code");
         const acctNum = lookup("bank_account_number");
@@ -283,7 +284,7 @@ function PaymentIsland() {
     const fetchIntent = async () => {
       setLoadingIntent(true);
       try {
-        const data = await apiFetch("/v1/payment/intent", {
+        const data = await apiFetch<{ client_secret: string | null }>("/v1/payment/intent", {
           method: "POST",
           body: JSON.stringify({
             items: cart.map((item) => ({
@@ -298,10 +299,10 @@ function PaymentIsland() {
           }),
         });
         if (!cancelled) setClientSecret(data.client_secret ?? null);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!cancelled) {
           setClientSecret(null);
-          toast.error(error.message || "Could not initialize payment. Please refresh.");
+          toast.error(error instanceof Error ? error.message : "Could not initialize payment. Please refresh.");
         }
       } finally {
         if (!cancelled) setLoadingIntent(false);
@@ -326,7 +327,7 @@ function PaymentIsland() {
 
       const shippingAddress = `${checkoutForm.shipping_address}, ${checkoutForm.shipping_city}, ${checkoutForm.shipping_county ? checkoutForm.shipping_county + ', ' : ''}${checkoutForm.shipping_postcode}, ${checkoutForm.shipping_country}`;
 
-      const orderData = await apiFetch("/v1/orders", {
+      const orderData = await apiFetch<{ order_number: string }>("/v1/orders", {
         method: "POST",
         body: JSON.stringify({
           customer_name: `${checkoutForm.firstName} ${checkoutForm.lastName}`,
@@ -380,8 +381,8 @@ function PaymentIsland() {
       }));
       toast.success("Order placed successfully!");
       window.location.href = "/thank-you";
-    } catch (err: any) {
-      toast.error(err.message ?? "Failed to place order. Please try again.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to place order. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

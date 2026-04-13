@@ -3,6 +3,7 @@ import { ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import { apiFetch } from "@/lib/api";
+import type { Product, ProductCategory } from "@/types/product";
 import { normalizeMediaUrl } from "@/lib/media";
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from "@/lib/pricing";
 import { getVariantAttributes, getProductVariantMode } from "@/lib/variants";
@@ -145,8 +146,8 @@ export default function ShopIsland({
   const loadInitialData = async () => {
     try {
       const [catsRes, tagsRes] = await Promise.all([
-        apiFetch("/v1/product-categories"),
-        apiFetch("/v1/products/tags")
+        apiFetch<ProductCategory[]>("/v1/product-categories"),
+        apiFetch<string[]>("/v1/products/tags")
       ]);
       setCategories(catsRes || []);
       setTags(tagsRes || []);
@@ -172,7 +173,7 @@ export default function ShopIsland({
       if (selectedCategory) query.set("category", selectedCategory);
       if (inStockOnly) query.set("in_stock", "1");
       const queryString = query.toString();
-      const res = await apiFetch(`/v1/products${queryString ? `?${queryString}` : ""}`);
+      const res = await apiFetch<{ data: Product[] }>(`/v1/products${queryString ? `?${queryString}` : ""}`);
 
       let fetchedProducts = res.data || [];
 

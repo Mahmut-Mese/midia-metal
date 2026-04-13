@@ -12,8 +12,8 @@ export default function AdminDashboard() {
         async function loadStats() {
             try {
                 const [dashRes, topRes] = await Promise.all([
-                    apiFetch("/admin/dashboard"),
-                    apiFetch("/admin/stats/top-products")
+                    apiFetch<Record<string, any>>("/admin/dashboard"),
+                    apiFetch<any[]>("/admin/stats/top-products")
                 ]);
                 setData(dashRes);
                 setTopProducts(topRes);

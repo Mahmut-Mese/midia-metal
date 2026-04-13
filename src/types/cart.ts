@@ -86,3 +86,21 @@ export interface CheckoutLineItem {
   quantity: number;
   selected_variants: Record<string, unknown> | null;
 }
+
+/**
+ * Minimal product shape accepted by `addToCart()`.
+ * Callers may pass a full `Product`, a re-order item from `AccountIsland`,
+ * or a hand-built object — all must satisfy at least these fields.
+ */
+export interface AddToCartProduct {
+  id: number | string;
+  name: string;
+  price: string | number;
+  image: string;
+  qty?: number;
+  selected_variants?: Record<string, VariantSelection> | null;
+  track_stock?: boolean;
+  stock_quantity?: number | null;
+  variants?: unknown[] | null;
+  variant_mode?: string | null;
+}

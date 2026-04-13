@@ -36,14 +36,14 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, label, hideP
         formData.append("image", file);
 
         try {
-            const data = await apiFetch("/admin/upload", {
+            const data = await apiFetch<{ url: string }>("/admin/upload", {
                 method: "POST",
                 body: formData,
             });
             onChange(data.url);
             toast.success("Image uploaded successfully");
-        } catch (error: any) {
-            toast.error(error.message || "Failed to upload image");
+        } catch (error: unknown) {
+            toast.error(error instanceof Error ? error.message : "Failed to upload image");
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = "";

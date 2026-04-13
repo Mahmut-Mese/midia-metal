@@ -16,7 +16,7 @@ export default function AdminProductReviews() {
 
     const loadReviews = async () => {
         try {
-            const res = await apiFetch("/admin/product-reviews");
+            const res = await apiFetch<any[]>("/admin/product-reviews");
             setReviews(res);
         } catch (e) {
             toast.error("Failed to load reviews");

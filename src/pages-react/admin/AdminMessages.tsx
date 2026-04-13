@@ -29,9 +29,9 @@ export default function AdminMessages() {
 
     const loadMessages = async () => {
         try {
-            const res = await apiFetch("/admin/messages");
+            const res = await apiFetch<{ data?: any[] }>("/admin/messages");
             // API returns paginated object with .data array
-            const data = res.data || res;
+            const data = res.data || (res as unknown as any[]);
             setMessages(Array.isArray(data) ? data : []);
         } catch (e) {
             toast.error("Failed to load messages");

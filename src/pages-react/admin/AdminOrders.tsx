@@ -54,7 +54,7 @@ export default function AdminOrders() {
 
   const loadOrders = async () => {
     try {
-      const res = await apiFetch("/admin/orders");
+      const res = await apiFetch<{ data: any[] }>("/admin/orders");
       setOrders(res.data);
     } catch {
       toast.error("Failed to load orders");
@@ -168,15 +168,15 @@ export default function AdminOrders() {
 
     setRefunding(true);
     try {
-      const res = await apiFetch(`/admin/orders/${viewingOrder.id}/refund`, {
+      const res = await apiFetch<{ order: any; message: string }>(`/admin/orders/${viewingOrder.id}/refund`, {
         method: "POST",
         body: amount ? JSON.stringify({ amount }) : undefined,
       });
       setViewingOrder(res.order);
       await loadOrders();
       toast.success(res.message || "Refund processed successfully");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to process refund");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to process refund");
     } finally {
       setRefunding(false);
     }

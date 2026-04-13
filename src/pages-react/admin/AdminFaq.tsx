@@ -20,7 +20,7 @@ export default function AdminFaq() {
 
     const loadFaqs = async () => {
         try {
-            const res = await apiFetch("/admin/faqs");
+            const res = await apiFetch<any[]>("/admin/faqs");
             setFaqs(res);
         } catch (e) {
             toast.error("Failed to load FAQs");

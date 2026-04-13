@@ -234,7 +234,7 @@ function CheckoutIsland() {
       setShippingOptionsError("");
 
       try {
-        const data = await apiFetch("/v1/shipping/options", {
+        const data = await apiFetch<{ options: ShippingOption[] }>("/v1/shipping/options", {
           method: "POST",
           body: JSON.stringify({
             fulfilment_method: "delivery",
@@ -259,11 +259,11 @@ function CheckoutIsland() {
           const keepToken = options.some((option) => option.quote_token === prev.shippingOptionToken);
           return { ...prev, shippingOptionToken: keepToken ? prev.shippingOptionToken : (options[0]?.quote_token || "") };
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (cancelled) return;
         setShippingOptions([]);
         setForm((prev) => ({ ...prev, shippingOptionToken: "" }));
-        setShippingOptionsError(error?.message || "Could not load delivery options.");
+        setShippingOptionsError(error instanceof Error ? error.message : "Could not load delivery options.");
       } finally {
         if (!cancelled) setShippingOptionsLoading(false);
       }

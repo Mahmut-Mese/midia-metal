@@ -73,7 +73,7 @@ export default function AdminProducts() {
 
     const loadProducts = async () => {
         try {
-            const res = await apiFetch("/admin/products?per_page=500");
+            const res = await apiFetch<{ data: any[] }>("/admin/products?per_page=500");
             setProducts(res.data);
         } catch (e) {
             toast.error("Failed to load products");
@@ -84,7 +84,7 @@ export default function AdminProducts() {
 
     const loadCategories = async () => {
         try {
-            const res = await apiFetch("/admin/product-category-list");
+            const res = await apiFetch<any[]>("/admin/product-category-list");
             setCategories(res);
         } catch (e) {
             console.error(e);
@@ -1060,7 +1060,7 @@ export default function AdminProducts() {
     const combinationGroupSource = selectionTableConfig.tab_option && combinationVariantEntries.length > 0
         ? selectionTableConfig.tab_option
         : (combinationOptionNames[0] || "");
-    const combinationGroups = combinationVariantEntries.reduce((groups: Array<{ key: string; label: string; items: typeof combinationVariantEntries }>, entry) => {
+    const combinationGroups = combinationVariantEntries.reduce((groups: Array<{ key: string; label: string; items: typeof combinationVariantEntries }>, entry: typeof combinationVariantEntries[number]) => {
         const groupLabel = combinationGroupSource.startsWith("custom:")
             ? String(entry.variant?.custom_fields?.[combinationGroupSource.slice("custom:".length)] ?? "Other").trim() || "Other"
             : String(entry.variant?.attributes?.[combinationGroupSource] ?? "Other").trim() || "Other";
@@ -2258,7 +2258,7 @@ export default function AdminProducts() {
                                                         <div className="rounded-md border border-dashed border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-400">
                                                             No combination rows yet.
                                                         </div>
-                                                    ) : combinationGroups.map((group) => {
+                                                    ) : combinationGroups.map((group: typeof combinationGroups[number]) => {
                                                         const isCollapsed = Boolean(collapsedCombinationGroups[group.key]);
 
                                                         return (

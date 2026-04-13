@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { loginCustomer } from "@/stores/auth";
 import { apiFetch } from "@/lib/api";
+import type { Customer } from "@/types/customer";
 
 export default function RegisterIsland() {
     const [form, setForm] = useState({
@@ -23,7 +24,7 @@ export default function RegisterIsland() {
         }
         setLoading(true);
         try {
-            const data = await apiFetch("/v1/customer/register", {
+            const data = await apiFetch<{ customer: Customer }>("/v1/customer/register", {
                 method: "POST",
                 body: JSON.stringify(form)
             });
@@ -31,8 +32,8 @@ export default function RegisterIsland() {
             loginCustomer(data.customer);
             toast.success("Account created successfully!");
             window.location.href = "/account";
-        } catch (err: any) {
-            toast.error(err.message);
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Registration failed");
         } finally {
             setLoading(false);
         }

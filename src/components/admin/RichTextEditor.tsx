@@ -255,11 +255,11 @@ export default function RichTextEditor({ label, value, onChange, helperText = "S
   const uploadImage = async (file: File) => {
     const formData = new FormData();
     formData.append("image", file);
-    const response = await apiFetch("/admin/upload", {
+    const response = await apiFetch<{ url: string }>("/admin/upload", {
       method: "POST",
       body: formData,
     });
-    return response.url as string;
+    return response.url;
   };
 
   const insertUploadedImages = async (files: File[]) => {

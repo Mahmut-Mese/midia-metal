@@ -38,7 +38,7 @@ import {
   normalizeFrontendVariantLayout,
   normalizeSelectionTableConfig,
 } from "@/lib/selectionTable";
-import type { VariantTableSection, VariantTableColumn, VariantTableColumns } from "@/types/product";
+import type { Product, VariantTableSection, VariantTableColumn, VariantTableColumns } from "@/types/product";
 
 const formatNumber = (value: number): string => {
   const rounded = Math.round(value * 100) / 100;
@@ -461,11 +461,11 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
       try {
         setLoading(true);
         const [prodRes, relRes] = await Promise.all([
-          apiFetch(`/v1/products/${id}`),
-          apiFetch(`/v1/products/${id}/related`)
+          apiFetch<Product>(`/v1/products/${id}`),
+          apiFetch<Product[]>(`/v1/products/${id}/related`)
         ]);
 
-        const initialVariants: Record<string, any> = {};
+        const initialVariants: Record<string, { option: string; value: string; price?: string | null }> = {};
         if (prodRes.variants && prodRes.variants.length > 0) {
           if (getProductVariantMode(prodRes) === "combination") {
             const productOptionNames = getVariantOptionNames(prodRes);
@@ -479,26 +479,27 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
               }
             });
           } else {
-            const validVariants = prodRes.variants.filter((v: any) => v.price !== null && v.price !== undefined && String(v.price).trim() !== "");
+            const validVariants = prodRes.variants.filter((v) => 'price' in v && v.price !== null && v.price !== undefined && String(v.price).trim() !== "");
             if (validVariants.length > 0) {
-              const cheapest = validVariants.reduce((min: any, curr: any) => {
+              const cheapest = validVariants.reduce((min, curr) => {
                 const currPrice = parseFloat(String(curr.price).replace(/[^\d.-]/g, "")) || 0;
                 const minPrice = parseFloat(String(min.price).replace(/[^\d.-]/g, "")) || 0;
                 return currPrice < minPrice ? curr : min;
               }, validVariants[0]);
 
-              initialVariants[cheapest.option] = cheapest;
+              const cheapestLegacy = cheapest as { option: string; value: string; price?: string | null };
+              initialVariants[cheapestLegacy.option] = cheapestLegacy;
 
-              const otherOptions = Array.from(new Set(prodRes.variants.map((v: any) => v.option))).filter(o => o !== cheapest.option);
+              const otherOptions = Array.from(new Set(prodRes.variants.map((v) => 'option' in v ? v.option : ''))).filter(o => o !== cheapestLegacy.option);
               otherOptions.forEach(opt => {
-                const firstMatch = prodRes.variants.find((v: any) => v.option === opt);
-                if (firstMatch) initialVariants[opt as string] = firstMatch;
+                const firstMatch = prodRes.variants!.find((v) => 'option' in v && v.option === opt);
+                if (firstMatch && 'option' in firstMatch) initialVariants[opt as string] = firstMatch as { option: string; value: string; price?: string | null };
               });
             } else {
-              const allOptions = Array.from(new Set(prodRes.variants.map((v: any) => v.option)));
+              const allOptions = Array.from(new Set(prodRes.variants.map((v) => 'option' in v ? v.option : '')));
               allOptions.forEach(opt => {
-                const firstMatch = prodRes.variants.find((v: any) => v.option === opt);
-                if (firstMatch) initialVariants[opt as string] = firstMatch;
+                const firstMatch = prodRes.variants!.find((v) => 'option' in v && v.option === opt);
+                if (firstMatch && 'option' in firstMatch) initialVariants[opt as string] = firstMatch as { option: string; value: string; price?: string | null };
               });
             }
           }
@@ -522,11 +523,12 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
         return;
       }
       try {
-        const data = await apiFetch(`/v1/customer/products/${id}/can-review`);
+        const data = await apiFetch<{ can_review: boolean; reason?: string }>(`/v1/customer/products/${id}/can-review`);
         if (data.can_review) {
           setCanReviewStatus("allowed");
         } else {
-          setCanReviewStatus(data.reason || "not_purchased");
+          const reason = data.reason as typeof canReviewStatus ?? "not_purchased";
+          setCanReviewStatus(reason);
         }
       } catch (err) {
         setCanReviewStatus("unauthenticated");

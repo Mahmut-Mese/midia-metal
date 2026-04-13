@@ -210,8 +210,8 @@ export default function AdminSettings() {
         const loadData = async () => {
             try {
                 const [settingsRes, slidesRes] = await Promise.all([
-                    apiFetch("/admin/settings"),
-                    apiFetch("/admin/hero-slides"),
+                    apiFetch<SiteSetting[]>("/admin/settings"),
+                    apiFetch<HeroSlide[]>("/admin/hero-slides"),
                 ]);
                 setSettings(settingsRes);
                 setHeroSlides(slidesRes);
@@ -315,11 +315,11 @@ export default function AdminSettings() {
 
         try {
             const response = slide.isNew
-                ? await apiFetch("/admin/hero-slides", {
+                ? await apiFetch<HeroSlide>("/admin/hero-slides", {
                     method: "POST",
                     body: JSON.stringify(payload),
                 })
-                : await apiFetch(`/admin/hero-slides/${slide.id}`, {
+                : await apiFetch<HeroSlide>(`/admin/hero-slides/${slide.id}`, {
                     method: "PUT",
                     body: JSON.stringify(payload),
                 });

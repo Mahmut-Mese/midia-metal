@@ -98,7 +98,7 @@ const ensureCsrfCookie = async () => {
     return csrfBootstrapPromise;
 };
 
-export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+export const apiFetch = async <T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> => {
     const method = (options.method || "GET").toUpperCase();
     const shouldSendCsrf = isMutatingMethod(method);
 
@@ -169,5 +169,5 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
         throw new Error(errorData.message || "An error occurred");
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
 };

@@ -22,7 +22,7 @@ export default function AdminServices() {
 
     const loadServices = async () => {
         try {
-            const res = await apiFetch("/admin/services");
+            const res = await apiFetch<{ data: any[] }>("/admin/services");
             setServices(res.data);
         } catch (e) {
             toast.error("Failed to load services");
