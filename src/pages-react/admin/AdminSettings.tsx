@@ -4,32 +4,12 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import ImageUpload from "@/components/admin/ImageUpload";
 import RichTextEditor from "@/components/admin/RichTextEditor";
+import type { SiteSetting, HeroSlide, SettingsSection } from "@/types/settings";
 
-type SettingRecord = {
-    id: number;
-    key: string;
-    value: string;
-    type: string;
-    group?: string | null;
-};
-
-type HeroSlideRecord = {
-    id: number | string;
-    image: string;
-    alt?: string | null;
-    order: number;
-    active: boolean;
-    isNew?: boolean;
-};
+type SettingRecord = SiteSetting;
+type HeroSlideRecord = HeroSlide;
 
 const GROUP_ORDER = ["header", "footer", "general", "shipping-tax", "shipping-freight", "home", "about", "contact", "services", "portfolio", "blog", "legal", "seo", "hero-slides"];
-
-type SettingsSection = {
-    id: string;
-    title: string;
-    description?: string;
-    keys: string[];
-};
 
 const HOME_SECTIONS: SettingsSection[] = [
     {

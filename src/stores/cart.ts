@@ -15,27 +15,9 @@ import { apiFetch } from '@/lib/api';
 import { clampQuantityToStock, getAvailableStock } from '@/lib/stock';
 import { formatMoneyValue, resolveSelectedVariantUnitPrice } from '@/lib/pricing';
 
-// --- Types ---
-export interface CartItem {
-  id: number | string;
-  product_id: number | string;
-  name: string;
-  price: string | number;
-  qty: number;
-  image: string;
-  selected_variants?: Record<string, any>;
-  track_stock?: boolean;
-  stock_quantity?: number | null;
-  available_stock?: number | null;
-}
-
-export interface AppliedCoupon {
-  code: string;
-  type: 'percentage' | 'fixed';
-  value: number;
-  discount: number;
-  message: string;
-}
+// --- Types (re-exported from canonical types) ---
+export type { CartItem, AppliedCoupon } from '@/types/cart';
+import type { CartItem, AppliedCoupon } from '@/types/cart';
 
 // --- Core state ---
 function loadCart(): CartItem[] {

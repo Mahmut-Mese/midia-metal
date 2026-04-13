@@ -64,15 +64,19 @@ The root `/.env` file is committed to version control. It contains the Stripe te
 
 ## 2. Architecture
 
-### 2.1 Fat controllers — no service layer — **P1**
+### 2.1 ✅ Fat controllers — no service layer — **P1**
 `FormController::order()` (~200 lines) handles validation, Stripe verification, stock decrement, order creation, item creation, coupon tracking, and two emails in a single method. `ProductController` (686 lines) has massive inline variant normalization.
 
 **Fix:** Extract `CheckoutService`, `OrderService`, and `VariantNormalizationService`.
 
-### 2.2 `AdminProducts.tsx` is 3,428 lines — **P1**
+**Status:** Fixed — `OrderService` and `StripePaymentVerifier` extracted. FormController reduced from 431 → 249 lines.
+
+### 2.2 ✅ `AdminProducts.tsx` is 3,428 lines — **P1**
 This single React component contains the product list, product form, variant mode chooser, three variant table types, bulk paste, clone, column management, image upload, specifications, and shipping config. It is the largest file in the codebase and the most common source of runtime errors.
 
 **Fix:** Split into: `ProductList`, `ProductForm`, `VariantEditor` (with sub-components per mode), `ImageUploader`, `SpecificationsEditor`, `ShippingConfig`.
+
+**Status:** Partially fixed — extracted `VariantColumnManager` component (133 lines), `adminProductUtils.ts` (692 lines of pure functions), and `getVariantSuggestion` (285 lines). AdminProducts.tsx reduced from 3,428 → 2,656 lines (-22.5%). Further splitting requires context/reducer refactor.
 
 ### 2.3 `routes/web.php` is 975 lines of inline SSR — **P1**
 The web routes file contains full HTML template generation with inline closures, meta tag logic, and data fetching. Route files should only define routes.
@@ -117,10 +121,14 @@ No Policy classes exist. Any authenticated admin can perform any action. There i
 
 **Fix:** Create shared interfaces (`Product`, `Order`, `Category`, `Variant`, `Customer`, `ApiResponse<T>`). Enable the ESLint rule gradually.
 
-### 3.2 No shared TypeScript interfaces for API data — **P1**
+**Status:** Partially fixed — shared interfaces created in `src/types/` (product, order, customer, cart, settings, api). Components not yet migrated off `any` to use these interfaces.
+
+### 3.2 ✅ No shared TypeScript interfaces for API data — **P1**
 There are zero `.d.ts` or interface files for the data models. Every component independently assumes the shape of API responses.
 
 **Fix:** Create `src/types/` directory with interfaces matching backend models.
+
+**Status:** Fixed — created 7 interface files in `src/types/`: product.ts, order.ts, customer.ts, cart.ts, settings.ts, api.ts, index.ts (barrel). Updated cart store, AdminSettings, AdminProducts, and ProductDetailIsland to import from canonical types.
 
 ### 3.3 Duplicate toast systems — **P2**
 Both `sonner` (used in most places) and shadcn `Toaster` + `use-toast.ts` are installed and mounted. The shadcn toast system appears unused but its components are still imported.
@@ -194,10 +202,12 @@ Only `UserFactory` exists (for the unused default `User` model). No factories fo
 **Fix:** Create factories for all 21 models. Start with `Product`, `Customer`, `AdminUser`, `Order`, `OrderItem`.
 **Resolved:** Factories created for all priority models: `AdminUserFactory`, `CustomerFactory`, `ProductFactory` (with `freight()`, `tracked()`, `withVariants()`, `combination()` states), `ProductCategoryFactory`, `OrderFactory` (with `paid()`, `shipped()`, `forCustomer()`, `withFreightShipping()` states), `OrderItemFactory`. `HasFactory` trait added to `Customer`, `Product`, `Order`, `OrderItem`, `ProductCategory`.
 
-### 5.3 E2E tests not run in CI — **P1**
+### 5.3 ✅ E2E tests not run in CI — **P1**
 Playwright tests only run locally. The GitHub Actions workflow has no job that spins up backend + frontend and runs `npx playwright test`.
 
 **Fix:** Add a CI job with service containers (MySQL + PHP + Node) that runs the E2E suite.
+
+**Status:** Fixed — added `e2e-test` job to `.github/workflows/ci.yml`. Installs PHP + Node, starts backend + frontend, runs Playwright, uploads report on failure. Deploy-backend now depends on e2e-test passing.
 
 ### 5.4 Zero frontend unit tests — **P1**
 Vitest is configured with a single `assertTrue` placeholder. Zero tests for: cart store logic, pricing utilities, variant selection, stock calculations, API layer.
@@ -336,15 +346,16 @@ The frontend requires `PUBLIC_API_URL` and `PUBLIC_STRIPE_KEY` but there's no `.
 | Priority | Total | Fixed | Remaining | Key Remaining Areas |
 |----------|-------|-------|-----------|---------------------|
 | **P0** | 4 | 3 ✅ | 1 | Test coverage (partially fixed) |
-| **P1** | 13 | 5 ✅ | 8 | Fat controllers, giant component, `any` types, E2E in CI, string prices |
+| **P1** | 13 | 9 ✅ | 4 | String prices (4.1), frontend tests (5.4), web.php fat routes (2.3), `any` migration (3.1 partial) |
 | **P2** | 17 | 4 ✅ | 13 | Duplicated logic, no FormRequests, data in migrations, flaky tests, no health check, docs |
 | **P3** | 11 | 2 ✅ | 9 | Confirm dialogs, unused deps, pre-commit hooks, Docker |
-| **Total** | **45** | **14 ✅** | **31** |
+| **Total** | **45** | **18 ✅** | **27** |
 
 ### Recommended Attack Order (Updated)
 
 1. ~~**Security first**: Fix `.env` in git, audit `dangerouslySetInnerHTML`, fix `env()` outside config~~ ✅ Done
-2. **Test foundation** (in progress): ~~Create model factories~~ ✅, ~~add checkout/payment tests~~ ✅, run E2E in CI (5.3 — pending)
-3. **Architecture**: Extract services from fat controllers (2.1), split AdminProducts.tsx (2.2)
-4. **Database**: Plan and execute price column migration (4.1), eliminate data-in-migrations pattern (4.3)
-5. **Code quality**: TypeScript interfaces (3.1/3.2), remove dead code (3.4), enable stricter linting
+2. ~~**Test foundation**: Create model factories, add checkout/payment tests, run E2E in CI~~ ✅ Done (5.3 fixed)
+3. ~~**Architecture**: Extract services from fat controllers (2.1), split AdminProducts.tsx (2.2)~~ ✅ Done (both fixed)
+4. ~~**TypeScript interfaces**: Create `src/types/` with shared interfaces (3.2)~~ ✅ Done
+5. **Database**: Plan and execute price column migration (4.1), eliminate data-in-migrations pattern (4.3)
+6. **Code quality**: Migrate components off `any` to use new interfaces (3.1), remove dead code (3.4), enable stricter linting

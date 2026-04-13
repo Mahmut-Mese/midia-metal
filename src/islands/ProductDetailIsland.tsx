@@ -38,6 +38,7 @@ import {
   normalizeFrontendVariantLayout,
   normalizeSelectionTableConfig,
 } from "@/lib/selectionTable";
+import type { VariantTableSection, VariantTableColumn, VariantTableColumns } from "@/types/product";
 
 const formatNumber = (value: number): string => {
   const rounded = Math.round(value * 100) / 100;
@@ -90,17 +91,6 @@ const normalizeProductSpecEntries = (specifications: unknown): Array<[string, st
 
   return [];
 };
-
-type VariantTableSection = "size" | "general" | "combination";
-
-type VariantTableColumn = {
-  key: string;
-  label: string;
-  visible: boolean;
-  frontendVisible: boolean;
-};
-
-type VariantTableColumns = Record<VariantTableSection, VariantTableColumn[]>;
 
 const DEFAULT_VARIANT_TABLE_COLUMNS: VariantTableColumns = {
   size: [
