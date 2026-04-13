@@ -10,7 +10,7 @@ class EasyPostWebhookController extends Controller
 {
     public function handle(Request $request)
     {
-        $secret = config('services.easypost.webhook_secret') ?: env('EASYPOST_WEBHOOK_SECRET');
+        $secret = config('services.easypost.webhook_secret');
         if ($secret && !$this->verifySignature($request, (string) $secret)) {
             return response()->json(['message' => 'Invalid webhook signature'], 401);
         }

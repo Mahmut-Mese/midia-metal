@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\ProductReview;
+use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\AdminNotification;
@@ -74,7 +75,11 @@ class ProductReviewController extends Controller
 
         $review->load('customer:id,name');
 
-        Mail::to('mahmutmese.uk@gmail.com')->send(new AdminNotification(
+        $adminEmail = (string) (SiteSetting::where('key', 'contact_email')->value('value')
+            ?: config('mail.from.address')
+            ?: 'info@midia-metal.com');
+
+        Mail::to($adminEmail)->send(new AdminNotification(
             'New Product Review',
             "A new review has been posted for product #{$productId} by {$review->customer->name}.\n\nRating: {$review->rating}/5 stars\nComment:\n" . ($review->comment ?? 'No comment')
         ));

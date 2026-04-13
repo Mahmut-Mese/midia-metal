@@ -13,6 +13,7 @@ use App\Models\QuoteRequest;
 use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use App\Mail\AdminNotification;
 use App\Support\CheckoutCalculator;
 use Illuminate\Support\Str;
@@ -278,7 +279,7 @@ class FormController extends Controller
                     $receiptUrl = $intent->latest_charge->receipt_url;
                 }
             } catch (\Exception $e) {
-                \Log::error('Payment Intent Verification Failed: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+                Log::error('Payment Intent Verification Failed: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
                 return response()->json([
                     'message' => 'We could not verify the payment for this order.',
                 ], 422);
@@ -379,7 +380,7 @@ class FormController extends Controller
         try {
             Mail::to($order->customer_email)->send(new \App\Mail\CustomerOrderConfirmation($order));
         } catch (\Exception $e) {
-            \Log::error("Failed to send order confirmation email: " . $e->getMessage());
+            Log::error("Failed to send order confirmation email: " . $e->getMessage());
         }
 
         // Handle saving the card to Stripe if requested
@@ -418,7 +419,7 @@ class FormController extends Controller
                     }
                 }
             } catch (\Exception $e) {
-                \Log::error("Failed to save or detach card: " . $e->getMessage());
+                Log::error("Failed to save or detach card: " . $e->getMessage());
             }
         }
 

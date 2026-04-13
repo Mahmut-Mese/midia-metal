@@ -212,6 +212,34 @@ function PaymentIsland() {
   const [savedCards, setSavedCards] = useState<any[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string>("new");
 
+  // Bank transfer details — loaded from site settings
+  const [bankDetails, setBankDetails] = useState<{
+    account_name: string;
+    sort_code: string;
+    account_number: string;
+  } | null>(null);
+
+  useEffect(() => {
+    apiFetch("/v1/settings")
+      .then((data: any[]) => {
+        const lookup = (key: string) =>
+          data?.find?.((s: any) => s.key === key)?.value ?? "";
+        const acctName = lookup("bank_account_name");
+        const sortCode = lookup("bank_sort_code");
+        const acctNum = lookup("bank_account_number");
+        if (acctName || sortCode || acctNum) {
+          setBankDetails({
+            account_name: acctName || "Midia Metal Ltd",
+            sort_code: sortCode,
+            account_number: acctNum,
+          });
+        }
+      })
+      .catch(() => {
+        /* settings unavailable — bank section will show warning */
+      });
+  }, []);
+
   const fulfilmentMethod = checkoutForm?.fulfillmentMethod === "click_collect" ? "click_collect" : "delivery";
   const selectedShippingOption = checkoutForm?.selectedShippingOption ?? null;
   const shippingOptionToken = checkoutForm?.shippingOptionToken ?? "";
@@ -525,18 +553,23 @@ function PaymentIsland() {
                 {method === "bank" && (
                   <div className="border border-[#cad4e4] bg-[#f0f3f7] p-6 mb-6">
                     <h3 className="font-semibold text-primary mb-3">Bank Transfer Details</h3>
-                    <div className="text-sm text-primary space-y-1">
-                      {/* TODO: Replace Sort Code and Account Number with real Midia Metal Ltd bank details before go-live */}
-                      <p><span className="text-[#6e7a92]">Account Name:</span> Midia Metal Ltd</p>
-                      <p><span className="text-[#6e7a92]">Sort Code:</span> 20-00-00</p>
-                      <p><span className="text-[#6e7a92]">Account Number:</span> 12345678</p>
-                      <p className="mt-2 text-[#7f8aa2] text-xs">Please use your order number as reference once you receive your confirmation email.</p>
-                    </div>
+                    {bankDetails && bankDetails.sort_code && bankDetails.account_number ? (
+                      <div className="text-sm text-primary space-y-1">
+                        <p><span className="text-[#6e7a92]">Account Name:</span> {bankDetails.account_name}</p>
+                        <p><span className="text-[#6e7a92]">Sort Code:</span> {bankDetails.sort_code}</p>
+                        <p><span className="text-[#6e7a92]">Account Number:</span> {bankDetails.account_number}</p>
+                        <p className="mt-2 text-[#7f8aa2] text-xs">Please use your order number as reference once you receive your confirmation email.</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-red-600 font-medium">
+                        Bank transfer details are not yet available. Please choose card payment or contact us for bank transfer information.
+                      </p>
+                    )}
                   </div>
                 )}
                 <button
                   type="submit"
-                  disabled={isSubmitting || cart.length === 0}
+                  disabled={isSubmitting || cart.length === 0 || (method === "bank" && (!bankDetails?.sort_code || !bankDetails?.account_number))}
                   className="w-full h-14 bg-orange text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-orange-hover transition-colors disabled:opacity-50"
                 >
                   {isSubmitting ? "Placing Order…" : "Place Order"}

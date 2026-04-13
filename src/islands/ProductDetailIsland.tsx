@@ -18,6 +18,7 @@ import { normalizeMediaUrl } from "@/lib/media";
 import { useStore } from "@nanostores/react";
 import { addToCart } from "@/stores/cart";
 import withErrorBoundary from "@/lib/withErrorBoundary";
+import DOMPurify from "dompurify";
 import { $wishlist, addToWishlist, removeFromWishlist } from "@/stores/wishlist";
 import { $customer } from "@/stores/auth";
 import { toast } from "sonner";
@@ -966,7 +967,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
                   descriptionHasHtml ? (
                     <div
                       className="prose prose-sm max-w-none text-[#6e7a92] leading-7 prose-p:my-3 prose-headings:text-primary prose-strong:text-primary prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-blockquote:border-orange prose-blockquote:text-[#5f6f8d] prose-ul:list-disc prose-ol:list-decimal [&_table]:w-full [&_table]:border-separate [&_table]:[border-spacing:18px_0] [&_td]:align-top [&_td]:pr-4 [&_td]:pb-3 [&_th]:align-top [&_th]:pr-4 [&_th]:pb-3 [&_img]:max-w-full"
-                      dangerouslySetInnerHTML={{ __html: description }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description, { ADD_ATTR: ['target'], FORBID_TAGS: ['style'] }) }}
                     />
                   ) : (
                     <p className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7 whitespace-pre-wrap">
