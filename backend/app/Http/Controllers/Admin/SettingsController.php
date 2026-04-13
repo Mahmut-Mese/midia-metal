@@ -18,9 +18,17 @@ class SettingsController extends Controller
     public function update(Request $request)
     {
         $settings = $request->input('settings', []);
+
+        // Only allow updating settings in these admin-editable groups
+        $editableGroups = [
+            'general', 'seo', 'contact', 'about', 'services', 'portfolio',
+            'blog', 'home', 'legal', 'shipping-freight', 'nav',
+        ];
+
+        $updated = [];
         foreach ($settings as $key => $value) {
             $setting = SiteSetting::where('key', $key)->first();
-            if (!$setting) {
+            if (!$setting || !in_array($setting->group, $editableGroups, true)) {
                 continue;
             }
 
@@ -29,8 +37,9 @@ class SettingsController extends Controller
                     ? HtmlSanitizer::richText($value)
                     : $value,
             ]);
+            $updated[] = $key;
         }
-        return response()->json(['message' => 'Settings updated']);
+        return response()->json(['message' => 'Settings updated', 'updated' => $updated]);
     }
 
     // Hero Slides

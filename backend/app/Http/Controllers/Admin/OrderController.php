@@ -44,7 +44,7 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'status' => 'nullable|in:pending,processing,shipped,delivered,cancelled',
-            'payment_status' => 'nullable|in:pending,paid,failed,refund_pending,refunded,refund_failed',
+            'payment_status' => 'nullable|in:pending,paid,failed,refund_pending,refunded,partially_refunded,refund_failed',
             'notes' => 'nullable|string',
             'tracking_number' => 'nullable|string|max:255',
         ]);
