@@ -48,6 +48,11 @@ The root `/.env` file is committed to version control. It contains the Stripe te
 
 **Fix:** Use `env('CORS_ALLOWED_ORIGINS')` or filter by `APP_ENV`.
 
+### 1.7 Unrestricted settings key updates — **P2**
+`backend/app/Http/Controllers/Admin/SettingsController.php:20-31` — `update()` loops over every submitted `settings[key]` pair and updates any existing `SiteSetting` record by key, with no server-side allowlist of editable settings. A crafted admin request can modify settings that are not intended to be editable from this screen, increasing the risk of accidental misconfiguration and making the endpoint harder to evolve safely.
+
+**Fix:** Implement a server-side allowlist of editable setting keys and validate each key against it before updating.
+
 ---
 
 ## 2. Architecture
@@ -86,6 +91,11 @@ Every controller uses inline `$request->validate([...])`. Validation rules are d
 No Policy classes exist. Any authenticated admin can perform any action. There is no role-based access control beyond "is authenticated".
 
 **Fix:** If multi-role admin is planned, implement Policies. Otherwise, document this as an accepted limitation.
+
+### 2.8 Inconsistent payment status validation — **P1**
+`backend/app/Http/Controllers/Admin/OrderController.php:47,67-91` — `update()` validates `payment_status` against `pending,paid,failed,refund_pending,refunded,refund_failed`, but `refund()` can set `payment_status` to `partially_refunded`. This creates an inconsistent state where partially refunded orders can exist but cannot be preserved through the admin update flow, risking refund-status regressions and broken admin workflows.
+
+**Fix:** Add `partially_refunded` to the validation rule's accepted values in the `update` method.
 
 ---
 
@@ -311,10 +321,9 @@ The frontend requires `PUBLIC_API_URL` and `PUBLIC_STRIPE_KEY` but there's no `.
 | Priority | Count | Key Areas |
 |----------|-------|-----------|
 | **P0** | 4 | .env in git, XSS risk, placeholder bank details, near-zero test coverage |
-| **P1** | 12 | Fat controllers, giant component, `any` types, no factories, no E2E in CI, missing indexes, string prices |
-| **P2** | 16 | Duplicated logic, no FormRequests, data in migrations, flaky tests, no health check, CORS, docs |
-| **P3** | 11 | Dead code, typos, formatting, type hints, unused dependencies |
-| **Total** | **43** |
+| **P1** | 13 | Fat controllers, giant component, `any` types, no factories, no E2E in CI, missing indexes, string prices |
+| **P2** | 17 | Duplicated logic, no FormRequests, data in migrations, flaky tests, no health check, CORS, docs |
+| **Total** | **45** |
 
 ### Recommended Attack Order
 

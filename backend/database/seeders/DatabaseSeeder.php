@@ -22,7 +22,7 @@ class DatabaseSeeder extends Seeder
         // Admin User
         AdminUser::create([
             'name' => 'Admin',
-            'email' => 'admin@midiaematal.com',
+            'email' => 'admin@midiametal.com',
             'password' => Hash::make('password'),
             'role' => 'admin',
         ]);
@@ -159,7 +159,7 @@ class DatabaseSeeder extends Seeder
         $settings = [
             ['key' => 'company_name', 'value' => 'Midia Metal', 'type' => 'text', 'group' => 'general'],
             ['key' => 'company_phone', 'value' => '+44 20 1234 5678', 'type' => 'text', 'group' => 'general'],
-            ['key' => 'company_email', 'value' => 'info@midiaematal.com', 'type' => 'text', 'group' => 'general'],
+            ['key' => 'company_email', 'value' => 'info@midiametal.com', 'type' => 'text', 'group' => 'general'],
             ['key' => 'company_address', 'value' => '123 Industrial Park, London, UK', 'type' => 'text', 'group' => 'general'],
             ['key' => 'meta_title', 'value' => 'Midia Metal - Commercial Kitchen Solutions', 'type' => 'text', 'group' => 'seo'],
             ['key' => 'meta_description', 'value' => 'Specialist in commercial kitchen ventilation, stainless steel fabrication, and canopy installation across the UK.', 'type' => 'text', 'group' => 'seo'],

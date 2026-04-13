@@ -43,3 +43,6 @@ tests/login-debug.png
 # Playwright
 test-results/
 playwright-report/
+
+# Unused package manager lockfiles
+bun.lockb

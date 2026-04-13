@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Shipping\ShippingManager;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Stripe\Stripe;
 use Stripe\Refund;
 use Stripe\Exception\ApiErrorException;
@@ -99,7 +100,7 @@ class OrderController extends Controller
                     try {
                         $this->shippingManager->voidShipment($order);
                     } catch (\Throwable $e) {
-                        \Log::warning("Failed to void shipment for refunded order {$order->order_number}: " . $e->getMessage());
+                        Log::warning("Failed to void shipment for refunded order {$order->order_number}: " . $e->getMessage());
                     }
                 }
 
