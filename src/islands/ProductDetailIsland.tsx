@@ -18,7 +18,6 @@ import { normalizeMediaUrl } from "@/lib/media";
 import { useStore } from "@nanostores/react";
 import { addToCart } from "@/stores/cart";
 import withErrorBoundary from "@/lib/withErrorBoundary";
-import DOMPurify from "dompurify";
 import { $wishlist, addToWishlist, removeFromWishlist } from "@/stores/wishlist";
 import { $customer } from "@/stores/auth";
 import { toast } from "sonner";
@@ -39,6 +38,20 @@ import {
   normalizeSelectionTableConfig,
 } from "@/lib/selectionTable";
 import type { Product, VariantTableSection, VariantTableColumn, VariantTableColumns } from "@/types/product";
+
+// DOMPurify needs a DOM — only import on the client. Backend sanitizes on save,
+// so SSR pass-through is safe. We lazy-load via dynamic import on first use.
+let _purify: { sanitize: (html: string, opts?: Record<string, unknown>) => string } | null = null;
+
+function ensurePurify(): void {
+  if (_purify || typeof window === "undefined") return;
+  import("dompurify").then((m) => { _purify = m.default; });
+}
+
+function sanitizeHtml(html: string): string {
+  if (!_purify) return html; // SSR or not yet loaded — backend already sanitized
+  return _purify.sanitize(html, { ADD_ATTR: ["target"], FORBID_TAGS: ["style"] });
+}
 
 const formatNumber = (value: number): string => {
   const rounded = Math.round(value * 100) / 100;
@@ -173,7 +186,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
   
   // Track hydration to avoid SSR mismatch for wishlist heart icon
   const [isHydrated, setIsHydrated] = useState(false);
-  useEffect(() => { setIsHydrated(true); }, []);
+  useEffect(() => { setIsHydrated(true); ensurePurify(); }, []);
   
   // Only check wishlist after hydration to avoid server/client mismatch
   const isInWishlist = (productId: number | string) => isHydrated && wishlist.some((w) => w.id === productId);
@@ -959,7 +972,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
                   descriptionHasHtml ? (
                     <div
                       className="prose prose-sm max-w-none text-[#6e7a92] leading-7 prose-p:my-3 prose-headings:text-primary prose-strong:text-primary prose-a:text-orange prose-a:no-underline hover:prose-a:underline prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-blockquote:border-orange prose-blockquote:text-[#5f6f8d] prose-ul:list-disc prose-ol:list-decimal [&_table]:w-full [&_table]:border-separate [&_table]:[border-spacing:18px_0] [&_td]:align-top [&_td]:pr-4 [&_td]:pb-3 [&_th]:align-top [&_th]:pr-4 [&_th]:pb-3 [&_img]:max-w-full"
-                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description, { ADD_ATTR: ['target'], FORBID_TAGS: ['style'] }) }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(description) }}
                     />
                   ) : (
                     <p className="text-[13px] md:text-[14px] text-[#6e7a92] leading-7 whitespace-pre-wrap">
