@@ -19,7 +19,7 @@ class OrderConfirmationController extends Controller
 
         try {
             $payload = json_decode(Crypt::decryptString($validated['token']), true, 512, JSON_THROW_ON_ERROR);
-        } catch (DecryptException | \JsonException) {
+        } catch (DecryptException|\JsonException) {
             return response()->json(['message' => 'Invalid confirmation token.'], 403);
         }
 
