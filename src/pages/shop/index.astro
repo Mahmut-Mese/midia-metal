@@ -142,17 +142,23 @@ try {
   if (inStockOnly) query.set('in_stock', '1');
   const queryStr = query.toString();
 
+  const fetchWithTimeout = (url: string, timeoutMs = 10000) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+  };
+
   const [productsRes, catsRes, tagsRes] = await Promise.all([
-    fetch(`${API}/products${queryStr ? `?${queryStr}` : ''}`).then((r) => r.ok ? r.json() : { data: [] }),
-    fetch(`${API}/product-categories`).then((r) => r.ok ? r.json() : []),
-    fetch(`${API}/products/tags`).then((r) => r.ok ? r.json() : []),
+    fetchWithTimeout(`${API}/products${queryStr ? `?${queryStr}` : ''}`).then((r) => r.ok ? r.json() : { data: [] }),
+    fetchWithTimeout(`${API}/product-categories`).then((r) => r.ok ? r.json() : []),
+    fetchWithTimeout(`${API}/products/tags`).then((r) => r.ok ? r.json() : []),
   ]);
 
   products = productsRes.data || [];
   categories = Array.isArray(catsRes) ? catsRes : catsRes.data || [];
   tags = Array.isArray(tagsRes) ? tagsRes : [];
 } catch (e) {
-  console.error('Failed to fetch shop data:', e);
+  console.error(`[shop] Failed to fetch shop data from ${API}:`, e);
 }
 
 let filteredProducts = products;

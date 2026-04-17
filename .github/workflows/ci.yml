@@ -334,6 +334,15 @@ jobs:
             set -e
             export PATH=\$(dirname '$HOSTINGER_NODE_BIN'):\$PATH
             cd '$SUPPORT_APP_PATH'
+
+            # Write .env so the Node process reads it on restart via server.mjs
+            # (env vars exported in this SSH session are NOT inherited by the
+            # process manager when it later restarts the app via restart.txt)
+            printf 'PUBLIC_API_URL=%s\nPUBLIC_STRIPE_KEY=%s\nNODE_ENV=production\n' \
+              '$SUPPORT_PUBLIC_API_URL' \
+              '$SUPPORT_PUBLIC_STRIPE_KEY' \
+              > '$SUPPORT_APP_PATH/.env'
+
             export PUBLIC_API_URL='$SUPPORT_PUBLIC_API_URL'
             export PUBLIC_STRIPE_KEY='$SUPPORT_PUBLIC_STRIPE_KEY'
             export ASTRO_NODE_AUTOSTART='disabled'
