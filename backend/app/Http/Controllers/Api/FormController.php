@@ -13,6 +13,7 @@ use App\Models\SiteSetting;
 use App\Services\OrderService;
 use App\Services\PaymentVerificationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -241,6 +242,13 @@ class FormController extends Controller
         return response()->json([
             'message' => 'Order placed successfully',
             'order_number' => $order->order_number,
+            'confirmation' => [
+                'order' => $order->order_number,
+                'token' => Crypt::encryptString(json_encode([
+                    'order' => $order->order_number,
+                    'exp' => now()->addDays(7)->timestamp,
+                ], JSON_THROW_ON_ERROR)),
+            ],
         ], 201);
     }
 }

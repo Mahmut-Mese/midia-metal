@@ -17,7 +17,7 @@ import { apiFetch } from "@/lib/api";
 import type { SiteSetting } from "@/types/settings";
 import { useStore } from "@nanostores/react";
 import { $cart, $subtotal, $vatEnabled, $vatRate, $coupon, $isBusiness, clearCart } from "@/stores/cart";
-import { $customer } from "@/stores/auth";
+import { $customer, fetchCurrentCustomer } from "@/stores/auth";
 
 // Stripe
 import { loadStripe } from "@stripe/stripe-js";
@@ -183,6 +183,10 @@ function PaymentIsland() {
   const [checkoutForm, setCheckoutForm] = useState<any>(null);
 
   useEffect(() => {
+    fetchCurrentCustomer();
+  }, []);
+
+  useEffect(() => {
     const stored = sessionStorage.getItem("checkoutForm");
     if (stored) {
       try {
@@ -327,7 +331,13 @@ function PaymentIsland() {
 
       const shippingAddress = `${checkoutForm.shipping_address}, ${checkoutForm.shipping_city}, ${checkoutForm.shipping_county ? checkoutForm.shipping_county + ', ' : ''}${checkoutForm.shipping_postcode}, ${checkoutForm.shipping_country}`;
 
-      const orderData = await apiFetch<{ order_number: string }>("/v1/orders", {
+      const orderData = await apiFetch<{
+        order_number: string;
+        confirmation?: {
+          order: string;
+          token: string;
+        };
+      }>("/v1/orders", {
         method: "POST",
         body: JSON.stringify({
           customer_name: `${checkoutForm.firstName} ${checkoutForm.lastName}`,
@@ -377,10 +387,21 @@ function PaymentIsland() {
           total: totalFormatted,
           method: method === "card" ? "Credit / Debit Card" : method === "bank" ? "Direct Bank Transfer" : "Cash on Delivery",
           orderNumber: orderData.order_number,
+          createdAt: new Date().toISOString(),
         },
       }));
       toast.success("Order placed successfully!");
-      window.location.href = "/thank-you";
+      const confirmationOrder = orderData.confirmation?.order ?? orderData.order_number;
+      const confirmationToken = orderData.confirmation?.token;
+
+      if (confirmationToken) {
+        const thankYouUrl = new URL("/thank-you", window.location.origin);
+        thankYouUrl.searchParams.set("order", confirmationOrder);
+        thankYouUrl.searchParams.set("token", confirmationToken);
+        window.location.href = thankYouUrl.toString();
+      } else {
+        window.location.href = "/thank-you";
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to place order. Please try again.");
     } finally {

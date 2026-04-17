@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { useStore } from "@nanostores/react";
 import { $cart, $subtotal, $vatEnabled, $vatRate, $coupon, $isBusiness, setIsBusiness } from "@/stores/cart";
-import { $customer } from "@/stores/auth";
+import { $customer, fetchCurrentCustomer } from "@/stores/auth";
 import withErrorBoundary from "@/lib/withErrorBoundary";
 
 // Astro-compatible CheckoutSteps (inline, no react-router)
@@ -118,6 +118,7 @@ function CheckoutIsland() {
   // Server renders empty cart, but localStorage may have items on client
   const [isHydrated, setIsHydrated] = useState(false);
   useEffect(() => {
+    fetchCurrentCustomer();
     setIsHydrated(true);
   }, []);
   

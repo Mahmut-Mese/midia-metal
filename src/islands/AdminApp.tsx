@@ -59,6 +59,7 @@ export default function AdminApp() {
               <Route path="/admin/reset-password" element={<AdminResetPasswordPage />} />
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="products" element={<AdminProducts />} />
                 <Route path="product-categories" element={<AdminProductCategories />} />
                 <Route path="blog" element={<AdminBlog />} />

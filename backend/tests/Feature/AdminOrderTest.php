@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminOrderTest extends TestCase
@@ -15,6 +16,7 @@ class AdminOrderTest extends TestCase
 
     private function authenticatedAdmin(): AdminUser
     {
+        /** @var AdminUser $admin */
         $admin = AdminUser::factory()->create();
         $this->actingAs($admin, 'sanctum');
 
@@ -176,6 +178,199 @@ class AdminOrderTest extends TestCase
         $this->assertSame('Customer requested gift wrapping', $order->fresh()->notes);
     }
 
+    // ─── Shipping actions ──────────────────────────────────────────────
+
+    public function test_admin_can_create_shipping_label_for_delivery_order(): void
+    {
+        Storage::fake('public');
+        $this->authenticatedAdmin();
+
+        $product = Product::factory()->create(['price' => '£50.00']);
+        $order = Order::factory()->create([
+            'shipping_address' => '123 High St, London, SW1A 1AA',
+            'shipping_address_line1' => '123 High St',
+            'shipping_city' => 'London',
+            'shipping_postcode' => 'SW1A 1AA',
+            'shipping_country' => 'United Kingdom',
+            'shipping_metadata' => [
+                'fulfilment_method' => 'delivery',
+                'selected_delivery_option' => [
+                    'service' => 'Royal Mail Tracked 48',
+                ],
+            ],
+        ]);
+        OrderItem::factory()->forProduct($product)->create([
+            'order_id' => $order->id,
+            'quantity' => 1,
+        ]);
+
+        $response = $this->postJson("/api/admin/orders/{$order->id}/shipping/label", [
+            'tracking_number' => 'EZ1000000001',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('tracking_number', 'EZ1000000001');
+        $response->assertJsonPath('shipping_status', 'pre_transit');
+        $this->assertSame('EZ1000000001', $order->fresh()->tracking_number);
+        $this->assertNotNull($order->fresh()->shipping_shipment_id);
+        $this->assertNotNull($order->fresh()->shipping_label_url);
+        $this->assertSame('processing', $order->fresh()->status);
+    }
+
+    public function test_admin_can_refresh_tracking_for_delivery_order(): void
+    {
+        $this->authenticatedAdmin();
+
+        $order = Order::factory()->create([
+            'tracking_number' => 'EZ3000000003',
+            'shipping_provider' => 'easypost',
+            'shipping_carrier' => 'Royal Mail',
+            'shipping_service' => 'Royal Mail Tracked 48',
+            'shipping_metadata' => [
+                'fulfilment_method' => 'delivery',
+                'shipments' => [[
+                    'tracking_number' => 'EZ3000000003',
+                    'shipment_id' => 'mock_shipment_123',
+                    'status' => 'pre_transit',
+                    'detail' => 'Shipment created',
+                ]],
+            ],
+        ]);
+
+        $response = $this->postJson("/api/admin/orders/{$order->id}/shipping/track", [
+            'tracking_number' => 'EZ3000000003',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('tracking_number', 'EZ3000000003');
+        $response->assertJsonPath('shipping_status', 'out_for_delivery');
+        $this->assertSame('EZ3000000003', $order->fresh()->tracking_number);
+        $this->assertSame('shipped', $order->fresh()->status);
+    }
+
+    public function test_admin_can_void_existing_shipment(): void
+    {
+        $this->authenticatedAdmin();
+
+        $order = Order::factory()->create([
+            'shipping_shipment_id' => 'mock_shipment_void',
+            'shipping_metadata' => [
+                'fulfilment_method' => 'delivery',
+                'shipments' => [[
+                    'tracking_number' => 'EZ1000000001',
+                    'shipment_id' => 'mock_shipment_void',
+                    'status' => 'pre_transit',
+                    'detail' => 'Shipment created',
+                ]],
+            ],
+        ]);
+
+        $response = $this->postJson("/api/admin/orders/{$order->id}/shipping/void");
+
+        $response->assertOk();
+        $response->assertJsonPath('shipping_status', 'voided');
+        $this->assertSame('submitted', data_get($order->fresh()->shipping_metadata, 'void_results.0.status'));
+        $this->assertSame('voided', $order->fresh()->shipping_status);
+    }
+
+    public function test_click_and_collect_orders_reject_shipping_actions(): void
+    {
+        $this->authenticatedAdmin();
+
+        $order = Order::factory()->clickAndCollect()->create([
+            'shipping_metadata' => [
+                'fulfilment_method' => 'click_collect',
+            ],
+        ]);
+
+        $labelResponse = $this->postJson("/api/admin/orders/{$order->id}/shipping/label");
+        $labelResponse->assertStatus(422)
+            ->assertJson(['message' => 'Shipping labels are not available for click & collect orders.']);
+
+        $trackResponse = $this->postJson("/api/admin/orders/{$order->id}/shipping/track");
+        $trackResponse->assertStatus(422)
+            ->assertJson(['message' => 'Tracking refresh is not available for click & collect orders.']);
+
+        $voidResponse = $this->postJson("/api/admin/orders/{$order->id}/shipping/void");
+        $voidResponse->assertStatus(422)
+            ->assertJson(['message' => 'Void is not available for click & collect orders.']);
+    }
+
+    public function test_admin_cannot_void_shipment_when_none_exists(): void
+    {
+        $this->authenticatedAdmin();
+
+        $order = Order::factory()->create([
+            'shipping_shipment_id' => null,
+            'shipping_metadata' => [
+                'fulfilment_method' => 'delivery',
+            ],
+        ]);
+
+        $response = $this->postJson("/api/admin/orders/{$order->id}/shipping/void");
+
+        $response->assertStatus(422)
+            ->assertJson(['message' => 'No shipping label has been created for this order.']);
+    }
+
+    public function test_admin_can_download_shipping_label_from_local_storage(): void
+    {
+        Storage::fake('public');
+        $this->authenticatedAdmin();
+
+        $order = Order::factory()->create([
+            'shipping_label_url' => '/storage/shipping/labels/label_123.pdf',
+        ]);
+
+        Storage::disk('public')->put('shipping/labels/label_123.pdf', 'dummy content');
+
+        $response = $this->getJson("/api/admin/orders/{$order->id}/shipping/label/download");
+
+        $response->assertOk();
+    }
+
+    public function test_admin_is_redirected_for_external_shipping_label_url(): void
+    {
+        Storage::fake('public');
+        $this->authenticatedAdmin();
+
+        $order = Order::factory()->create([
+            'shipping_label_url' => 'https://external-shipping-provider.com/labels/123.pdf',
+        ]);
+
+        $response = $this->getJson("/api/admin/orders/{$order->id}/shipping/label/download");
+
+        $response->assertRedirect('https://external-shipping-provider.com/labels/123.pdf');
+    }
+
+    public function test_admin_receives_404_when_shipping_label_does_not_exist(): void
+    {
+        Storage::fake('public');
+        $this->authenticatedAdmin();
+
+        $order = Order::factory()->create([
+            'shipping_label_url' => null,
+        ]);
+
+        $response = $this->getJson("/api/admin/orders/{$order->id}/shipping/label/download");
+
+        $response->assertStatus(404);
+    }
+
+    public function test_admin_receives_404_when_local_shipping_label_file_is_missing(): void
+    {
+        Storage::fake('public');
+        $this->authenticatedAdmin();
+
+        $order = Order::factory()->create([
+            'shipping_label_url' => '/storage/shipping/labels/missing.pdf',
+        ]);
+
+        $response = $this->getJson("/api/admin/orders/{$order->id}/shipping/label/download");
+
+        $response->assertStatus(404);
+    }
+
     // ─── Order deletion ───────────────────────────────────────────────
 
     public function test_admin_can_delete_order(): void
@@ -196,5 +391,15 @@ class AdminOrderTest extends TestCase
         $response = $this->getJson('/api/admin/orders');
 
         $response->assertStatus(401);
+    }
+
+    public function test_unauthenticated_cannot_perform_shipping_actions(): void
+    {
+        $order = Order::factory()->create();
+
+        $this->postJson("/api/admin/orders/{$order->id}/shipping/label")->assertStatus(401);
+        $this->postJson("/api/admin/orders/{$order->id}/shipping/track")->assertStatus(401);
+        $this->postJson("/api/admin/orders/{$order->id}/shipping/void")->assertStatus(401);
+        $this->getJson("/api/admin/orders/{$order->id}/shipping/label/download")->assertStatus(401);
     }
 }

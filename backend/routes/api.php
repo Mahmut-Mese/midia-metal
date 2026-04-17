@@ -62,6 +62,7 @@ Route::prefix('v1')->group(function () {
     // Forms
     Route::post('/contact', [Api\FormController::class, 'contact'])->middleware('throttle:8,1');
     Route::post('/orders', [Api\FormController::class, 'order'])->middleware(['customer.cookie', 'throttle:10,1']);
+    Route::get('/orders/confirmation', [Api\OrderConfirmationController::class, 'show'])->middleware('throttle:10,1');
     Route::post('/quote', [Api\FormController::class, 'quote'])->middleware(['customer.cookie', 'throttle:6,1']);
     Route::post('/coupons/apply', [Api\FormController::class, 'applyCoupon'])->middleware('throttle:20,1');
     Route::post('/payment/intent', [Api\PaymentController::class, 'createIntent'])->middleware(['customer.cookie', 'throttle:10,1']);
