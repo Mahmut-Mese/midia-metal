@@ -6,6 +6,7 @@
  * visit paints complete HTML immediately without waiting for the Shop island.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getApiBase } from '@/lib/api-base';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
@@ -112,10 +113,7 @@ const normalizeImage = (value: unknown, fallback = '/logo.png') => {
 };
 
 const siteUrl = import.meta.env.SITE;
-const apiBase = ['127.0.0.1', 'localhost'].includes(Astro.url.hostname)
-  ? 'http://127.0.0.1:8000/api'
-  : (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
-const API = `${apiBase}/v1`;
+const API = `${getApiBase()}/v1`;
 
 const settings = await fetchSettings();
 const pageTitle = getPageTitle(settings, undefined, 'Shop');
