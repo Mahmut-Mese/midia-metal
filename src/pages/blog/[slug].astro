@@ -10,10 +10,11 @@ export const prerender = false;
  */
 import { Image } from 'astro:assets';
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getApiBase } from '@/lib/api-base';
 import { buildBreadcrumbJsonLd, buildBlogPostingJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-const API = `${(import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '')}/v1`;
+const API = `${getApiBase()}/v1`;
 
 const { slug } = Astro.params;
 

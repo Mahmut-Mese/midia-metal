@@ -10,14 +10,12 @@ export const prerender = false;
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ProductDetailIsland from '@/islands/ProductDetailIsland';
+import { getApiBase } from '@/lib/api-base';
 import { getStandardizedDisplayPrice, parseMoneyValue } from '@/lib/pricing';
 import { stripHtml, truncateText, buildBreadcrumbJsonLd, buildProductJsonLd } from '@/lib/seo';
 
 const siteUrl = import.meta.env.SITE;
-const apiBase = ['127.0.0.1', 'localhost'].includes(Astro.url.hostname)
-  ? 'http://127.0.0.1:8000/api'
-  : (import.meta.env.PUBLIC_API_URL || 'http://127.0.0.1:8000/api').replace(/\/+$/, '');
-const API = `${apiBase}/v1`;
+const API = `${getApiBase()}/v1`;
 const { slug } = Astro.params;
 
 // Cache headers: CDN caches for 5 min, serves stale while revalidating for 1 hour
@@ -27,15 +25,21 @@ Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-r
 let product: any = null;
 let related: any[] = [];
 
+const fetchWithTimeout = (url: string, ms = 10000) => {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t));
+};
+
 try {
   const [productRes, relatedRes] = await Promise.all([
-    fetch(`${API}/products/${slug}`).then(r => r.ok ? r.json() : null),
-    fetch(`${API}/products/${slug}/related`).then(r => r.ok ? r.json() : []),
+    fetchWithTimeout(`${API}/products/${slug}`).then(r => r.ok ? r.json() : null),
+    fetchWithTimeout(`${API}/products/${slug}/related`).then(r => r.ok ? r.json() : []),
   ]);
   product = productRes;
   related = (Array.isArray(relatedRes) ? relatedRes : []).slice(0, 3);
 } catch (e) {
-  console.error('Failed to fetch product data:', e);
+  console.error(`[shop/slug] Failed to fetch product data from ${API}:`, e);
 }
 
 // 404 if product not found
