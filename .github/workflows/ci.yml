@@ -228,6 +228,7 @@ jobs:
         run: npx playwright test --reporter=list
         env:
           PUBLIC_API_URL: http://127.0.0.1:8000/api
+          PUBLIC_STRIPE_KEY: ${{ env.SUPPORT_PUBLIC_STRIPE_KEY }}
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
