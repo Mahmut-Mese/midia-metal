@@ -40,6 +40,13 @@ async function mockAdminApi(page: import('@playwright/test').Page) {
       json: { data: [], meta: { current_page: 1, last_page: 1, total: 0 } }
     });
   });
+
+  await page.route('**/api/admin/product-category-list', async route => {
+    await route.fulfill({
+      status: 200,
+      json: []
+    });
+  });
 }
 
 test('authenticated admin can open dashboard route', async ({ page }) => {

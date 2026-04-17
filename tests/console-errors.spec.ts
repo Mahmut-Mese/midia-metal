@@ -45,6 +45,7 @@ const ALLOWED_NON_200 = new Map<string, number[]>([
 
 const IGNORE_CONSOLE_PATTERNS = [
   'Failed to load resource: the server responded with a status of 401',
+  'WebSocket connection to \'ws://127.0.0.1:4323/\' failed',
   '/api/v1/customer/me',
   '/api/admin/me',
   'TypeError: Failed to fetch',
@@ -58,6 +59,8 @@ const IGNORE_CONSOLE_PATTERNS = [
 const IGNORE_REQUEST_FAILURE_PATTERNS = [
   'js.stripe.com',
   'm.stripe.network',
+  'fonts.gstatic.com',
+  'fonts.googleapis.com',
   'google-analytics',
   '/sanctum/csrf-cookie - net::ERR_ABORTED',
   '/api/admin/dashboard - net::ERR_ABORTED',
@@ -427,6 +430,26 @@ async function prepareRouteState(page: Page, route: string, product: ProductReco
 
   if (CHECKOUT_STATE_ROUTES.includes(route)) {
     await seedCheckoutState(page);
+  }
+
+  if (route === '/payment') {
+    await page.route('**/api/v1/settings', async (interceptedRoute) => {
+      await interceptedRoute.fulfill({
+        status: 200,
+        json: [
+          { key: 'bank_account_name', value: 'Midia Metal Ltd' },
+          { key: 'bank_sort_code', value: '12-34-56' },
+          { key: 'bank_account_number', value: '12345678' },
+        ],
+      });
+    });
+
+    await page.route('**/api/v1/payment/intent', async (interceptedRoute) => {
+      await interceptedRoute.fulfill({
+        status: 200,
+        json: { client_secret: null },
+      });
+    });
   }
 }
 
