@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\AdminUser;
 use App\Models\BlogPost;
+use App\Models\Customer;
 use App\Models\HeroSlide;
 use App\Models\PortfolioCategory;
 use App\Models\PortfolioProject;
@@ -26,6 +27,26 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@midiametal.com',
             'password' => Hash::make('password'),
             'role' => 'admin',
+        ]);
+
+        Customer::create([
+            'name' => 'Playwright Customer',
+            'email' => 'asd@asd.com',
+            'password' => Hash::make('12345678'),
+            'phone' => '07123456789',
+            'address' => '1 Test Street',
+            'city' => 'London',
+            'postcode' => 'E1 6AN',
+            'country' => 'United Kingdom',
+            'billing_address' => '1 Test Street',
+            'billing_city' => 'London',
+            'billing_postcode' => 'E1 6AN',
+            'billing_country' => 'United Kingdom',
+            'shipping_address' => '1 Test Street',
+            'shipping_city' => 'London',
+            'shipping_postcode' => 'E1 6AN',
+            'shipping_country' => 'United Kingdom',
+            'is_business' => false,
         ]);
 
         // Hero Slides

@@ -6,7 +6,7 @@ const API_ORIGIN = 'http://127.0.0.1:8000';
 const API_BASE = `${API_ORIGIN}/api/v1`;
 const ADMIN_API_BASE = `${API_ORIGIN}/api/admin`;
 const ASTRO_SERVER_LOG = '/tmp/midia-astro-playwright.log';
-const ADMIN_EMAIL = 'admin@midiaematal.com';
+const ADMIN_EMAIL = 'admin@midiametal.com';
 const ADMIN_PASSWORD = 'password';
 const CUSTOMER_EMAIL = 'asd@asd.com';
 const CUSTOMER_PASSWORD = '12345678';
@@ -67,6 +67,7 @@ const IGNORE_REQUEST_FAILURE_PATTERNS = [
 const IGNORE_ASTRO_LOG_PATTERNS = [
   '[vite] connecting',
   '[vite] connected',
+  'The server is being restarted or closed. Request is outdated',
   'Re-optimizing dependencies because vite config has changed',
   'ready in',
   'Local',
@@ -243,6 +244,12 @@ function shouldIgnoreIssue(issue: string) {
   }
 
   return IGNORE_CONSOLE_PATTERNS.some((pattern) => issue.includes(pattern));
+}
+
+function hasTransientViteOptimizeIssue(issues: string[]) {
+  return issues.some((issue) =>
+    issue.includes('Outdated Optimize Dep') || issue.includes('/node_modules/.vite/deps/'),
+  );
 }
 
 async function collectIssues(page: Page, issues: string[]) {
@@ -437,16 +444,25 @@ test.describe('Every route returns a healthy page', () => {
     const { routes, firstProduct } = await discoverAllRoutes();
 
     for (const route of routes) {
-      const issues = await captureIssues(page);
+      let issues = await captureIssues(page);
       await prepareRouteState(page, route, firstProduct);
 
-      const response = await page.goto(route, { waitUntil: 'networkidle' });
-      const status = response?.status() || 0;
+      let response = await page.goto(route, { waitUntil: 'networkidle' });
+      let status = response?.status() || 0;
       const allowedStatuses = ALLOWED_NON_200.get(route) || [200];
 
       await page.waitForTimeout(500);
 
-      const uniqueIssues = await collectIssues(page, issues);
+      let uniqueIssues = await collectIssues(page, issues);
+
+      if (hasTransientViteOptimizeIssue(uniqueIssues)) {
+        await page.waitForTimeout(1000);
+        issues = await captureIssues(page);
+        response = await page.goto(route, { waitUntil: 'networkidle' });
+        status = response?.status() || 0;
+        await page.waitForTimeout(500);
+        uniqueIssues = await collectIssues(page, issues);
+      }
 
       expect(
         allowedStatuses.includes(status),

@@ -214,7 +214,7 @@ jobs:
       - name: Start backend server
         run: |
           touch database/database.sqlite
-          php artisan migrate --force
+          php artisan migrate:fresh --seed --force
           php artisan cache:clear
           php artisan serve --host=127.0.0.1 --port=8000 &
           # Wait for backend to be ready

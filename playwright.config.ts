@@ -12,7 +12,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: `rm -f ${ASTRO_SERVER_LOG} && PUBLIC_API_URL=http://127.0.0.1:8000/api npm run dev -- --host 127.0.0.1 --port 4323 > ${ASTRO_SERVER_LOG} 2>&1`,
+    command: `rm -f ${ASTRO_SERVER_LOG} && rm -rf node_modules/.vite && PUBLIC_API_URL=http://127.0.0.1:8000/api npm run dev -- --host 127.0.0.1 --port 4323 > ${ASTRO_SERVER_LOG} 2>&1`,
     url: 'http://127.0.0.1:4323',
     reuseExistingServer: true,
     timeout: 60000,

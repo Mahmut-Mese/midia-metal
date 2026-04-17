@@ -16,7 +16,7 @@ async function mockAdminApi(page: import('@playwright/test').Page) {
   await page.route('**/api/admin/me', async route => {
     await route.fulfill({
       status: 200,
-      json: { id: 1, name: 'Admin', email: 'admin@midiaematal.com' }
+      json: { id: 1, name: 'Admin', email: 'admin@midiametal.com' }
     });
   });
 

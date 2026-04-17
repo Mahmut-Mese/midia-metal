@@ -7,7 +7,7 @@ test('admin can log in with seeded credentials', async ({ page }) => {
   });
 
   await page.goto('/admin/login');
-  await page.locator('input[type="email"]').fill('admin@midiaematal.com');
+  await page.locator('input[type="email"]').fill('admin@midiametal.com');
   await page.locator('input[type="password"]').fill('password');
   const loginResponsePromise = page.waitForResponse((response) => response.url().includes('/api/admin/login'));
   await page.getByRole('button', { name: /sign in/i }).click();
