@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
-use App\Models\SiteSetting;
+use App\Models\Coupon;
 use App\Shipping\ShippingQuoteStore;
 use App\Support\CheckoutCalculator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -268,11 +268,8 @@ class CheckoutCalculatorTest extends TestCase
 
     // ─── VAT calculation ──────────────────────────────────────────────
 
-    public function test_vat_applied_when_enabled(): void
+    public function test_total_stays_vat_inclusive(): void
     {
-        SiteSetting::create(['key' => 'vat_enabled', 'value' => '1', 'group' => 'general']);
-        SiteSetting::create(['key' => 'vat_rate', 'value' => '20', 'group' => 'general']);
-
         $product = Product::factory()->create(['price' => '£100.00']);
         $token = $this->issueShippingQuote(['rate' => 10.00]);
 
@@ -285,26 +282,32 @@ class CheckoutCalculatorTest extends TestCase
 
         $this->assertSame(100.00, $result['subtotal']);
         $this->assertSame(10.00, $result['shipping']);
-        $this->assertSame(22.00, $result['tax_amount']); // 20% of (100 + 10)
-        $this->assertSame(132.00, $result['total']);
+        $this->assertSame(18.33, $result['tax_amount']);
+        $this->assertSame(110.00, $result['total']);
     }
 
-    public function test_no_vat_when_disabled(): void
+    public function test_discounted_total_derives_inclusive_vat_amount(): void
     {
-        SiteSetting::create(['key' => 'vat_enabled', 'value' => '0', 'group' => 'general']);
+        Coupon::create([
+            'code' => 'SAVE10',
+            'type' => 'fixed',
+            'value' => 10,
+            'min_order_amount' => 0,
+            'active' => true,
+        ]);
 
         $product = Product::factory()->create(['price' => '£100.00']);
         $token = $this->issueShippingQuote(['rate' => 10.00]);
 
         $result = app(CheckoutCalculator::class)->calculate(
             [['product_id' => $product->id, 'quantity' => 1]],
-            null,
+            'SAVE10',
             'delivery',
             $token,
         );
 
-        $this->assertSame(0.0, $result['tax_amount']);
-        $this->assertSame(110.00, $result['total']);
+        $this->assertSame(100.00, $result['total']);
+        $this->assertSame(16.67, $result['tax_amount']);
     }
 
     // ─── Shipping quote expiry ────────────────────────────────────────

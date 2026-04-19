@@ -7,7 +7,7 @@
  * - Stock tracking & clamping
  * - Variant-based unique IDs
  * - Coupon system
- * - VAT calculation
+ * - VAT-inclusive pricing
  * - localStorage persistence
  */
 import { atom, computed } from 'nanostores';
@@ -18,7 +18,6 @@ import { formatMoneyValue, resolveSelectedVariantUnitPrice } from '@/lib/pricing
 // --- Types (re-exported from canonical types) ---
 export type { CartItem, AppliedCoupon, AddToCartProduct } from '@/types/cart';
 import type { CartItem, AppliedCoupon, AddToCartProduct } from '@/types/cart';
-import type { SiteSetting } from '@/types/settings';
 
 // --- Core state ---
 function loadCart(): CartItem[] {
@@ -43,8 +42,6 @@ function loadCoupon(): AppliedCoupon | null {
 
 export const $cart = atom<CartItem[]>(loadCart());
 export const $coupon = atom<AppliedCoupon | null>(loadCoupon());
-export const $vatEnabled = atom<boolean>(true);
-export const $vatRate = atom<number>(20);
 export const $isBusiness = atom<boolean>(false);
 
 // Persist cart to localStorage
@@ -74,22 +71,11 @@ export const $subtotal = computed($cart, (cart) =>
 
 export const $discount = computed($coupon, (c) => c?.discount ?? 0);
 
-export const $vatAmount = computed(
-  [$subtotal, $discount, $vatEnabled, $vatRate],
-  (subtotal, discount, vatEnabled, vatRate) => {
-    // NOTE: This is a cart-page estimate only — shipping cost is not yet known.
-    // The authoritative VAT (including shipping) is computed in CheckoutIsland
-    // and PaymentIsland once a shipping option is selected.
-    const taxableAmount = Math.max(0, subtotal - discount);
-    return vatEnabled ? Math.round(taxableAmount * (vatRate / 100) * 100) / 100 : 0;
-  }
-);
-
 export const $total = computed(
-  [$cart, $subtotal, $discount, $vatAmount],
-  (cart, subtotal, discount, vatAmount) => {
+  [$cart, $subtotal, $discount],
+  (cart, subtotal, discount) => {
     if (cart.length === 0) return 0;
-    return Math.max(0, subtotal - discount) + vatAmount;
+    return Math.max(0, subtotal - discount);
   }
 );
 
@@ -232,23 +218,6 @@ export function setIsBusiness(value: boolean) {
 }
 
 // --- Initialization ---
-
-/** Load VAT settings from API. Call once on app load. */
-export async function loadVatSettings() {
-  try {
-    const res: SiteSetting[] = await apiFetch('/v1/settings');
-    const vatEnabledSetting = res.find((s) => s.key === 'vat_enabled');
-    const vatRateSetting = res.find((s) => s.key === 'vat_rate');
-    $vatEnabled.set(
-      vatEnabledSetting
-        ? ['1', 'true', 'yes', 'on'].includes(String(vatEnabledSetting.value).toLowerCase())
-        : false
-    );
-    if (vatRateSetting) $vatRate.set(parseFloat(vatRateSetting.value) || 20);
-  } catch (err) {
-    console.error('Failed to load settings', err);
-  }
-}
 
 /** Hydrate stock data for cart items missing it. Call once on app load. */
 const hydratedProductIds = new Set<string>();

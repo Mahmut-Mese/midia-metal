@@ -8,6 +8,18 @@ class ProductVariantResolver
 {
     /**
      * @param  Product|array<string, mixed>|null  $product
+     * @return array<int, array<string, mixed>>
+     */
+    public static function variants(Product|array|null $product): array
+    {
+        return collect(data_get($product, 'variants', []))
+            ->filter(fn ($variant) => is_array($variant))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Product|array<string, mixed>|null  $product
      */
     public static function usesCombinationMode(Product|array|null $product): bool
     {
@@ -16,7 +28,7 @@ class ProductVariantResolver
             return true;
         }
 
-        return collect(data_get($product, 'variants', []))
+        return collect(self::variants($product))
             ->contains(fn ($variant) => count(self::attributesForVariant(is_array($variant) ? $variant : [])) > 0);
     }
 
@@ -27,7 +39,7 @@ class ProductVariantResolver
     public static function optionNames(Product|array|null $product): array
     {
         if (! self::usesCombinationMode($product)) {
-            return collect(data_get($product, 'variants', []))
+            return collect(self::variants($product))
                 ->map(fn ($variant) => trim((string) data_get($variant, 'option')))
                 ->filter()
                 ->unique()
@@ -40,7 +52,7 @@ class ProductVariantResolver
             ->filter()
             ->values();
 
-        $fromVariants = collect(data_get($product, 'variants', []))
+        $fromVariants = collect(self::variants($product))
             ->flatMap(fn ($variant) => array_keys(self::attributesForVariant(is_array($variant) ? $variant : [])))
             ->map(fn ($option) => trim((string) $option))
             ->filter()
@@ -84,7 +96,16 @@ class ProductVariantResolver
             return null;
         }
 
+        $variants = self::variants($product);
+        if (count($variants) === 0) {
+            return null;
+        }
+
         $requiredOptions = self::optionNames($product);
+        if (count($requiredOptions) === 0) {
+            return $variants[0];
+        }
+
         $normalizedSelections = self::normalizeSelections($selectedVariants);
 
         foreach ($requiredOptions as $option) {
@@ -93,7 +114,7 @@ class ProductVariantResolver
             }
         }
 
-        $match = collect(data_get($product, 'variants', []))->first(function ($variant) use ($requiredOptions, $normalizedSelections) {
+        $match = collect($variants)->first(function ($variant) use ($requiredOptions, $normalizedSelections) {
             if (! is_array($variant)) {
                 return false;
             }
@@ -109,6 +130,53 @@ class ProductVariantResolver
         });
 
         return is_array($match) ? $match : null;
+    }
+
+    /**
+     * @param  Product|array<string, mixed>|null  $product
+     * @param  array<string, mixed>|null  $selectedVariants
+     * @return array<string, mixed>|null
+     */
+    public static function resolveSelectedVariant(Product|array|null $product, ?array $selectedVariants = null): ?array
+    {
+        if (self::usesCombinationMode($product)) {
+            $variants = self::variants($product);
+            $normalizedSelections = self::normalizeSelections($selectedVariants);
+
+            if (count($variants) === 1 && count($normalizedSelections) === 0) {
+                return $variants[0];
+            }
+
+            return self::findMatchingCombinationVariant($product, $selectedVariants);
+        }
+
+        $variants = self::variants($product);
+
+        if (count($variants) === 1) {
+            return $variants[0];
+        }
+
+        if (! is_array($selectedVariants) || count($selectedVariants) === 0) {
+            return null;
+        }
+
+        foreach ($selectedVariants as $option => $selection) {
+            $value = is_array($selection) ? trim((string) ($selection['value'] ?? '')) : '';
+            if ($value === '') {
+                continue;
+            }
+
+            $match = collect($variants)->first(function (array $variant) use ($option, $value) {
+                return (string) ($variant['option'] ?? '') === (string) $option
+                    && (string) ($variant['value'] ?? '') === $value;
+            });
+
+            if (is_array($match)) {
+                return $match;
+            }
+        }
+
+        return null;
     }
 
     /**

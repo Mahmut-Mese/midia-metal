@@ -51,9 +51,9 @@ describe("getVariantStockLimit", () => {
     expect(getVariantStockLimit([], {})).toBeNull();
   });
 
-  it("returns null when no selection", () => {
+  it("returns stock for a single row even without selection", () => {
     const variants = [{ option: "Size", value: "Large", stock: 10 }];
-    expect(getVariantStockLimit(variants, null)).toBeNull();
+    expect(getVariantStockLimit(variants, null)).toBe(10);
   });
 
   it("returns stock for matched legacy variant", () => {

@@ -45,7 +45,6 @@ export default function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [shippingBusy, setShippingBusy] = useState<"label" | "track" | "void" | null>(null);
-  const [savingTracking, setSavingTracking] = useState(false);
   const [refunding, setRefunding] = useState(false);
 
   useEffect(() => {
@@ -98,6 +97,18 @@ export default function AdminOrders() {
       setViewingOrder(updated);
       await loadOrders();
       toast.success("Shipping label created");
+      // Auto-refresh tracking after label creation
+      setShippingBusy("track");
+      try {
+        const tracked = await apiFetch(`/admin/orders/${viewingOrder.id}/shipping/track`, {
+          method: "POST",
+          body: JSON.stringify({ tracking_number: (updated.tracking_number || "").trim() || undefined }),
+        });
+        setViewingOrder(tracked);
+        await loadOrders();
+      } catch {
+        // non-fatal: tracking refresh failure after label creation
+      }
     } catch (error: any) {
       toast.error(error?.message || "Failed to create shipping label");
     } finally {
@@ -126,7 +137,7 @@ export default function AdminOrders() {
 
   const handleVoidShipment = async () => {
     if (!viewingOrder) return;
-    if (!window.confirm("Are you sure you want to void this shipment? This will request a refund for the shipping label.")) return;
+    if (!window.confirm("Are you sure you want to cancel this label? This will request a refund for the shipping label.")) return;
 
     setShippingBusy("void");
     try {
@@ -135,9 +146,9 @@ export default function AdminOrders() {
       });
       setViewingOrder(updated);
       await loadOrders();
-      toast.success("Shipment voided successfully");
+      toast.success("Label canceled successfully");
     } catch (error: any) {
-      toast.error(error?.message || "Failed to void shipment");
+      toast.error(error?.message || "Failed to cancel label");
     } finally {
       setShippingBusy(null);
     }
@@ -146,7 +157,6 @@ export default function AdminOrders() {
   const handleSaveTracking = async () => {
     if (!viewingOrder) return;
 
-    setSavingTracking(true);
     try {
       const updated = await apiFetch(`/admin/orders/${viewingOrder.id}`, {
         method: "PUT",
@@ -157,8 +167,6 @@ export default function AdminOrders() {
       toast.success("Tracking number saved");
     } catch {
       toast.error("Failed to save tracking number");
-    } finally {
-      setSavingTracking(false);
     }
   };
 
@@ -607,10 +615,10 @@ export default function AdminOrders() {
                         type="button"
                         onClick={handleRefreshTracking}
                         disabled={shippingBusy !== null}
-                        className="inline-flex items-center gap-2 rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9] disabled:opacity-60"
+                        className="inline-flex items-center gap-1 text-sm text-[#6e7a92] hover:text-[#10275c] disabled:opacity-50 underline-offset-2 hover:underline"
                       >
-                        <RefreshCcw className={`w-4 h-4 ${shippingBusy === "track" ? "animate-spin" : ""}`} />
-                        Refresh Tracking
+                        <RefreshCcw className={`w-3.5 h-3.5 ${shippingBusy === "track" ? "animate-spin" : ""}`} />
+                        Refresh tracking
                       </button>
 
                       {viewingOrder.shipping_label_url && (
@@ -632,7 +640,7 @@ export default function AdminOrders() {
                           className="inline-flex items-center gap-2 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
                         >
                           <XCircle className={`w-4 h-4 ${shippingBusy === "void" ? "animate-spin" : ""}`} />
-                          Void Shipment
+                          Cancel Label
                         </button>
                       )}
                     </div>
@@ -665,16 +673,9 @@ export default function AdminOrders() {
                         value={viewingOrder.tracking_number ?? ""}
                         placeholder="e.g. EZ2000000002 or real carrier tracking"
                         onChange={(e) => setViewingOrder({ ...viewingOrder, tracking_number: e.target.value })}
+                        onBlur={handleSaveTracking}
                         className="block w-full rounded-md border-gray-300 py-2 px-3 text-sm border focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
-                      <button
-                        type="button"
-                        onClick={handleSaveTracking}
-                        disabled={savingTracking}
-                        className="inline-flex items-center justify-center rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9] disabled:opacity-60"
-                      >
-                        Save Tracking
-                      </button>
                     </div>
                     <p className="mt-2 text-xs text-[#6e7a92]">
                       EasyPost test tracking codes: {MOCK_TRACKING_CODES.join(", ")}.

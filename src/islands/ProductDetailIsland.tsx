@@ -27,10 +27,12 @@ import { formatMoneyValue, resolveSelectedVariantUnitPrice, getStandardizedDispl
 import { getAvailableStock, MAX_ORDER_QUANTITY } from "@/lib/stock";
 import {
   findMatchingCombinationVariant,
+  getVariantAttributes,
   getProductVariantMode,
   getVariantOptionNames,
   getVariantOptionValues,
   isCompleteVariantSelection,
+  resolveSelectedVariantRecord,
 } from "@/lib/variants";
 import {
   getSelectionTableTabValues,
@@ -68,6 +70,25 @@ const stripVariantLabelPrefix = (value: unknown, label: string): string => {
 
   const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return text.replace(new RegExp(`^${escapedLabel}\\s*:?\\s*`, "i"), "").trim() || text;
+};
+
+const buildVariantSizeSummary = (variant: Record<string, any> | null | undefined): string => {
+  const length = Number(variant?.shipping_length_cm ?? 0);
+  const width = Number(variant?.shipping_width_cm ?? 0);
+  const height = Number(variant?.shipping_height_cm ?? 0);
+
+  if (length <= 0 || width <= 0 || height <= 0) {
+    return "";
+  }
+
+  const widthMm = Math.round(length * 10);
+  const heightMm = Math.round(width * 10);
+  const depthMm = Math.round(height * 10);
+  const widthInches = Math.round(widthMm / 25);
+  const heightInches = Math.round(heightMm / 25);
+  const depthInches = Math.round(depthMm / 25);
+
+  return `H ${heightMm} x W ${widthMm} x D ${depthMm}mm (${heightInches}" x ${widthInches}" x ${depthInches}")`;
 };
 
 const dedupeSpecEntries = (entries: Array<[string, string]>): Array<[string, string]> => {
@@ -270,6 +291,14 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
       variants,
     };
   });
+  const hasSelectableVariantChoices = variantGroups.some((group) => group.variants.length > 1);
+  const fixedVariantSummaryEntries: Array<[string, string]> = variantGroups
+    .filter((group) => group.variants.length === 1)
+    .map((group) => {
+      const onlyValue = group.variants[0]?.value ?? "";
+      return [group.label, stripVariantLabelPrefix(onlyValue, group.label)] as [string, string];
+    })
+    .filter(([, value]) => Boolean(String(value ?? "").trim()));
   const variantTableColumns = normalizeVariantTableColumns(product?.variant_table_columns);
   const frontendVariantLayout = normalizeFrontendVariantLayout(product?.frontend_variant_layout);
   const selectionTableSourceKeys = [
@@ -286,22 +315,23 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
   );
   const generalColumnsByKey = new Map(variantTableColumns.general.map((column) => [column.key, column]));
   const selectedVariantList = Object.values(selectedVariants) as Array<Record<string, any>>;
+  const resolvedSelectedVariant = resolveSelectedVariantRecord(product, selectedVariants);
   const selectedCombinationVariant = isCombinationMode
-    ? findMatchingCombinationVariant(product?.variants || [], selectedVariants, variantOptions)
+    ? (resolvedSelectedVariant ?? findMatchingCombinationVariant(product?.variants || [], selectedVariants, variantOptions))
     : null;
   const selectedSizeVariant = isCombinationMode
     ? selectedCombinationVariant
     : selectedVariantList.find(
       (variant) => String(variant?.option ?? "").trim().toLowerCase() === "size",
-    ) ?? null;
+    ) ?? (String(resolvedSelectedVariant?.option ?? "").trim().toLowerCase() === "size" ? resolvedSelectedVariant : null);
   const selectedGeneralVariants = isCombinationMode
     ? []
-    : selectedVariantList.filter(
+    : (selectedVariantList.length > 0 ? selectedVariantList : (resolvedSelectedVariant ? [resolvedSelectedVariant] : [])).filter(
       (variant) => String(variant?.option ?? "").trim().toLowerCase() !== "size",
     );
   const selectedShippingVariant = isCombinationMode
     ? selectedCombinationVariant
-    : selectedSizeVariant ?? selectedGeneralVariants[0] ?? null;
+    : selectedSizeVariant ?? selectedGeneralVariants[0] ?? resolvedSelectedVariant ?? null;
   const hasCompleteSelection = isCompleteVariantSelection(product, selectedVariants);
   const availableStock = product ? getAvailableStock({ ...product, selected_variants: selectedVariants }) : null;
   const selectedUnitPrice = product ? resolveSelectedVariantUnitPrice(product.price, selectedVariants, product) : null;
@@ -413,6 +443,46 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
 
     return [label, formatSpecValue(selectedValue)] as [string, string];
   }).filter((entry): entry is [string, string] => Boolean(entry));
+  const resolvedVariantSummaryEntries: Array<[string, string]> = (() => {
+    if (!resolvedSelectedVariant) {
+      return [];
+    }
+
+    const attributeEntries = Object.entries(getVariantAttributes(resolvedSelectedVariant))
+      .map(([option, value]) => [formatVariantOptionLabel(option), formatSpecValue(value)] as [string, string])
+      .filter(([, value]) => Boolean(value));
+
+    if (attributeEntries.length > 0) {
+      return attributeEntries;
+    }
+
+    const option = formatSpecValue(resolvedSelectedVariant.option);
+    const value = formatSpecValue(resolvedSelectedVariant.value);
+
+    return option && value ? [[formatVariantOptionLabel(option), value]] : [];
+  })();
+  const selectedCombinationMetadataEntries: Array<[string, string]> = (() => {
+    if (!isCombinationMode) {
+      return [];
+    }
+
+    const sourceVariant = selectedCombinationVariant ?? resolvedSelectedVariant;
+    if (!sourceVariant) {
+      return [];
+    }
+
+    const explicitSizeEntry = Object.entries(getVariantAttributes(sourceVariant)).find(([key, value]) => (
+      String(key).trim().toLowerCase() === "size" && Boolean(String(value ?? "").trim())
+    ));
+
+    if (explicitSizeEntry) {
+      return [["Size", formatSpecValue(explicitSizeEntry[1])]];
+    }
+
+    const derivedSize = buildVariantSizeSummary(sourceVariant);
+
+    return derivedSize ? [["Size", derivedSize]] : [];
+  })();
   const sizeFrontendSpecEntries: Array<[string, string]> = variantTableColumns.size.flatMap((column) => {
     if (!column.frontendVisible) {
       return [];
@@ -451,10 +521,13 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
     return entries;
   });
   const productSpecEntries = normalizeProductSpecEntries(product?.specifications);
+  const shouldShowVariantSpecifications = Boolean(selectedShippingVariant)
+    || selectedGeneralVariants.length > 0
+    || selectedVariantSpecEntries.length > 0;
 
   const generatedSpecificationEntries: Array<[string, string]> = [
     ...productSpecEntries,
-    ...(variantOptions.length > 0 ? [
+    ...(shouldShowVariantSpecifications ? [
       ...selectedVariantSpecEntries,
       ...sizeFrontendSpecEntries,
       ...generalFrontendSpecEntries,
@@ -787,6 +860,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
                 </p>
               )}
             </div>
+            <p className="mb-3 text-[12px] font-medium uppercase tracking-wide text-[#6e7a92]">VAT included</p>
 
             <div className="flex items-center gap-3 flex-wrap mb-3">
               {!isSelectionTableMode && (
@@ -861,12 +935,22 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
                     <span className="font-semibold text-primary">Product ID:</span>{" "}
                     <span className="text-[#6e7a92]">{product.id}</span>
                   </p>
+                  {dedupeSpecEntries([
+                    ...fixedVariantSummaryEntries,
+                    ...selectedCombinationMetadataEntries,
+                    ...(!hasSelectableVariantChoices ? resolvedVariantSummaryEntries : []),
+                  ]).map(([label, value]) => (
+                    <p key={`${label}-${value}`}>
+                      <span className="font-semibold text-primary">{label}:</span>{" "}
+                      <span className="text-[#6e7a92]">{stripVariantLabelPrefix(value, label)}</span>
+                    </p>
+                  ))}
                 </>
               )}
 
               {/* Variants Selection */}
-              {!isSelectionTableMode && product.variants && product.variants.length > 0 && (
-                variantGroups.map(({ option, label, variants }) => {
+              {!isSelectionTableMode && hasSelectableVariantChoices && product.variants && product.variants.length > 0 && (
+                variantGroups.filter(({ variants }) => variants.length > 1).map(({ option, label, variants }) => {
                   const selectedValue = selectedVariants[option]?.value || variants[0]?.value || "";
                   const singleValueText = stripVariantLabelPrefix(selectedValue, label);
                   const hasSingleValue = variants.length === 1;

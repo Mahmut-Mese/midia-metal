@@ -102,6 +102,12 @@
 </head>
 
 <body>
+    @php
+        $vatRate = 20;
+        $vatMultiplier = 1 + ($vatRate / 100);
+        $netTotal = round($order->total / $vatMultiplier, 2);
+        $vatIncluded = round($order->total - $netTotal, 2);
+    @endphp
     <div class="header">
         <div class="logo">Midia M Metal</div>
         <div class="invoice-details">
@@ -181,12 +187,14 @@
             <span>Shipping:</span>
             <span>£{{ number_format($order->shipping, 2) }}</span>
         </div>
-        @if($order->tax_amount > 0)
-            <div class="totals-row">
-                <span>VAT:</span>
-                <span>£{{ number_format($order->tax_amount, 2) }}</span>
-            </div>
-        @endif
+        <div class="totals-row">
+            <span>Net amount:</span>
+            <span>£{{ number_format($netTotal, 2) }}</span>
+        </div>
+        <div class="totals-row">
+            <span>VAT included ({{ $vatRate }}%):</span>
+            <span>£{{ number_format($vatIncluded, 2) }}</span>
+        </div>
         <div class="totals-row bold" style="margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
             <span>Total:</span>
             <span>£{{ number_format($order->total, 2) }}</span>

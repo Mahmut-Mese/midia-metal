@@ -1,4 +1,4 @@
-import { findMatchingCombinationVariant, getProductVariantMode, getVariantAttributes, getVariantOptionNames } from "@/lib/variants";
+import { findMatchingCombinationVariant, getProductVariantMode, getVariantAttributes, getVariantOptionNames, resolveSelectedVariantRecord } from "@/lib/variants";
 
 export const parseMoneyValue = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -20,6 +20,14 @@ export const resolveSelectedVariantUnitPrice = (
   productOrVariants?: { variant_mode?: unknown; variant_options?: unknown; variants?: Array<Record<string, any>> | null } | Array<Record<string, any>> | null,
 ): number | null => {
   const base = parseMoneyValue(basePrice);
+  const resolvedVariant = Array.isArray(productOrVariants)
+    ? null
+    : resolveSelectedVariantRecord(productOrVariants, selectedVariants);
+  const resolvedVariantPrice = parseMoneyValue(resolvedVariant?.price);
+  if (resolvedVariantPrice !== null) {
+    return resolvedVariantPrice;
+  }
+
   const productVariants = Array.isArray(productOrVariants)
     ? productOrVariants
     : Array.isArray(productOrVariants?.variants)
@@ -106,7 +114,8 @@ export const getStandardizedDisplayTitle = (product: any, activeVariantMap?: Rec
       const cheapestVariant = pricedVariants.length > 0
         ? pricedVariants.reduce((min, current) => current.price < min.price ? current : min, pricedVariants[0]).variant
         : product.variants?.[0];
-      const sizeValue = sizeOption ? getVariantAttributes(cheapestVariant)[sizeOption] : "";
+      const fallbackVariant = cheapestVariant || resolveSelectedVariantRecord(product, {}) || product.variants?.[0];
+      const sizeValue = sizeOption ? getVariantAttributes(fallbackVariant)[sizeOption] : "";
       if (sizeValue) {
         appendText = ` - ${sizeValue}`;
       }

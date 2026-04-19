@@ -112,7 +112,7 @@ export const findMatchingCombinationVariant = (
     : uniqueStrings(variants.flatMap((variant) => Object.keys(getVariantAttributes(variant))));
 
   if (requiredOptions.length === 0) {
-    return null;
+    return variants[0] ?? null;
   }
 
   const hasCompleteSelection = requiredOptions.every((optionName) => getSelectedVariantValue(selectedVariants, optionName));
@@ -124,6 +124,52 @@ export const findMatchingCombinationVariant = (
     const attributes = getVariantAttributes(variant);
     return requiredOptions.every((optionName) => attributes[optionName] === getSelectedVariantValue(selectedVariants, optionName));
   }) ?? null;
+};
+
+export const resolveSelectedVariantRecord = (
+  product: {
+    variant_mode?: unknown;
+    variant_options?: unknown;
+    variants?: VariantRecord[] | null;
+  } | null | undefined,
+  selectedVariants?: SelectedVariantMap | Record<string, any> | null,
+): VariantRecord | null => {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  const normalizedSelectionValues = Object.values(selectedVariants || {})
+    .map((selected) => normalizeText(selected?.value))
+    .filter(Boolean);
+
+  if (variants.length === 0) {
+    return null;
+  }
+
+  if (getProductVariantMode(product) === "combination") {
+    if (variants.length === 1 && normalizedSelectionValues.length === 0) {
+      return variants[0] ?? null;
+    }
+
+    return findMatchingCombinationVariant(variants, selectedVariants, getVariantOptionNames(product));
+  }
+
+  if (variants.length === 1) {
+    return variants[0] ?? null;
+  }
+
+  for (const [option, selected] of Object.entries(selectedVariants || {})) {
+    const value = normalizeText(selected?.value);
+    if (!value) continue;
+
+    const match = variants.find((variant) => (
+      normalizeVariantOptionName(variant?.option) === normalizeVariantOptionName(option)
+      && normalizeText(variant?.value) === value
+    ));
+
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
 };
 
 export const getCompatibleCombinationVariants = (

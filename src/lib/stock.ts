@@ -1,4 +1,4 @@
-import { findMatchingCombinationVariant, getProductVariantMode } from "@/lib/variants";
+import { findMatchingCombinationVariant, getProductVariantMode, resolveSelectedVariantRecord } from "@/lib/variants";
 
 /** Hard cap on the quantity a customer can order in a single line item. */
 export const MAX_ORDER_QUANTITY = 999;
@@ -20,7 +20,7 @@ export const getVariantStockLimit = (
   selectedVariants: Record<string, any> | null | undefined,
 ): number | null => {
   if (!Array.isArray(variants) || variants.length === 0 || !selectedVariants) {
-    return null;
+    return variants?.length === 1 ? parseStockValue(variants[0]?.stock) : null;
   }
 
   if (getProductVariantMode({ variants }) === "combination") {
@@ -58,12 +58,18 @@ export const getAvailableStock = (product: {
     return null;
   }
 
-  const baseStock = parseStockValue(product.stock_quantity);
-  const variantStock = getProductVariantMode(product) === "combination"
-    ? parseStockValue(findMatchingCombinationVariant(product.variants, product.selected_variants, [])?.stock)
-    : getVariantStockLimit(product.variants, product.selected_variants);
+  const resolvedVariant = resolveSelectedVariantRecord(product, product.selected_variants);
+  const variantStock = resolvedVariant
+    ? parseStockValue(resolvedVariant.stock)
+    : getProductVariantMode(product) === "combination"
+      ? parseStockValue(findMatchingCombinationVariant(product.variants, product.selected_variants, [])?.stock)
+      : getVariantStockLimit(product.variants, product.selected_variants);
 
-  return minNullable([baseStock, variantStock]);
+  if (variantStock !== null) {
+    return variantStock;
+  }
+
+  return parseStockValue(product.stock_quantity);
 };
 
 export const clampQuantityToStock = (quantity: number, availableStock: number | null) => {

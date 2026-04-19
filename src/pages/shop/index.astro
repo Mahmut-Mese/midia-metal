@@ -10,6 +10,7 @@ import { getApiBase } from '@/lib/api-base';
 import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings';
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
+import { getAvailableStock } from '@/lib/stock';
 import { getVariantAttributes, getProductVariantMode } from '@/lib/variants';
 
 type VariantFilters = Record<string, string[]>;
@@ -171,7 +172,7 @@ if (selectedTags.length > 0) {
 filteredProducts = filteredProducts.filter((product: any) => {
   const price = parsePriceValue(getStandardizedDisplayPrice(product));
   const matchesPrice = price >= minPrice && price <= maxPrice;
-  const matchesStock = !inStockOnly || !product.track_stock || Number(product.stock_quantity ?? 0) > 0;
+  const matchesStock = !inStockOnly || !product.track_stock || Number(getAvailableStock(product) ?? 0) > 0;
   return matchesPrice && matchesStock;
 });
 

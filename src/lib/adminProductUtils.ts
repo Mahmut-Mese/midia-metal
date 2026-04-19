@@ -89,12 +89,6 @@ export const normalizeVariantPrice = (value: unknown, fallbackPrice: string): st
 
 export const normalizeVariantOptionName = (value: unknown): string => String(value ?? "").trim();
 
-// -- Spreadsheet / bulk paste ------------------------------------------------
-
-/** Split a tab-separated line into trimmed tokens (for spreadsheet bulk paste). */
-export const toVariantTableTokens = (line: string): string[] =>
-    line.split("\t").map((token) => token.trim());
-
 /** Create a stable, lowercase key from a group label (for collapsible group state). */
 export const slugifyVariantGroupKey = (label: string): string =>
     label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "other";
@@ -236,10 +230,14 @@ export const mapCombinationVariantsToAdmin = (
     productPrice: string,
     optionNames: string[],
 ) => variants
-    .filter((variant) => isCombinationVariant(variant))
     .map((variant) => ({
         ...variant,
-        attributes: normalizeCombinationAttributes(variant.attributes, optionNames),
+        attributes: normalizeCombinationAttributes(
+            isCombinationVariant(variant)
+                ? variant.attributes
+                : (variant?.option && variant?.value ? { [String(variant.option).trim()]: String(variant.value).trim() } : {}),
+            optionNames,
+        ),
         price: normalizeVariantPrice(variant.price, productPrice),
         stock: normalizeVariantStock(variant.stock),
         shipping_weight_kg: normalizeShippingNumber(variant.shipping_weight_kg),
@@ -394,8 +392,8 @@ export const createEmptySizeVariant = () => ({
     shipping_length_cm: "",
     shipping_width_cm: "",
     shipping_height_cm: "",
-    shipping_class: "",
-    ships_separately: false,
+    shipping_class: "standard",
+    ships_separately: false, // derived from shipping_class at save time
     custom_fields: {},
 });
 

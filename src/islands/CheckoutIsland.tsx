@@ -15,8 +15,9 @@ import { MapPin, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import { useStore } from "@nanostores/react";
-import { $cart, $subtotal, $vatEnabled, $vatRate, $coupon, $isBusiness, setIsBusiness } from "@/stores/cart";
+import { $cart, $subtotal, $coupon, $isBusiness, setIsBusiness } from "@/stores/cart";
 import { $customer, fetchCurrentCustomer } from "@/stores/auth";
+import type { CheckoutFormData } from "@/types/cart";
 import withErrorBoundary from "@/lib/withErrorBoundary";
 
 // Astro-compatible CheckoutSteps (inline, no react-router)
@@ -106,23 +107,7 @@ type ShippingOption = {
 };
 
 function CheckoutIsland() {
-  const cart = useStore($cart);
-  const subtotalRaw = useStore($subtotal);
-  const vatEnabled = useStore($vatEnabled);
-  const vatRate = useStore($vatRate);
-  const coupon = useStore($coupon);
-  const isBusiness = useStore($isBusiness);
-  const customer = useStore($customer);
-  
-  // Hydration fix: defer cart-dependent rendering until client-side
-  // Server renders empty cart, but localStorage may have items on client
-  const [isHydrated, setIsHydrated] = useState(false);
-  useEffect(() => {
-    fetchCurrentCustomer();
-    setIsHydrated(true);
-  }, []);
-  
-  const [form, setForm] = useState({
+  const defaultForm: CheckoutFormData = {
     firstName: "",
     lastName: "",
     company: "",
@@ -131,6 +116,7 @@ function CheckoutIsland() {
     notes: "",
     companyVat: "",
     fulfillmentMethod: "delivery",
+    selectedShippingOption: null,
     shippingOptionToken: "",
     // Shipping (primary)
     shipping_address: "",
@@ -145,14 +131,50 @@ function CheckoutIsland() {
     postcode: "",
     county: "",
     country: "United Kingdom",
-  });
+  };
+
+  const cart = useStore($cart);
+  const subtotalRaw = useStore($subtotal);
+  const coupon = useStore($coupon);
+  const isBusiness = useStore($isBusiness);
+  const customer = useStore($customer);
+  
+  // Hydration fix: defer cart-dependent rendering until client-side
+  // Server renders empty cart, but localStorage may have items on client
+  const [isHydrated, setIsHydrated] = useState(false);
+  useEffect(() => {
+    fetchCurrentCustomer();
+    setIsHydrated(true);
+  }, []);
+  
+  const [form, setForm] = useState<CheckoutFormData>(defaultForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [shippingOptionsLoading, setShippingOptionsLoading] = useState(false);
   const [shippingOptionsError, setShippingOptionsError] = useState("");
+  const [hasRestoredCheckoutForm, setHasRestoredCheckoutForm] = useState(false);
 
   useEffect(() => {
-    if (customer) {
+    const stored = sessionStorage.getItem("checkoutForm");
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored) as Partial<CheckoutFormData>;
+      setForm((prev) => ({
+        ...prev,
+        ...parsed,
+        shipping_country: parsed.shipping_country || prev.shipping_country,
+        country: parsed.country || prev.country,
+        shippingOptionToken: parsed.shippingOptionToken || "",
+      }));
+      setHasRestoredCheckoutForm(true);
+    } catch {
+      sessionStorage.removeItem("checkoutForm");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (customer && !hasRestoredCheckoutForm) {
       const parts = (customer.name || "").split(" ");
       const cust = customer as any;
       const billingAddress = cust.billing_address || cust.address || "";
@@ -185,9 +207,11 @@ function CheckoutIsland() {
       }));
       setIsBusiness(customer.is_business || false);
     }
-  }, [customer, setIsBusiness]);
+  }, [customer, hasRestoredCheckoutForm, setIsBusiness]);
 
-  const update = (field: string, value: string | boolean) => setForm(prev => ({ ...prev, [field]: value }));
+  const update = <K extends keyof CheckoutFormData>(field: K, value: CheckoutFormData[K]) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
   const formatEtaDate = (value?: string | null) => {
     if (!value) return "Estimated date unavailable";
     const date = new Date(`${value}T00:00:00`);
@@ -279,9 +303,7 @@ function CheckoutIsland() {
   const selectedShippingOption = shippingOptions.find((option) => option.quote_token === form.shippingOptionToken) || null;
   const shippingForOrder = form.fulfillmentMethod === "click_collect" ? 0 : (selectedShippingOption?.rate ?? 0);
   const discountAmount = coupon?.discount ?? 0;
-  const taxableAmount = Math.max(0, subtotalRaw + shippingForOrder - discountAmount);
-  const vatAmountForOrder = vatEnabled ? Math.round(taxableAmount * (vatRate / 100) * 100) / 100 : 0;
-  const totalForOrder = cart.length > 0 ? Math.max(0, taxableAmount + vatAmountForOrder) : 0;
+  const totalForOrder = cart.length > 0 ? Math.max(0, subtotalRaw + shippingForOrder - discountAmount) : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -383,7 +405,7 @@ function CheckoutIsland() {
                     <button
                       key={option.id}
                       type="button"
-                      onClick={() => update("fulfillmentMethod", option.id)}
+                      onClick={() => update("fulfillmentMethod", option.id as CheckoutFormData["fulfillmentMethod"])}
                       className={`border p-6 md:p-7 text-left transition-colors ${
                         form.fulfillmentMethod === option.id
                           ? "border-primary bg-[#f4f7fb]"
@@ -567,70 +589,68 @@ function CheckoutIsland() {
               <h3 className="font-sans font-semibold text-[28px] md:text-[40px] leading-none text-primary mb-6">Your order</h3>
               {/* Use isHydrated to prevent SSR mismatch - server renders empty cart */}
               {(isHydrated && cart.length > 0) ? (
-                <div className="border border-[#cad4e4] overflow-hidden">
-                  <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                    <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Product</span>
-                    <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Subtotal</span>
-                  </div>
-                  {cart.map((item, idx) => (
-                    <div key={idx} className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                      <div className="text-sm md:text-base text-primary p-4 md:p-6">
-                        {item.name} x {item.qty}
-                        {item.selected_variants && Object.entries(item.selected_variants).map(([opt, v]: [string, any]) => (
-                          <div key={opt} className="text-[10px] text-orange font-bold uppercase tracking-tight mt-1">
-                            {opt}: {v.value}
+                <>
+                  <div className="border border-[#cad4e4] overflow-hidden">
+                    <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
+                      <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Product</span>
+                      <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Subtotal</span>
+                    </div>
+                    <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
+                      {cart.map((item, idx) => (
+                        <div key={idx} className="contents">
+                          <div className="text-sm md:text-base text-primary p-4 md:p-6 border-b border-[#cad4e4]">
+                            {item.name} x {item.qty}
+                            {item.selected_variants && Object.entries(item.selected_variants).map(([opt, v]: [string, any]) => (
+                              <div key={opt} className="text-[10px] text-orange font-bold uppercase tracking-tight mt-1">
+                                {opt}: {v.value}
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                          <span className="text-sm md:text-base text-primary p-4 md:p-6 border-b border-[#cad4e4]">{typeof item.price === "string" ? item.price : `£${item.price}`}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
+                      <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Subtotal</span>
+                      <span className="text-sm md:text-base text-primary p-4 md:p-6">£{subtotalRaw.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+
+                    {isHydrated && coupon && (
+                      <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
+                        <span className="font-semibold text-sm md:text-lg text-green-700 bg-[#f4f5f7] p-4 md:p-6">Discount ({coupon.code})</span>
+                        <span className="text-sm md:text-base text-green-700 p-4 md:p-6">−£{coupon.discount.toFixed(2)}</span>
                       </div>
-                      <span className="text-sm md:text-base text-primary p-4 md:p-6">{typeof item.price === "string" ? item.price : `£${item.price}`}</span>
-                    </div>
-                  ))}
-                  <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                    <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Subtotal</span>
-                    <span className="text-sm md:text-base text-primary p-4 md:p-6">£{subtotalRaw.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
+                    )}
 
-                  {isHydrated && coupon && (
                     <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                      <span className="font-semibold text-sm md:text-lg text-green-700 bg-[#f4f5f7] p-4 md:p-6">Discount ({coupon.code})</span>
-                      <span className="text-sm md:text-base text-green-700 p-4 md:p-6">−£{coupon.discount.toFixed(2)}</span>
+                      <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Shipping</span>
+                      <div className="text-sm md:text-base text-primary p-4 md:p-6">
+                        {form.fulfillmentMethod === "click_collect" ? (
+                          <p>Click & Collect: £0.00</p>
+                        ) : (
+                          <>
+                            <p>{selectedShippingOption?.service || "Select a delivery option"}: £{shippingForOrder.toFixed(2)}</p>
+                            {selectedShippingOption && (
+                              <p className="mt-1 text-[#6e7a92]">
+                                ETA: <strong className="text-primary">{formatEtaDate(selectedShippingOption.estimated_delivery_date)}</strong>
+                                {" · "}
+                                {formatEtaWindow(selectedShippingOption.estimated_delivery_window_start, selectedShippingOption.estimated_delivery_window_end)}
+                                {selectedShippingOption.parcel_summary?.parcel_count && selectedShippingOption.parcel_summary.parcel_count > 1
+                                  ? ` · ${selectedShippingOption.parcel_summary.parcel_count} parcels`
+                                  : ""}
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  )}
-
-                  {isHydrated && vatEnabled && vatAmountForOrder > 0 && (
-                    <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                      <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">VAT ({vatRate}%)</span>
-                      <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmountForOrder.toFixed(2)}</span>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                    <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Shipping</span>
-                    <div className="text-sm md:text-base text-primary p-4 md:p-6">
-                      {form.fulfillmentMethod === "click_collect" ? (
-                        <p>Click & Collect: £0.00</p>
-                      ) : (
-                        <>
-                          <p>{selectedShippingOption?.service || "Select a delivery option"}: £{shippingForOrder.toFixed(2)}</p>
-                          {selectedShippingOption && (
-                            <p className="mt-1 text-[#6e7a92]">
-                              ETA: <strong className="text-primary">{formatEtaDate(selectedShippingOption.estimated_delivery_date)}</strong>
-                              {" · "}
-                              {formatEtaWindow(selectedShippingOption.estimated_delivery_window_start, selectedShippingOption.estimated_delivery_window_end)}
-                              {selectedShippingOption.parcel_summary?.parcel_count && selectedShippingOption.parcel_summary.parcel_count > 1
-                                ? ` · ${selectedShippingOption.parcel_summary.parcel_count} parcels`
-                                : ""}
-                            </p>
-                          )}
-                        </>
-                      )}
+                    <div className="grid grid-cols-[42%_58%]">
+                      <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Total</span>
+                      <span className="font-semibold text-base md:text-2xl text-primary p-4 md:p-6">£{(isHydrated ? totalForOrder : 0).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
-                  <div className="grid grid-cols-[42%_58%]">
-                    <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Total</span>
-                    <span className="font-semibold text-base md:text-2xl text-primary p-4 md:p-6">£{(isHydrated ? totalForOrder : 0).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
+                  <p className="mt-3 text-[12px] text-[#6e7a92]">All displayed prices include VAT.</p>
+                </>
               ) : (
                 <div className="border border-[#cad4e4] p-4 text-center">Your cart is empty.</div>
               )}

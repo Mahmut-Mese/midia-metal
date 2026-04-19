@@ -3,6 +3,7 @@ import { ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 import { apiFetch } from "@/lib/api";
+import { getAvailableStock } from "@/lib/stock";
 import type { Product, ProductCategory } from "@/types/product";
 import { normalizeMediaUrl } from "@/lib/media";
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from "@/lib/pricing";
@@ -187,7 +188,7 @@ export default function ShopIsland({
       fetchedProducts = fetchedProducts.filter((p: any) => {
         const price = parsePriceValue(getStandardizedDisplayPrice(p));
         const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
-        const matchesStock = !inStockOnly || !p.track_stock || Number(p.stock_quantity ?? 0) > 0;
+        const matchesStock = !inStockOnly || !p.track_stock || Number(getAvailableStock(p) ?? 0) > 0;
         return matchesPrice && matchesStock;
       });
 

@@ -10,6 +10,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\SiteSetting;
 use App\Support\CheckoutCalculator;
+use App\Support\ProductVariantResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -130,10 +131,7 @@ class OrderService
                     'variant_details' => $item['variant_details'],
                 ]);
 
-                // Decrement stock if tracked
-                Product::where('id', $item['product_id'])
-                    ->where('track_stock', true)
-                    ->decrement('stock_quantity', $item['quantity']);
+                $this->decrementProductStock((int) $item['product_id'], $item['variant_details'] ?? null, (int) $item['quantity']);
             }
 
             return $order;
@@ -194,6 +192,50 @@ class OrderService
             Mail::to($order->customer_email)->send(new CustomerOrderConfirmation($order));
         } catch (\Exception $e) {
             Log::error('Failed to send order confirmation email: '.$e->getMessage());
+        }
+    }
+
+    private function decrementProductStock(int $productId, ?array $variantDetails, int $quantity): void
+    {
+        /** @var Product|null $product */
+        $product = Product::find($productId);
+        if (! $product || ! $product->track_stock) {
+            return;
+        }
+
+        $variants = collect($product->variants ?? [])->map(function ($variant) {
+            return is_array($variant) ? $variant : null;
+        })->filter()->values();
+
+        $matchedVariant = ProductVariantResolver::resolveSelectedVariant($product, $variantDetails);
+        if ($matchedVariant) {
+            $updatedVariants = $variants->map(function (array $variant) use ($matchedVariant, $quantity) {
+                if ($variant !== $matchedVariant) {
+                    return $variant;
+                }
+
+                $currentStock = is_numeric($variant['stock'] ?? null) ? (int) $variant['stock'] : null;
+                if ($currentStock === null) {
+                    return $variant;
+                }
+
+                $variant['stock'] = max(0, $currentStock - $quantity);
+
+                return $variant;
+            })->all();
+
+            $product->variants = $updatedVariants;
+            $product->stock_quantity = collect($updatedVariants)
+                ->pluck('stock')
+                ->filter(fn ($stock) => $stock !== null && $stock !== '')
+                ->sum(fn ($stock) => max(0, (int) $stock));
+            $product->save();
+
+            return;
+        }
+
+        if ($product->stock_quantity !== null) {
+            $product->decrement('stock_quantity', $quantity);
         }
     }
 }

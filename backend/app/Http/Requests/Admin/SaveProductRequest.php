@@ -50,7 +50,7 @@ class SaveProductRequest extends FormRequest
             'ships_separately' => 'nullable|boolean',
             'freight_delivery_price' => 'nullable|numeric|min:0|max:9999.99',
             'specifications' => 'nullable|array',
-            'variants' => 'nullable|array',
+            'variants' => 'required|array|min:1',
             'variant_table_columns' => 'nullable|array',
         ];
     }

@@ -9,7 +9,6 @@ import {
   formatPriceForStorage,
   normalizeVariantPrice,
   normalizeVariantOptionName,
-  toVariantTableTokens,
   slugifyVariantGroupKey,
   normalizeVariantOptionList,
   normalizeSpecifications,
@@ -177,18 +176,6 @@ describe("normalizeVariantPrice", () => {
   it("returns fallback when value is empty", () => {
     expect(normalizeVariantPrice("", "100")).toBe("100");
     expect(normalizeVariantPrice(null, "50")).toBe("50");
-  });
-});
-
-// -- Spreadsheet / bulk paste --
-
-describe("toVariantTableTokens", () => {
-  it("splits tab-separated line", () => {
-    expect(toVariantTableTokens("Large\t150\t10")).toEqual(["Large", "150", "10"]);
-  });
-
-  it("trims whitespace from tokens", () => {
-    expect(toVariantTableTokens("  Large \t 150 ")).toEqual(["Large", "150"]);
   });
 });
 

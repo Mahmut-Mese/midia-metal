@@ -213,12 +213,13 @@ class ParcelBuilder
      */
     private function profileForProduct(Product $product, ?array $selectedVariants = null): array
     {
-        $weight = round(max(0.01, (float) ($product->shipping_weight_kg ?: config('services.shipping.default_parcel.weight', 2))), 3);
-        $length = round(max(1, (float) ($product->shipping_length_cm ?: config('services.shipping.default_parcel.length', 30))), 2);
-        $width = round(max(1, (float) ($product->shipping_width_cm ?: config('services.shipping.default_parcel.width', 20))), 2);
-        $height = round(max(1, (float) ($product->shipping_height_cm ?: config('services.shipping.default_parcel.height', 10))), 2);
-        $shippingClass = (string) ($product->shipping_class ?: 'standard');
-        $shipsSeparately = (bool) $product->ships_separately;
+        $selectedVariant = ProductVariantResolver::resolveSelectedVariant($product, $selectedVariants);
+        $weight = round(max(0.01, (float) (($selectedVariant['shipping_weight_kg'] ?? $product->shipping_weight_kg) ?: config('services.shipping.default_parcel.weight', 2))), 3);
+        $length = round(max(1, (float) (($selectedVariant['shipping_length_cm'] ?? $product->shipping_length_cm) ?: config('services.shipping.default_parcel.length', 30))), 2);
+        $width = round(max(1, (float) (($selectedVariant['shipping_width_cm'] ?? $product->shipping_width_cm) ?: config('services.shipping.default_parcel.width', 20))), 2);
+        $height = round(max(1, (float) (($selectedVariant['shipping_height_cm'] ?? $product->shipping_height_cm) ?: config('services.shipping.default_parcel.height', 10))), 2);
+        $shippingClass = (string) (($selectedVariant['shipping_class'] ?? $product->shipping_class) ?: 'standard');
+        $shipsSeparately = (bool) ($selectedVariant['ships_separately'] ?? $product->ships_separately);
         $variantOverride = $this->variantShippingOverride($product, $selectedVariants);
 
         if ($variantOverride['weight_kg'] !== null) {
@@ -368,7 +369,7 @@ class ParcelBuilder
      */
     private function variantShippingOverride(Product $product, ?array $selectedVariants): array
     {
-        if (! $selectedVariants || count($selectedVariants) === 0) {
+        if ((! $selectedVariants || count($selectedVariants) === 0) && ! ProductVariantResolver::usesCombinationMode($product)) {
             return [
                 'weight_kg' => null,
                 'length_cm' => null,
@@ -380,7 +381,7 @@ class ParcelBuilder
         }
 
         if (ProductVariantResolver::usesCombinationMode($product)) {
-            $matchedVariant = ProductVariantResolver::findMatchingCombinationVariant($product, $selectedVariants);
+            $matchedVariant = ProductVariantResolver::resolveSelectedVariant($product, $selectedVariants);
             $resolvedSelections = collect($matchedVariant ? [$matchedVariant] : [])->values();
         } else {
             $resolvedSelections = collect($selectedVariants)->map(function ($selection, $option) use ($product) {

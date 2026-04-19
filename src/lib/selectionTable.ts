@@ -128,7 +128,6 @@ export const normalizeSelectionTableConfig = (
     : [];
   const tabCandidates = uniqueStrings([
     ...variantTabValues,
-    ...quoteTabValues,
     ...rawTabs.map((entry) => normalizeText((entry as Record<string, unknown>)?.value)),
   ]);
   const normalizedTabs = rawTabs
@@ -153,7 +152,6 @@ export const normalizeSelectionTableConfig = (
   const availableTabs = uniqueStrings([
     ...normalizedTabs.map((entry) => entry.value),
     ...variantTabValues,
-    ...quoteTabValues,
   ]);
   const tabs = uniqueStrings([
     ...normalizedTabs.map((entry) => entry.value),
@@ -164,11 +162,12 @@ export const normalizeSelectionTableConfig = (
     heading: "",
     intro_text: "",
   }));
-  const normalizedQuoteTabValues = uniqueStrings(
-    tabs
+  const normalizedQuoteTabValues = uniqueStrings([
+    ...quoteTabValues,
+    ...tabs
       .filter((entry) => entry.mode === "quote")
       .map((entry) => entry.value),
-  );
+  ]);
 
   return {
     intro_text: normalizeText(source.intro_text),
@@ -193,7 +192,6 @@ export const getSelectionTableTabValues = (
   return uniqueStrings([
     ...(Array.isArray(config.tabs) ? config.tabs.map((tab) => normalizeText(tab?.value)) : []),
     ...getSelectionTableSourceValues(variants, config.tab_option),
-    ...(Array.isArray(config.quote_tab_values) ? config.quote_tab_values.map((tabValue) => normalizeText(tabValue)) : []),
   ]);
 };
 

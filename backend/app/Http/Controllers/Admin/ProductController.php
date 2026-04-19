@@ -52,6 +52,7 @@ class ProductController extends Controller
             $validated['variant_mode'],
             $validated['variant_options'] ?? null,
         );
+        $validated = $this->syncProductFieldsFromVariants($validated);
         $this->assertValidCombinationSetup(
             $validated['variant_mode'],
             $validated['variant_options'] ?? null,
@@ -98,6 +99,7 @@ class ProductController extends Controller
             $validated['variant_mode'],
             $validated['variant_options'] ?? null,
         );
+        $validated = $this->syncProductFieldsFromVariants($validated);
         $this->assertValidCombinationSetup(
             $validated['variant_mode'],
             $validated['variant_options'] ?? null,
@@ -211,7 +213,7 @@ class ProductController extends Controller
 
     private function normalizeCombinationVariants(mixed $variants, string $productPrice, array $variantOptions): ?array
     {
-        if (count($variantOptions) === 0 || ! is_array($variants)) {
+        if (! is_array($variants)) {
             return null;
         }
 
@@ -463,7 +465,7 @@ class ProductController extends Controller
             ->values()
             ->all();
 
-        $tabCandidates = collect([...$variantTabValues, ...$quoteTabValues, ...$tabCandidates])
+        $tabCandidates = collect([...$variantTabValues, ...$tabCandidates])
             ->filter()
             ->unique()
             ->values()
@@ -494,7 +496,7 @@ class ProductController extends Controller
             ->unique('value')
             ->values();
 
-        $availableTabs = collect([...$tabs->pluck('value')->all(), ...$variantTabValues, ...$quoteTabValues])
+        $availableTabs = collect([...$tabs->pluck('value')->all(), ...$variantTabValues])
             ->filter()
             ->unique()
             ->values()
@@ -514,9 +516,16 @@ class ProductController extends Controller
         }
 
         $tabs = $tabs->values();
-        $quoteTabValues = $tabs
-            ->filter(fn ($tab) => ($tab['mode'] ?? 'table') === 'quote')
-            ->pluck('value')
+        $quoteTabValues = collect([
+            ...$quoteTabValues,
+            ...$tabs
+                ->filter(fn ($tab) => ($tab['mode'] ?? 'table') === 'quote')
+                ->pluck('value')
+                ->values()
+                ->all(),
+        ])
+            ->filter()
+            ->unique()
             ->values()
             ->all();
 
@@ -613,16 +622,58 @@ class ProductController extends Controller
             return;
         }
 
-        if (! is_array($variantOptions) || count($variantOptions) === 0) {
-            throw ValidationException::withMessages([
-                'variant_options' => 'Add at least one combination attribute.',
-            ]);
-        }
-
         if (! is_array($variants) || count($variants) === 0) {
             throw ValidationException::withMessages([
                 'variants' => 'Add at least one complete combination row.',
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function syncProductFieldsFromVariants(array $validated): array
+    {
+        $variants = collect($validated['variants'] ?? [])->filter(fn ($variant) => is_array($variant))->values();
+        if ($variants->isEmpty()) {
+            return $validated;
+        }
+
+        $prices = $variants
+            ->map(function (array $variant) {
+                $price = $this->normalizeMoneyValue($variant['price'] ?? null, 'price');
+                if (! $price) {
+                    return null;
+                }
+
+                return [
+                    'display' => $price,
+                    'value' => (float) preg_replace('/[^0-9.\-]/', '', $price),
+                ];
+            })
+            ->filter();
+
+        if ($prices->isNotEmpty()) {
+            $validated['price'] = $prices->sortBy('value')->first()['display'];
+        }
+
+        $trackedStocks = $variants
+            ->pluck('stock')
+            ->filter(fn ($stock) => $stock !== null && $stock !== '');
+
+        $validated['stock_quantity'] = $trackedStocks->isNotEmpty()
+            ? (int) $trackedStocks->sum(fn ($stock) => max(0, (int) $stock))
+            : null;
+
+        $primaryVariant = $variants->first();
+        $validated['shipping_weight_kg'] = $primaryVariant['shipping_weight_kg'] ?? null;
+        $validated['shipping_length_cm'] = $primaryVariant['shipping_length_cm'] ?? null;
+        $validated['shipping_width_cm'] = $primaryVariant['shipping_width_cm'] ?? null;
+        $validated['shipping_height_cm'] = $primaryVariant['shipping_height_cm'] ?? null;
+        $validated['shipping_class'] = $primaryVariant['shipping_class'] ?? null;
+        $validated['ships_separately'] = (bool) ($primaryVariant['ships_separately'] ?? false);
+
+        return $validated;
     }
 }

@@ -94,12 +94,6 @@
                                     <td style="color:#22a3e6;font-size:14px;text-align:right;padding:4px 0;">-£{{ number_format($order->discount_amount, 2) }}</td>
                                 </tr>
                                 @endif
-                                @if($order->tax_amount > 0)
-                                <tr>
-                                    <td style="color:#6f7e9a;font-size:14px;padding:4px 0;">VAT</td>
-                                    <td style="color:#333333;font-size:14px;text-align:right;padding:4px 0;">£{{ number_format($order->tax_amount, 2) }}</td>
-                                </tr>
-                                @endif
                                 <tr>
                                     <td style="color:#10275c;font-size:18px;font-weight:bold;padding:12px 0 0;">Total</td>
                                     <td style="color:#10275c;font-size:18px;font-weight:bold;text-align:right;padding:12px 0 0;">£{{ number_format($order->total, 2) }}</td>

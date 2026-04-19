@@ -19,9 +19,6 @@ import { X, Minus, Plus, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import {
   $cart,
   $subtotal,
-  $vatEnabled,
-  $vatAmount,
-  $vatRate,
   $coupon,
   $total,
   removeFromCart,
@@ -102,9 +99,6 @@ function CheckoutSteps({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
 function CartIsland() {
   const cart = useStore($cart);
   const subtotal = useStore($subtotal);
-  const vatEnabled = useStore($vatEnabled);
-  const vatAmount = useStore($vatAmount);
-  const vatRate = useStore($vatRate);
   const coupon = useStore($coupon);
   const total = useStore($total);
 
@@ -323,15 +317,6 @@ function CartIsland() {
               </div>
             )}
 
-            {isHydrated && vatEnabled && vatAmount > 0 && (
-              <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">
-                  VAT ({vatRate}%)
-                </span>
-                <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmount.toFixed(2)}</span>
-              </div>
-            )}
-
             <div className="grid grid-cols-[38%_62%] border-b border-[#cad4e4]">
               <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Shipping</span>
               <div className="text-sm md:text-lg text-primary p-4 md:p-6">
@@ -352,6 +337,7 @@ function CartIsland() {
           >
             Proceed to checkout
           </a>
+          <p className="mt-3 text-[12px] text-[#6e7a92]">All displayed prices include VAT.</p>
         </div>
       </section>
     </>

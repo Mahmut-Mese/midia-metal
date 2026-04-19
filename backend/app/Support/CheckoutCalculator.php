@@ -4,12 +4,13 @@ namespace App\Support;
 
 use App\Models\Coupon;
 use App\Models\Product;
-use App\Models\SiteSetting;
 use App\Shipping\ShippingQuoteStore;
 use Illuminate\Validation\ValidationException;
 
 class CheckoutCalculator
 {
+    private const VAT_RATE = 20.0;
+
     public function __construct(private ShippingQuoteStore $shippingQuoteStore) {}
 
     public function calculate(
@@ -51,7 +52,10 @@ class CheckoutCalculator
                 ]);
             }
 
-            if ($product->track_stock && $product->stock_quantity !== null && $product->stock_quantity < $quantity) {
+            if (($product->variants === null || count($product->variants) === 0)
+                && $product->track_stock
+                && $product->stock_quantity !== null
+                && $product->stock_quantity < $quantity) {
                 throw ValidationException::withMessages([
                     "items.$index.quantity" => ["Only {$product->stock_quantity} unit(s) of {$product->name} are currently in stock."],
                 ]);
@@ -72,7 +76,6 @@ class CheckoutCalculator
         });
 
         $subtotal = round($lineItems->sum('line_total'), 2);
-        $settings = SiteSetting::pluck('value', 'key');
         $selectedShippingOption = null;
 
         if ($subtotal > 0 && $fulfilmentMethod !== 'click_collect') {
@@ -109,11 +112,8 @@ class CheckoutCalculator
             $discountAmount = round($coupon->calculateDiscount($subtotal), 2);
         }
 
-        $vatEnabled = in_array(strtolower((string) $settings->get('vat_enabled', '0')), ['1', 'true', 'yes', 'on'], true);
-        $vatRate = (float) $settings->get('vat_rate', 20);
-        $taxableAmount = max(0, $subtotal + $shipping - $discountAmount);
-        $taxAmount = $vatEnabled ? round($taxableAmount * ($vatRate / 100), 2) : 0.0;
-        $total = round(max(0, $subtotal + $shipping + $taxAmount - $discountAmount), 2);
+        $total = round(max(0, $subtotal + $shipping - $discountAmount), 2);
+        $taxAmount = round($total - ($total / (1 + (self::VAT_RATE / 100))), 2);
 
         return [
             'items' => $lineItems->values()->all(),
@@ -141,6 +141,24 @@ class CheckoutCalculator
         if (ProductVariantResolver::usesCombinationMode($product)) {
             $requiredOptions = collect(ProductVariantResolver::optionNames($product));
             $normalizedSelections = ProductVariantResolver::normalizeSelections($selectedVariants);
+
+            if ($requiredOptions->isEmpty()) {
+                $matchedVariant = ProductVariantResolver::findMatchingCombinationVariant($product, $selectedVariants);
+                if (! $matchedVariant) {
+                    throw ValidationException::withMessages([
+                        "items.$index.selected_variants" => ['This product is no longer available.'],
+                    ]);
+                }
+
+                $variantStock = $matchedVariant['stock'] ?? null;
+                if ($variantStock !== null && (int) $variantStock < $quantity) {
+                    throw ValidationException::withMessages([
+                        "items.$index.quantity" => ["Only {$variantStock} unit(s) are available for {$product->name}."],
+                    ]);
+                }
+
+                return null;
+            }
 
             $missingOptions = $requiredOptions->filter(
                 fn (string $option) => ! array_key_exists($option, $normalizedSelections) || $normalizedSelections[$option] === ''
@@ -255,6 +273,12 @@ class CheckoutCalculator
     private function resolveUnitPrice(Product $product, ?array $variantDetails): float
     {
         $basePrice = round($this->parseMoney($product->price), 2);
+
+        $selectedVariant = ProductVariantResolver::resolveSelectedVariant($product, $variantDetails);
+        $selectedVariantPrice = $this->parseMoney($selectedVariant['price'] ?? null);
+        if ($selectedVariantPrice > 0) {
+            return round($selectedVariantPrice, 2);
+        }
 
         if (! $variantDetails || count($variantDetails) === 0) {
             return $basePrice;

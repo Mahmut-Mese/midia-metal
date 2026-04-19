@@ -526,7 +526,6 @@ function AccountIsland() {
                                                                     {order.payment_status && <p><span className="text-[#6e7a92]">Payment:</span> {PAYMENT_STATUS_LABELS[order.payment_status] || order.payment_status}</p>}
                                                                     {order.coupon_code && <p><span className="text-[#6e7a92]">Coupon:</span> {order.coupon_code}</p>}
                                                                     {order.discount_amount > 0 && <p><span className="text-[#6e7a92]">Discount:</span> -£{order.discount_amount}</p>}
-                                                                    {order.tax_amount > 0 && <p><span className="text-[#6e7a92]">VAT:</span> £{order.tax_amount}</p>}
                                                                     {order.shipping > 0 && <p><span className="text-[#6e7a92]">Shipping:</span> £{order.shipping}</p>}
                                                                     <p className="font-bold border-t border-[#cad4e4] pt-2 mt-2"><span className="text-[#6e7a92] font-normal">Total:</span> £{order.total}</p>
                                                                 </div>

@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import type { SiteSetting } from "@/types/settings";
 import { useStore } from "@nanostores/react";
-import { $cart, $subtotal, $vatEnabled, $vatRate, $coupon, $isBusiness, clearCart } from "@/stores/cart";
+import { $cart, $subtotal, $coupon, $isBusiness, clearCart } from "@/stores/cart";
 import { $customer, fetchCurrentCustomer } from "@/stores/auth";
 
 // Stripe
@@ -203,8 +203,6 @@ function PaymentIsland() {
 
   const cart = useStore($cart);
   const subtotalRaw = useStore($subtotal);
-  const vatEnabled = useStore($vatEnabled);
-  const vatRate = useStore($vatRate);
   const coupon = useStore($coupon);
   const isBusiness = useStore($isBusiness);
   const customer = useStore($customer);
@@ -250,9 +248,7 @@ function PaymentIsland() {
   const shippingOptionToken = checkoutForm?.shippingOptionToken ?? "";
   const shippingForOrder = fulfilmentMethod === "click_collect" ? 0 : Number(selectedShippingOption?.rate ?? 0);
   const discountAmount = coupon?.discount ?? 0;
-  const taxableAmount = Math.max(0, subtotalRaw + shippingForOrder - discountAmount);
-  const vatAmountForOrder = vatEnabled ? Math.round(taxableAmount * (vatRate / 100) * 100) / 100 : 0;
-  const totalForOrder = cart.length > 0 ? Math.max(0, taxableAmount + vatAmountForOrder) : 0;
+  const totalForOrder = cart.length > 0 ? Math.max(0, subtotalRaw + shippingForOrder - discountAmount) : 0;
   const totalFormatted = `£${totalForOrder.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const formatEtaDate = (value?: string | null) => {
@@ -651,17 +647,13 @@ function PaymentIsland() {
                   <span className="text-sm md:text-base text-green-700 p-4 md:p-6">−£{coupon.discount.toFixed(2)}</span>
                 </div>
               )}
-              {vatEnabled && vatAmountForOrder > 0 && (
-                <div className="grid grid-cols-[42%_58%] border-b border-[#cad4e4]">
-                  <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">VAT ({vatRate}%)</span>
-                  <span className="text-sm md:text-base text-primary p-4 md:p-6">£{vatAmountForOrder.toFixed(2)}</span>
-                </div>
-              )}
               <div className="grid grid-cols-[42%_58%]">
                 <span className="font-semibold text-sm md:text-lg text-primary bg-[#f4f5f7] p-4 md:p-6">Total</span>
                 <span className="font-semibold text-base md:text-2xl text-primary p-4 md:p-6">{totalFormatted}</span>
               </div>
             </div>
+
+            <p className="mt-3 text-[12px] text-[#6e7a92]">All displayed prices include VAT.</p>
 
             <p className="text-[12px] text-[#7f8aa2] mt-6">
               Your personal data will be used to process your order in accordance with our privacy policy.
