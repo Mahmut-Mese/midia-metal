@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Product;
 use App\Models\Coupon;
+use App\Models\Product;
 use App\Shipping\ShippingQuoteStore;
 use App\Support\CheckoutCalculator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
