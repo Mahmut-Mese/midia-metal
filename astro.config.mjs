@@ -9,6 +9,11 @@ export default defineConfig({
   // Canonical site URL — sets import.meta.env.SITE globally
   site: 'https://midiammetal.com',
 
+  server: {
+    host: true,
+    port: 4321,
+  },
+
   // SSR mode: pages are server-rendered by default (fresh API data on every request).
   // Static pages opt in with `export const prerender = true`.
   output: 'server',

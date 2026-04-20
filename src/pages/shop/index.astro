@@ -21,6 +21,8 @@ type VariantFacet = {
 };
 
 const DEFAULT_PRICE_RANGE: [number, number] = [0, 5000];
+const INITIAL_VISIBLE_COUNT = 18;
+const LOAD_MORE_COUNT = 9;
 
 const parsePriceValue = (price: unknown): number => {
   if (typeof price === 'number') return price;
@@ -136,6 +138,7 @@ let tags: string[] = [];
 
 try {
   const query = new URLSearchParams();
+  query.set('per_page', '500');
   if (searchParam) query.set('search', searchParam);
   if (categoryParam) query.set('category', categoryParam);
   if (inStockOnly) query.set('in_stock', '1');
@@ -215,6 +218,9 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
   { name: 'Home', url: `${siteUrl}/` },
   { name: 'Shop', url: shopUrl },
 ]);
+
+const hasMoreProducts = filteredProducts.length > INITIAL_VISIBLE_COUNT;
+const initialVisibleProducts = Math.min(INITIAL_VISIBLE_COUNT, filteredProducts.length);
 ---
 
 <BaseLayout
@@ -228,7 +234,9 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
       <div class="shop-layout grid gap-6 md:gap-8 lg:gap-10 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_370px]">
         <div>
           <div class="flex items-center justify-between mb-8 gap-4">
-            <p class="text-[13px] text-[#9aa6bc]">Showing {filteredProducts.length} results</p>
+            <p class="text-[13px] text-[#9aa6bc]">
+              Showing <span data-showing-count>{initialVisibleProducts}</span> of {filteredProducts.length} results
+            </p>
             <div class="relative">
               <select
                 name="sort"
@@ -244,9 +252,15 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
           </div>
 
           {filteredProducts.length > 0 ? (
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 md:gap-x-8 gap-y-9">
-              {filteredProducts.map((product: any) => (
-                <a href={`/shop/${product.slug || product.id}`} class="group">
+            <>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 md:gap-x-8 gap-y-9" data-shop-grid>
+                {filteredProducts.map((product: any, index: number) => (
+                  <a
+                    href={`/shop/${product.slug || product.id}`}
+                    class="group"
+                    data-product-card
+                    style={index >= INITIAL_VISIBLE_COUNT ? 'display: none;' : undefined}
+                  >
                   <div class="bg-[#f7f8fa] mb-4">
                     <img
                       src={normalizeImage(product.image)}
@@ -267,9 +281,52 @@ const breadcrumbJsonLd = buildBreadcrumbJsonLd([
                       <p class="text-[12px] md:text-[14px] text-[#9aa6bc] line-through font-normal">{product.old_price}</p>
                     )}
                   </div>
-                </a>
-              ))}
-            </div>
+                  </a>
+                ))}
+              </div>
+
+              {hasMoreProducts && (
+                <div class="pt-10" data-shop-sentinel-wrapper>
+                  <div data-shop-sentinel aria-hidden="true" class="h-1 w-full"></div>
+                </div>
+              )}
+
+              {hasMoreProducts && (
+                <script is:inline define:vars={{ initialVisibleCount: INITIAL_VISIBLE_COUNT, loadMoreCount: LOAD_MORE_COUNT }}>
+                  (() => {
+                    const cards = Array.from(document.querySelectorAll('[data-product-card]'));
+                    const sentinel = document.querySelector('[data-shop-sentinel]');
+                    const sentinelWrapper = document.querySelector('[data-shop-sentinel-wrapper]');
+                    const showingCount = document.querySelector('[data-showing-count]');
+                    if (!sentinel || cards.length <= initialVisibleCount) return;
+
+                    let visibleCount = initialVisibleCount;
+
+                    const revealNextBatch = () => {
+                      const nextVisibleCount = Math.min(visibleCount + loadMoreCount, cards.length);
+                      for (let index = visibleCount; index < nextVisibleCount; index += 1) {
+                        cards[index]?.style.removeProperty('display');
+                      }
+                      visibleCount = nextVisibleCount;
+                      if (showingCount) showingCount.textContent = String(visibleCount);
+
+                      if (visibleCount >= cards.length) {
+                        observer.disconnect();
+                        sentinelWrapper?.remove();
+                      }
+                    };
+
+                    const observer = new IntersectionObserver((entries) => {
+                      if (entries.some((entry) => entry.isIntersecting)) revealNextBatch();
+                    }, {
+                      rootMargin: '300px 0px',
+                    });
+
+                    observer.observe(sentinel);
+                  })();
+                </script>
+              )}
+            </>
           ) : (
             <div class="py-16 text-center text-[#6e7a92] bg-[#f4f5f7] border border-[#d5deea]">
               No products found.

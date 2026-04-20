@@ -15,7 +15,10 @@ class ProductController extends Controller
     {
         $request->validate([
             'search' => 'nullable|string|max:200',
+            'per_page' => 'nullable|integer|min:1|max:500',
         ]);
+
+        $perPage = max(1, min((int) $request->integer('per_page', 18), 500));
 
         $query = Product::with('category')->where('active', true);
 
@@ -39,7 +42,7 @@ class ProductController extends Controller
             });
         }
 
-        return response()->json($query->orderBy('order')->paginate(18));
+        return response()->json($query->orderBy('order')->paginate($perPage));
     }
 
     public function show($id)

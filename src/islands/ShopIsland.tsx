@@ -319,7 +319,7 @@ export default function ShopIsland({
               <div className="py-16 text-center text-[#6e7a92] bg-[#f4f5f7] border border-[#d5deea]">Loading products...</div>
             ) : products.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 md:gap-x-8 gap-y-9">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 md:gap-x-8 gap-y-9">
                   {products.map((p) => (
                     <a href={`/shop/${p.slug}`} key={p.id} className="group">
                       <div className="bg-[#f7f8fa] mb-4">
