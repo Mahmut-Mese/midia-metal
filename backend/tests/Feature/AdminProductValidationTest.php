@@ -159,4 +159,45 @@ class AdminProductValidationTest extends TestCase
         $product = Product::where('name', 'Deprecated Variant Shipping Class Product')->firstOrFail();
         $this->assertNull($product->variants[0]['shipping_class'] ?? null);
     }
+
+    public function test_admin_can_duplicate_a_product(): void
+    {
+        $product = Product::factory()->create([
+            'name' => 'Original Product',
+            'slug' => 'original-product',
+            'price' => '£149.99',
+            'old_price' => '£199.99',
+            'gallery' => ['https://example.com/a.jpg'],
+            'tags' => ['featured', 'new'],
+            'specifications' => ['Material' => 'Steel'],
+            'variants' => [[
+                'option' => 'Size',
+                'value' => 'Large',
+                'price' => '£149.99',
+                'stock' => 4,
+            ]],
+        ]);
+
+        $response = $this
+            ->withoutMiddleware()
+            ->postJson("/api/admin/products/{$product->id}/duplicate");
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('name', 'Original Product (Copy)')
+            ->assertJsonPath('price', '£149.99')
+            ->assertJsonPath('old_price', '£199.99')
+            ->assertJsonPath('variants.0.value', 'Large');
+
+        $this->assertDatabaseCount('products', 2);
+
+        $duplicate = Product::where('name', 'Original Product (Copy)')->firstOrFail();
+
+        $this->assertNotSame($product->id, $duplicate->id);
+        $this->assertNotSame($product->slug, $duplicate->slug);
+        $this->assertSame($product->gallery, $duplicate->gallery);
+        $this->assertSame($product->tags, $duplicate->tags);
+        $this->assertSame($product->specifications, $duplicate->specifications);
+        $this->assertSame($product->variants, $duplicate->variants);
+    }
 }

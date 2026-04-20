@@ -120,6 +120,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/dashboard', [Admin\DashboardController::class, 'index']);
 
         // Products
+        Route::post('/products/{product}/duplicate', [Admin\ProductController::class, 'duplicate']);
         Route::apiResource('/products', Admin\ProductController::class);
         Route::get('/product-category-list', [Admin\ProductController::class, 'categories']);
         Route::apiResource('/product-categories', Admin\ProductCategoryController::class);

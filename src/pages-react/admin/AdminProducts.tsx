@@ -96,6 +96,16 @@ export default function AdminProducts() {
         }
     };
 
+    const handleDuplicate = async (id: number) => {
+        try {
+            await apiFetch(`/admin/products/${id}/duplicate`, { method: "POST" });
+            toast.success("Product copied successfully");
+            loadProducts();
+        } catch (e) {
+            toast.error("Failed to copy product");
+        }
+    };
+
     const openEdit = (product: any = null) => {
         const prod = product ? (() => {
             const rawVariantMode = getVariantModeForProduct(product);
@@ -1421,6 +1431,15 @@ export default function AdminProducts() {
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button type="button" onClick={() => openEdit(product)} className="text-indigo-600 hover:text-indigo-900 mr-4">
                                             <Edit2 className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDuplicate(product.id)}
+                                            className="text-gray-600 hover:text-gray-900 mr-4"
+                                            title="Copy product"
+                                            aria-label={`Copy ${product.name}`}
+                                        >
+                                            <Copy className="h-4 w-4" />
                                         </button>
                                         <button type="button" onClick={() => handleDelete(product.id)} className="text-red-600 hover:text-red-900">
                                             <Trash2 className="h-4 w-4" />

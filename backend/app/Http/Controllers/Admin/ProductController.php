@@ -130,6 +130,18 @@ class ProductController extends Controller
         return response()->json(['message' => 'Product deleted']);
     }
 
+    public function duplicate(int $product)
+    {
+        $product = Product::query()->findOrFail($product);
+
+        $duplicate = $product->replicate();
+        $duplicate->name = $product->name.' (Copy)';
+        $duplicate->slug = Str::slug($duplicate->name).'-'.Str::random(4);
+        $duplicate->save();
+
+        return response()->json($duplicate->load('category'), 201);
+    }
+
     public function categories()
     {
         return response()->json(ProductCategory::orderBy('order')->get());
