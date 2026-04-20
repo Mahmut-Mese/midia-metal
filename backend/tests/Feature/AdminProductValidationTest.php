@@ -19,6 +19,11 @@ class AdminProductValidationTest extends TestCase
                 'price' => '£1234.50',
                 'old_price' => '£1,499.99',
                 'image' => 'https://example.com/product.jpg',
+                'variants' => [[
+                    'option' => 'Size',
+                    'value' => 'Standard',
+                    'price' => '£1234.50',
+                ]],
                 'active' => true,
                 'featured' => false,
             ]);
@@ -74,7 +79,7 @@ class AdminProductValidationTest extends TestCase
         $this->assertNull(Product::first());
     }
 
-    public function test_admin_product_store_rejects_combination_mode_without_attributes(): void
+    public function test_admin_product_store_rejects_combination_mode_without_complete_rows(): void
     {
         $response = $this
             ->withoutMiddleware()
@@ -91,10 +96,10 @@ class AdminProductValidationTest extends TestCase
 
         $response
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['variant_options']);
+            ->assertJsonValidationErrors(['variants']);
     }
 
-    public function test_admin_product_store_rejects_combination_mode_without_complete_rows(): void
+    public function test_admin_product_store_rejects_combination_mode_with_empty_rows(): void
     {
         $response = $this
             ->withoutMiddleware()

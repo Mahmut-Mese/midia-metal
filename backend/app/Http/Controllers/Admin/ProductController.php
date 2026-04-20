@@ -679,11 +679,11 @@ class ProductController extends Controller
             : null;
 
         $primaryVariant = $variants->first();
-        $validated['shipping_weight_kg'] = $primaryVariant['shipping_weight_kg'] ?? null;
-        $validated['shipping_length_cm'] = $primaryVariant['shipping_length_cm'] ?? null;
-        $validated['shipping_width_cm'] = $primaryVariant['shipping_width_cm'] ?? null;
-        $validated['shipping_height_cm'] = $primaryVariant['shipping_height_cm'] ?? null;
-        $validated['shipping_class'] = $primaryVariant['shipping_class'] ?? null;
+        $validated['shipping_weight_kg'] = $primaryVariant['shipping_weight_kg'] ?? ($validated['shipping_weight_kg'] ?? 2);
+        $validated['shipping_length_cm'] = $primaryVariant['shipping_length_cm'] ?? ($validated['shipping_length_cm'] ?? 30);
+        $validated['shipping_width_cm'] = $primaryVariant['shipping_width_cm'] ?? ($validated['shipping_width_cm'] ?? 20);
+        $validated['shipping_height_cm'] = $primaryVariant['shipping_height_cm'] ?? ($validated['shipping_height_cm'] ?? 10);
+        $validated['shipping_class'] = $primaryVariant['shipping_class'] ?? ($validated['shipping_class'] ?? 'standard');
         $validated['ships_separately'] = (bool) ($primaryVariant['ships_separately'] ?? false);
 
         return $validated;
