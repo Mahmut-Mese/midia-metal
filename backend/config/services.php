@@ -79,4 +79,14 @@ return [
         'webhook_secret' => env('EASYPOST_WEBHOOK_SECRET'),
     ],
 
+    'frontend_deploy' => [
+        'enabled' => env('FRONTEND_DEPLOY_TRIGGER_ENABLED', false),
+        'token' => env('GITHUB_ACTIONS_TRIGGER_TOKEN'),
+        'repository' => env('GITHUB_ACTIONS_REPOSITORY', 'Mahmut-Mese/midia-metal'),
+        'workflow' => env('GITHUB_FRONTEND_DEPLOY_WORKFLOW', 'frontend-content-deploy.yml'),
+        'ref' => env('GITHUB_FRONTEND_DEPLOY_REF', 'staging'),
+        'debounce_seconds' => (int) env('FRONTEND_DEPLOY_DEBOUNCE_SECONDS', 60),
+        'api_base' => env('GITHUB_API_BASE', 'https://api.github.com'),
+    ],
+
 ];

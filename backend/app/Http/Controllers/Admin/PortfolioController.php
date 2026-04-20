@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\PortfolioCategory;
 use App\Models\PortfolioProject;
+use App\Services\FrontendContentDeployTrigger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -23,7 +24,7 @@ class PortfolioController extends Controller
         return response()->json($query->orderBy('order')->latest()->paginate(15));
     }
 
-    public function store(Request $request)
+    public function store(Request $request, FrontendContentDeployTrigger $frontendContentDeployTrigger)
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -41,7 +42,16 @@ class PortfolioController extends Controller
         ]);
         $validated['slug'] = Str::slug($validated['title']).'-'.Str::random(4);
 
-        return response()->json(PortfolioProject::create($validated)->load('portfolioCategory'), 201);
+        $project = PortfolioProject::create($validated)->load('portfolioCategory');
+
+        if ($project->active) {
+            $frontendContentDeployTrigger->trigger('portfolio.created', [
+                'id' => $project->id,
+                'slug' => $project->slug,
+            ]);
+        }
+
+        return response()->json($project, 201);
     }
 
     public function show(PortfolioProject $portfolio)
@@ -49,8 +59,9 @@ class PortfolioController extends Controller
         return response()->json($portfolio->load('portfolioCategory'));
     }
 
-    public function update(Request $request, PortfolioProject $portfolio)
+    public function update(Request $request, PortfolioProject $portfolio, FrontendContentDeployTrigger $frontendContentDeployTrigger)
     {
+        $wasPublic = $portfolio->active;
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'image' => 'nullable|string',
@@ -67,12 +78,29 @@ class PortfolioController extends Controller
         ]);
         $portfolio->update($validated);
 
+        if ($wasPublic || $portfolio->active) {
+            $frontendContentDeployTrigger->trigger('portfolio.updated', [
+                'id' => $portfolio->id,
+                'slug' => $portfolio->slug,
+            ]);
+        }
+
         return response()->json($portfolio->load('portfolioCategory'));
     }
 
-    public function destroy(PortfolioProject $portfolio)
+    public function destroy(PortfolioProject $portfolio, FrontendContentDeployTrigger $frontendContentDeployTrigger)
     {
+        $wasPublic = $portfolio->active;
+        $portfolioId = $portfolio->id;
+        $portfolioSlug = $portfolio->slug;
         $portfolio->delete();
+
+        if ($wasPublic) {
+            $frontendContentDeployTrigger->trigger('portfolio.deleted', [
+                'id' => $portfolioId,
+                'slug' => $portfolioSlug,
+            ]);
+        }
 
         return response()->json(['message' => 'Project deleted']);
     }
@@ -82,26 +110,44 @@ class PortfolioController extends Controller
         return response()->json(PortfolioCategory::withCount('projects')->get());
     }
 
-    public function storeCategory(Request $request)
+    public function storeCategory(Request $request, FrontendContentDeployTrigger $frontendContentDeployTrigger)
     {
         $validated = $request->validate(['name' => 'required|string|max:255']);
         $validated['slug'] = Str::slug($validated['name']);
 
-        return response()->json(PortfolioCategory::create($validated), 201);
+        $category = PortfolioCategory::create($validated);
+        $frontendContentDeployTrigger->trigger('portfolio_category.created', [
+            'id' => $category->id,
+            'slug' => $category->slug,
+        ]);
+
+        return response()->json($category, 201);
     }
 
-    public function updateCategory(Request $request, PortfolioCategory $portfolioCategory)
+    public function updateCategory(Request $request, PortfolioCategory $portfolioCategory, FrontendContentDeployTrigger $frontendContentDeployTrigger)
     {
         $validated = $request->validate(['name' => 'required|string|max:255']);
         $validated['slug'] = Str::slug($validated['name']);
         $portfolioCategory->update($validated);
 
+        $frontendContentDeployTrigger->trigger('portfolio_category.updated', [
+            'id' => $portfolioCategory->id,
+            'slug' => $portfolioCategory->slug,
+        ]);
+
         return response()->json($portfolioCategory);
     }
 
-    public function destroyCategory(PortfolioCategory $portfolioCategory)
+    public function destroyCategory(PortfolioCategory $portfolioCategory, FrontendContentDeployTrigger $frontendContentDeployTrigger)
     {
+        $categoryId = $portfolioCategory->id;
+        $categorySlug = $portfolioCategory->slug;
         $portfolioCategory->delete();
+
+        $frontendContentDeployTrigger->trigger('portfolio_category.deleted', [
+            'id' => $categoryId,
+            'slug' => $categorySlug,
+        ]);
 
         return response()->json(['message' => 'Category deleted']);
     }

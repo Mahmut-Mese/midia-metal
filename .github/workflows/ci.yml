@@ -93,13 +93,6 @@ jobs:
           done
           echo "Admin CSS validation passed ($CSS_SIZE bytes, all key classes present)"
 
-      - name: Upload frontend build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: dist/
-          if-no-files-found: error
-
   frontend-lint:
     name: Frontend Lint
     runs-on: ubuntu-latest
@@ -261,7 +254,17 @@ jobs:
       - name: Add server to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          for attempt in 1 2 3; do
+            if ssh-keyscan -T 5 -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Failed to fetch SSH host key from $SSH_HOST:$SSH_PORT"
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Sync backend files
         run: |
@@ -299,11 +302,116 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Download frontend build artifact
-        uses: actions/download-artifact@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          name: frontend-dist
-          path: dist/
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Astro app
+        env:
+          PUBLIC_API_URL: ${{ env.SUPPORT_PUBLIC_API_URL }}
+          PUBLIC_STRIPE_KEY: ${{ env.SUPPORT_PUBLIC_STRIPE_KEY }}
+          NODE_ENV: production
+        run: |
+          rm -rf .astro node_modules/.vite dist
+          npm run build
+
+      - name: Copy server CSS into client assets
+        run: |
+          echo "=== Server _astro CSS files ==="
+          ls -la dist/server/_astro/*.css 2>/dev/null || echo "(none)"
+          echo "=== Client _astro CSS files (before copy) ==="
+          ls -la dist/client/_astro/*.css 2>/dev/null || echo "(none)"
+          if ls dist/server/_astro/*.css >/dev/null 2>&1; then
+            cp dist/server/_astro/*.css dist/client/_astro/
+            echo "=== Copied server CSS to client ==="
+          fi
+          echo "=== Client _astro CSS files (after copy) ==="
+          ls -la dist/client/_astro/*.css 2>/dev/null || echo "(none)"
+
+      - name: Validate admin CSS bundle
+        run: |
+          CSS_FILE=$(ls dist/client/_astro/_path_*.css 2>/dev/null | head -1)
+          if [ -z "$CSS_FILE" ]; then
+            echo "::error::Admin CSS file (_path_*.css) NOT FOUND in dist/client/_astro/"
+            exit 1
+          fi
+          CSS_SIZE=$(wc -c < "$CSS_FILE" | tr -d ' ')
+          echo "Admin CSS file: $CSS_FILE"
+          echo "Admin CSS size: $CSS_SIZE bytes"
+          if [ "$CSS_SIZE" -lt 100000 ]; then
+            echo "::error::Admin CSS is only $CSS_SIZE bytes (expected >= 100000). Tailwind likely purged admin classes."
+            exit 1
+          fi
+          for CLASS in "text-muted-foreground" "bg-sidebar" "rounded-md" "border-border"; do
+            if ! grep -q "$CLASS" "$CSS_FILE"; then
+              echo "::error::Admin CSS missing class: $CLASS"
+              exit 1
+            fi
+          done
+          echo "Admin CSS validation passed ($CSS_SIZE bytes, all key classes present)"
+
+      - name: Validate prerendered content pages
+        env:
+          API_BASE: ${{ env.SUPPORT_PUBLIC_API_URL }}
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+
+          const checks = [
+            {
+              name: 'services',
+              api: `${process.env.API_BASE}/v1/services`,
+              html: path.join('dist', 'client', 'services', 'index.html'),
+              emptyText: 'No services available.',
+            },
+            {
+              name: 'blog',
+              api: `${process.env.API_BASE}/v1/blog`,
+              html: path.join('dist', 'client', 'blog', 'index.html'),
+              emptyText: 'No blog posts found.',
+            },
+            {
+              name: 'portfolio',
+              api: `${process.env.API_BASE}/v1/portfolio`,
+              html: path.join('dist', 'client', 'portfolio', 'index.html'),
+              emptyText: 'No projects found.',
+            },
+          ];
+
+          const countItems = (data) => Array.isArray(data) ? data.length : Array.isArray(data?.data) ? data.data.length : 0;
+
+          (async () => {
+            for (const check of checks) {
+              const response = await fetch(check.api, { headers: { Accept: 'application/json' } });
+              if (!response.ok) {
+                throw new Error(`${check.name} API check failed with status ${response.status}`);
+              }
+
+              const payload = await response.json();
+              const itemCount = countItems(payload);
+              if (!fs.existsSync(check.html)) {
+                throw new Error(`Missing prerendered file: ${check.html}`);
+              }
+
+              const html = fs.readFileSync(check.html, 'utf8');
+              const containsEmptyState = html.includes(check.emptyText);
+              if (itemCount > 0 && containsEmptyState) {
+                throw new Error(`${check.name} prerendered page contains its empty state while the API returned ${itemCount} items`);
+              }
+
+              console.log(`${check.name}: apiItems=${itemCount}, emptyState=${containsEmptyState}`);
+            }
+          })().catch((error) => {
+            console.error(`::error::${error.message}`);
+            process.exit(1);
+          });
+          EOF
 
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -313,7 +421,17 @@ jobs:
       - name: Add server to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          for attempt in 1 2 3; do
+            if ssh-keyscan -T 5 -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Failed to fetch SSH host key from $SSH_HOST:$SSH_PORT"
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Sync frontend runtime files
         run: |

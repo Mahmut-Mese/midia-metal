@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SaveBlogPostRequest;
 use App\Models\BlogPost;
+use App\Services\FrontendContentDeployTrigger;
 use App\Support\HtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -24,7 +25,7 @@ class BlogController extends Controller
         return response()->json($query->latest()->paginate(15));
     }
 
-    public function store(SaveBlogPostRequest $request)
+    public function store(SaveBlogPostRequest $request, FrontendContentDeployTrigger $frontendContentDeployTrigger)
     {
         $validated = $request->validated();
         $validated['content'] = HtmlSanitizer::richText($validated['content'] ?? null);
@@ -33,7 +34,16 @@ class BlogController extends Controller
             $validated['published_at'] = now();
         }
 
-        return response()->json(BlogPost::create($validated), 201);
+        $post = BlogPost::create($validated);
+
+        if ($post->active) {
+            $frontendContentDeployTrigger->trigger('blog.created', [
+                'id' => $post->id,
+                'slug' => $post->slug,
+            ]);
+        }
+
+        return response()->json($post, 201);
     }
 
     public function show(BlogPost $blog)
@@ -41,18 +51,36 @@ class BlogController extends Controller
         return response()->json($blog);
     }
 
-    public function update(SaveBlogPostRequest $request, BlogPost $blog)
+    public function update(SaveBlogPostRequest $request, BlogPost $blog, FrontendContentDeployTrigger $frontendContentDeployTrigger)
     {
+        $wasPublic = $blog->active;
         $validated = $request->validated();
         $validated['content'] = HtmlSanitizer::richText($validated['content'] ?? null);
         $blog->update($validated);
 
+        if ($wasPublic || $blog->active) {
+            $frontendContentDeployTrigger->trigger('blog.updated', [
+                'id' => $blog->id,
+                'slug' => $blog->slug,
+            ]);
+        }
+
         return response()->json($blog);
     }
 
-    public function destroy(BlogPost $blog)
+    public function destroy(BlogPost $blog, FrontendContentDeployTrigger $frontendContentDeployTrigger)
     {
+        $wasPublic = $blog->active;
+        $blogId = $blog->id;
+        $blogSlug = $blog->slug;
         $blog->delete();
+
+        if ($wasPublic) {
+            $frontendContentDeployTrigger->trigger('blog.deleted', [
+                'id' => $blogId,
+                'slug' => $blogSlug,
+            ]);
+        }
 
         return response()->json(['message' => 'Blog post deleted']);
     }
