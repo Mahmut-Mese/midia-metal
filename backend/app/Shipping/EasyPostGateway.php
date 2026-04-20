@@ -288,16 +288,16 @@ class EasyPostGateway implements ShippingGateway
                     'street1' => (string) ($address['street1'] ?? ''),
                     'street2' => (string) ($address['street2'] ?? ''),
                     'city' => (string) ($address['city'] ?? ''),
-                    'state' => (string) ($address['county'] ?? ''),
                     'zip' => (string) ($address['postcode'] ?? ''),
                     'country' => 'GB',
-                    'verify' => ['delivery'],
                 ],
             ];
 
-            $result = $this->request('post', '/addresses/create', $payload);
+            $result = $this->request('post', '/addresses/create_and_verify', $payload);
 
-            $verifications = data_get($result, 'verifications.delivery', []);
+            $verifiedAddress = is_array($result['address'] ?? null) ? $result['address'] : $result;
+
+            $verifications = data_get($verifiedAddress, 'verifications.delivery', []);
             $success = (bool) data_get($verifications, 'success', false);
             $errors = collect(data_get($verifications, 'errors', []))
                 ->map(fn ($error) => (string) ($error['message'] ?? $error['suggestion'] ?? 'Address could not be verified.'))
@@ -307,11 +307,11 @@ class EasyPostGateway implements ShippingGateway
                 'valid' => $success,
                 'messages' => $success ? [] : ($errors ?: ['Address could not be verified by the courier.']),
                 'verified_address' => $success ? [
-                    'street1' => data_get($result, 'street1') ?: ($address['street1'] ?? ''),
-                    'street2' => data_get($result, 'street2') ?: ($address['street2'] ?? ''),
-                    'city' => data_get($result, 'city') ?: ($address['city'] ?? ''),
-                    'county' => data_get($result, 'state') ?: ($address['county'] ?? ''),
-                    'postcode' => data_get($result, 'zip') ?: ($address['postcode'] ?? ''),
+                    'street1' => data_get($verifiedAddress, 'street1') ?: ($address['street1'] ?? ''),
+                    'street2' => data_get($verifiedAddress, 'street2') ?: ($address['street2'] ?? ''),
+                    'city' => data_get($verifiedAddress, 'city') ?: ($address['city'] ?? ''),
+                    'county' => data_get($verifiedAddress, 'state') ?: ($address['county'] ?? ''),
+                    'postcode' => data_get($verifiedAddress, 'zip') ?: ($address['postcode'] ?? ''),
                     'country' => 'GB',
                 ] : null,
             ];
@@ -627,7 +627,6 @@ class EasyPostGateway implements ShippingGateway
             'street1' => (string) ($toAddress['street1'] ?? ''),
             'street2' => (string) ($toAddress['street2'] ?? ''),
             'city' => (string) ($toAddress['city'] ?? ''),
-            'state' => (string) ($toAddress['county'] ?? ''),
             'zip' => (string) ($toAddress['postcode'] ?? ''),
             'country' => 'GB',
             'phone' => (string) ($toAddress['phone'] ?? ''),
@@ -645,7 +644,6 @@ class EasyPostGateway implements ShippingGateway
             'street1' => (string) ($order->shipping_address_line1 ?: $order->shipping_address),
             'street2' => (string) ($order->shipping_address_line2 ?: ''),
             'city' => (string) ($order->shipping_city ?: ''),
-            'state' => (string) ($order->shipping_county ?: ''),
             'zip' => (string) ($order->shipping_postcode ?: ''),
             'country' => 'GB',
             'phone' => (string) ($order->customer_phone ?: ''),
@@ -664,7 +662,6 @@ class EasyPostGateway implements ShippingGateway
             'street1' => (string) config('services.shipping.from_address_line1'),
             'street2' => (string) config('services.shipping.from_address_line2'),
             'city' => (string) config('services.shipping.from_city'),
-            'state' => (string) config('services.shipping.from_county', ''),
             'zip' => (string) config('services.shipping.from_postcode'),
             'country' => 'GB',
             'phone' => (string) config('services.shipping.from_phone'),
