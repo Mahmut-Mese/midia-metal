@@ -329,7 +329,7 @@ describe("createEmptySizeVariant", () => {
       shipping_length_cm: "",
       shipping_width_cm: "",
       shipping_height_cm: "",
-      shipping_class: "",
+      shipping_class: "standard",
       ships_separately: false,
       custom_fields: {},
     });
