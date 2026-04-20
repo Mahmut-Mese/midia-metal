@@ -358,60 +358,11 @@ jobs:
       - name: Validate prerendered content pages
         env:
           API_BASE: ${{ env.SUPPORT_PUBLIC_API_URL }}
+          PRERENDER_API_RETRIES: 5
+          PRERENDER_API_TIMEOUT_MS: 12000
+          PRERENDER_API_RETRY_DELAY_MS: 1500
         run: |
-          node <<'EOF'
-          const fs = require('fs');
-          const path = require('path');
-
-          const checks = [
-            {
-              name: 'services',
-              api: `${process.env.API_BASE}/v1/services`,
-              html: path.join('dist', 'client', 'services', 'index.html'),
-              emptyText: 'No services available.',
-            },
-            {
-              name: 'blog',
-              api: `${process.env.API_BASE}/v1/blog`,
-              html: path.join('dist', 'client', 'blog', 'index.html'),
-              emptyText: 'No blog posts found.',
-            },
-            {
-              name: 'portfolio',
-              api: `${process.env.API_BASE}/v1/portfolio`,
-              html: path.join('dist', 'client', 'portfolio', 'index.html'),
-              emptyText: 'No projects found.',
-            },
-          ];
-
-          const countItems = (data) => Array.isArray(data) ? data.length : Array.isArray(data?.data) ? data.data.length : 0;
-
-          (async () => {
-            for (const check of checks) {
-              const response = await fetch(check.api, { headers: { Accept: 'application/json' } });
-              if (!response.ok) {
-                throw new Error(`${check.name} API check failed with status ${response.status}`);
-              }
-
-              const payload = await response.json();
-              const itemCount = countItems(payload);
-              if (!fs.existsSync(check.html)) {
-                throw new Error(`Missing prerendered file: ${check.html}`);
-              }
-
-              const html = fs.readFileSync(check.html, 'utf8');
-              const containsEmptyState = html.includes(check.emptyText);
-              if (itemCount > 0 && containsEmptyState) {
-                throw new Error(`${check.name} prerendered page contains its empty state while the API returned ${itemCount} items`);
-              }
-
-              console.log(`${check.name}: apiItems=${itemCount}, emptyState=${containsEmptyState}`);
-            }
-          })().catch((error) => {
-            console.error(`::error::${error.message}`);
-            process.exit(1);
-          });
-          EOF
+          node .github/scripts/validate-prerendered-content.js
 
       - name: Start SSH agent
         uses: webfactory/ssh-agent@v0.9.0
