@@ -38,6 +38,8 @@ const getFulfilmentMethod = (order?: any): "delivery" | "click_collect" =>
     : "delivery";
 
 export default function AdminOrders() {
+  type AdminOrder = Record<string, any>;
+
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingOrder, setViewingOrder] = useState<any>(null);
@@ -64,7 +66,7 @@ export default function AdminOrders() {
 
   const openOrder = async (orderId: number) => {
     try {
-      const order = await apiFetch(`/admin/orders/${orderId}`);
+      const order = await apiFetch<AdminOrder>(`/admin/orders/${orderId}`);
       setViewingOrder(order);
     } catch {
       toast.error("Failed to load order details");
@@ -73,7 +75,7 @@ export default function AdminOrders() {
 
   const updateOrder = async (id: number, payload: Record<string, any>, successMessage: string, errorMessage: string) => {
     try {
-      const updated = await apiFetch(`/admin/orders/${id}`, {
+      const updated = await apiFetch<AdminOrder>(`/admin/orders/${id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
@@ -90,7 +92,7 @@ export default function AdminOrders() {
 
     setShippingBusy("label");
     try {
-      const updated = await apiFetch(`/admin/orders/${viewingOrder.id}/shipping/label`, {
+      const updated = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}/shipping/label`, {
         method: "POST",
         body: JSON.stringify({ tracking_number: (viewingOrder.tracking_number || "").trim() || undefined }),
       });
@@ -100,7 +102,7 @@ export default function AdminOrders() {
       // Auto-refresh tracking after label creation
       setShippingBusy("track");
       try {
-        const tracked = await apiFetch(`/admin/orders/${viewingOrder.id}/shipping/track`, {
+        const tracked = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}/shipping/track`, {
           method: "POST",
           body: JSON.stringify({ tracking_number: (updated.tracking_number || "").trim() || undefined }),
         });
@@ -121,7 +123,7 @@ export default function AdminOrders() {
 
     setShippingBusy("track");
     try {
-      const updated = await apiFetch(`/admin/orders/${viewingOrder.id}/shipping/track`, {
+      const updated = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}/shipping/track`, {
         method: "POST",
         body: JSON.stringify({ tracking_number: (viewingOrder.tracking_number || "").trim() || undefined }),
       });
@@ -141,7 +143,7 @@ export default function AdminOrders() {
 
     setShippingBusy("void");
     try {
-      const updated = await apiFetch(`/admin/orders/${viewingOrder.id}/shipping/void`, {
+      const updated = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}/shipping/void`, {
         method: "POST",
       });
       setViewingOrder(updated);
@@ -158,7 +160,7 @@ export default function AdminOrders() {
     if (!viewingOrder) return;
 
     try {
-      const updated = await apiFetch(`/admin/orders/${viewingOrder.id}`, {
+      const updated = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}`, {
         method: "PUT",
         body: JSON.stringify({ tracking_number: (viewingOrder.tracking_number || "").trim() }),
       });
@@ -199,7 +201,7 @@ export default function AdminOrders() {
         body: JSON.stringify({ request_status: requestStatus }),
       });
 
-      const updatedOrder = await apiFetch(`/admin/orders/${viewingOrder.id}`);
+      const updatedOrder = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}`);
       setViewingOrder(updatedOrder);
       await loadOrders();
       toast.success(requestStatus === "approved" ? "Cancellation request approved" : "Cancellation request rejected");
