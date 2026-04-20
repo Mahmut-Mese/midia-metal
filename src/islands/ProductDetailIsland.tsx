@@ -921,21 +921,25 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
             )}
 
             <div className="space-y-2 text-[12px] md:text-[14px]">
-              {!isSelectionTableMode && (
-                <>
+              <>
+                {product.category?.name && (
                   <p>
                     <span className="font-semibold text-primary">Category:</span>{" "}
-                    <span className="text-[#6e7a92]">{product.category?.name || "Uncategorized"}</span>
+                    <span className="text-[#6e7a92]">{product.category.name}</span>
                   </p>
+                )}
+                {Array.isArray(product.tags) && product.tags.length > 0 && (
                   <p>
                     <span className="font-semibold text-primary">Tags:</span>{" "}
-                    <span className="text-[#6e7a92]">{(product.tags || []).join(", ") || "None"}</span>
+                    <span className="text-[#6e7a92]">{product.tags.join(", ")}</span>
                   </p>
-                  <p>
-                    <span className="font-semibold text-primary">Product ID:</span>{" "}
-                    <span className="text-[#6e7a92]">{product.id}</span>
-                  </p>
-                  {dedupeSpecEntries([
+                )}
+                <p>
+                  <span className="font-semibold text-primary">Product ID:</span>{" "}
+                  <span className="text-[#6e7a92]">{product.id}</span>
+                </p>
+                {!isSelectionTableMode &&
+                  dedupeSpecEntries([
                     ...fixedVariantSummaryEntries,
                     ...selectedCombinationMetadataEntries,
                     ...(!hasSelectableVariantChoices ? resolvedVariantSummaryEntries : []),
@@ -945,8 +949,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
                       <span className="text-[#6e7a92]">{stripVariantLabelPrefix(value, label)}</span>
                     </p>
                   ))}
-                </>
-              )}
+              </>
 
               {/* Variants Selection */}
               {!isSelectionTableMode && hasSelectableVariantChoices && product.variants && product.variants.length > 0 && (

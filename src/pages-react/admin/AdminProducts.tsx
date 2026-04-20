@@ -49,6 +49,7 @@ export default function AdminProducts() {
 
     const [isEditing, setIsEditing] = useState(false);
     const [currentProduct, setCurrentProduct] = useState<any>(null);
+    const [tagsInput, setTagsInput] = useState("");
     const [newSizeVariant, setNewSizeVariant] = useState(createEmptySizeVariant());
     const [newCombinationVariant, setNewCombinationVariant] = useState(createEmptyCombinationVariant());
     const [collapsedCombinationGroups, setCollapsedCombinationGroups] = useState<Record<string, boolean>>({});
@@ -178,8 +179,7 @@ export default function AdminProducts() {
                 variant_option: legacyOptionName,
             };
         })() : null;
-        setCurrentProduct(
-            prod || {
+        const nextProduct = prod || {
                 name: "",
                 variant_mode: "legacy",
                 variant_options: [],
@@ -216,7 +216,9 @@ export default function AdminProducts() {
                 variant_option: "Size",
                 show_variant_in_title: false,
             }
-        );
+        ;
+        setCurrentProduct(nextProduct);
+        setTagsInput(Array.isArray(nextProduct.tags) ? nextProduct.tags.join(", ") : "");
         setNewSizeVariant(createEmptySizeVariant());
         setNewCombinationVariant(createEmptyCombinationVariant(prod?.combination_variant_options_draft || prod?.variant_options || []));
         setNewCombinationOptionName("");
@@ -243,6 +245,8 @@ export default function AdminProducts() {
                     valEl.value = "";
                 }
             }
+
+            finalProduct.tags = tagsInput.split(",").map((tag) => tag.trim()).filter(Boolean);
 
             if (!String(finalProduct.price ?? "").trim()) {
                 const firstVariantPrice = (finalProduct.variants || []).find((variant: any) => String(variant?.price ?? "").trim())?.price;
@@ -1569,8 +1573,8 @@ export default function AdminProducts() {
                                         <label className="block text-sm font-medium text-gray-700">Tags (Comma separated)</label>
                                         <input
                                             type="text"
-                                            value={(currentProduct.tags || []).join(", ")}
-                                            onChange={(e) => setCurrentProduct({ ...currentProduct, tags: e.target.value.split(",").map(f => f.trim()).filter(Boolean) })}
+                                            value={tagsInput}
+                                            onChange={(e) => setTagsInput(e.target.value)}
                                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
                                             placeholder="Tag 1, Tag 2"
                                         />
