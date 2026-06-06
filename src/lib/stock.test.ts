@@ -107,6 +107,19 @@ describe("getAvailableStock", () => {
     expect(getAvailableStock({ track_stock: false, stock_quantity: 10 })).toBeNull();
   });
 
+  it("returns selected variant stock even when product stock tracking is false", () => {
+    const product = {
+      track_stock: false,
+      stock_quantity: 10,
+      variant_mode: "combination",
+      variant_options: ["Size"],
+      variants: [{ attributes: { Size: "Large" }, stock: 0 }],
+      selected_variants: { Size: { option: "Size", value: "Large" } },
+    };
+
+    expect(getAvailableStock(product)).toBe(0);
+  });
+
   it("returns base stock when tracked and no variants", () => {
     expect(getAvailableStock({ track_stock: true, stock_quantity: 20 })).toBe(20);
   });

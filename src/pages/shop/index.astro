@@ -11,14 +11,6 @@ import { fetchSettings, getPageTitle, getPageDescription } from '@/lib/settings'
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from '@/lib/seo';
 import { getStandardizedDisplayPrice, getStandardizedDisplayTitle } from '@/lib/pricing';
 import { getAvailableStock } from '@/lib/stock';
-import { getVariantAttributes, getProductVariantMode } from '@/lib/variants';
-
-type VariantFilters = Record<string, string[]>;
-type VariantFacet = {
-  key: string;
-  option: string;
-  values: Array<{ value: string; count: number }>;
-};
 
 const DEFAULT_PRICE_RANGE: [number, number] = [0, 5000];
 const INITIAL_VISIBLE_COUNT = 18;
@@ -27,83 +19,6 @@ const LOAD_MORE_COUNT = 9;
 const parsePriceValue = (price: unknown): number => {
   if (typeof price === 'number') return price;
   return parseFloat(String(price ?? '').replace(/[^\d.]/g, '')) || 0;
-};
-
-const normalizeVariantKey = (value: string): string => value.trim().toLowerCase().replace(/\s+/g, ' ');
-
-const parseVariantFiltersFromParams = (params: URLSearchParams): VariantFilters => {
-  const next: VariantFilters = {};
-  for (const raw of params.getAll('variant')) {
-    const [option, value] = raw.split('::');
-    const optionKey = normalizeVariantKey(option || '');
-    if (!optionKey || !value) continue;
-    if (!next[optionKey]) next[optionKey] = [];
-    if (!next[optionKey].includes(value)) next[optionKey].push(value);
-  }
-  return next;
-};
-
-const buildVariantFacets = (items: any[]): VariantFacet[] => {
-  const optionMap = new Map<string, { label: string; values: Map<string, number> }>();
-
-  items.forEach((product) => {
-    const variants = Array.isArray(product?.variants) ? product.variants : [];
-
-    variants.forEach((variant: any) => {
-      if (getProductVariantMode(product) === 'combination') {
-        Object.entries(getVariantAttributes(variant)).forEach(([option, value]) => {
-          const optionKey = normalizeVariantKey(option);
-          if (!optionKey || !value) return;
-          if (!optionMap.has(optionKey)) optionMap.set(optionKey, { label: option.toUpperCase(), values: new Map() });
-          const entry = optionMap.get(optionKey)!;
-          entry.values.set(String(value), (entry.values.get(String(value)) || 0) + 1);
-        });
-        return;
-      }
-
-      const option = String(variant?.option ?? '').trim();
-      const value = String(variant?.value ?? '').trim();
-      const optionKey = normalizeVariantKey(option);
-      if (!optionKey || !value) return;
-      if (!optionMap.has(optionKey)) optionMap.set(optionKey, { label: option.toUpperCase(), values: new Map() });
-      const entry = optionMap.get(optionKey)!;
-      entry.values.set(value, (entry.values.get(value) || 0) + 1);
-    });
-  });
-
-  return Array.from(optionMap.entries())
-    .map(([key, entry]) => ({
-      key,
-      option: entry.label,
-      values: Array.from(entry.values.entries())
-        .map(([value, count]) => ({ value, count }))
-        .sort((a, b) => a.value.localeCompare(b.value)),
-    }))
-    .sort((a, b) => a.option.localeCompare(b.option));
-};
-
-const matchesVariantFilters = (product: any, filters: VariantFilters): boolean => {
-  const variants = Array.isArray(product?.variants) ? product.variants : [];
-
-  if (getProductVariantMode(product) === 'combination') {
-    return Object.entries(filters).every(([optionKey, selectedValues]) => {
-      if (selectedValues.length === 0) return true;
-
-      return variants.some((variant: any) => {
-        const attributes = getVariantAttributes(variant);
-        const productValue = Object.entries(attributes).find(([option]) => normalizeVariantKey(option) === optionKey)?.[1];
-        return productValue ? selectedValues.includes(String(productValue)) : false;
-      });
-    });
-  }
-
-  return Object.entries(filters).every(([optionKey, selectedValues]) => {
-    if (selectedValues.length === 0) return true;
-    const productValues = variants
-      .filter((variant: any) => normalizeVariantKey(String(variant?.option ?? '')) === optionKey)
-      .map((variant: any) => String(variant?.value ?? '').trim());
-    return selectedValues.some((value) => productValues.includes(value));
-  });
 };
 
 const normalizeImage = (value: unknown, fallback = '/logo.png') => {
@@ -128,7 +43,6 @@ const categoryParam = searchParams.get('category') || '';
 const sortBy = searchParams.get('sort') || 'latest';
 const selectedTags = searchParams.getAll('tag');
 const inStockOnly = searchParams.get('stock') === '1';
-const selectedVariantFilters = parseVariantFiltersFromParams(searchParams);
 const minPrice = Math.max(DEFAULT_PRICE_RANGE[0], Number(searchParams.get('min_price') || DEFAULT_PRICE_RANGE[0]));
 const maxPrice = Math.min(DEFAULT_PRICE_RANGE[1], Number(searchParams.get('max_price') || DEFAULT_PRICE_RANGE[1]));
 
@@ -179,9 +93,6 @@ filteredProducts = filteredProducts.filter((product: any) => {
   return matchesPrice && matchesStock;
 });
 
-const variantFacets = buildVariantFacets(filteredProducts);
-filteredProducts = filteredProducts.filter((product: any) => matchesVariantFilters(product, selectedVariantFilters));
-
 filteredProducts = filteredProducts.slice().sort((a: any, b: any) => {
   const priceA = parsePriceValue(getStandardizedDisplayPrice(a));
   const priceB = parsePriceValue(getStandardizedDisplayPrice(b));
@@ -195,8 +106,7 @@ const hasActiveSidebarFilters = Boolean(
   selectedTags.length > 0 ||
   inStockOnly ||
   minPrice !== DEFAULT_PRICE_RANGE[0] ||
-  maxPrice !== DEFAULT_PRICE_RANGE[1] ||
-  Object.keys(selectedVariantFilters).length > 0
+  maxPrice !== DEFAULT_PRICE_RANGE[1]
 );
 
 Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
@@ -390,33 +300,6 @@ const initialVisibleProducts = Math.min(INITIAL_VISIBLE_COUNT, filteredProducts.
                 </label>
               </div>
             </div>
-
-            {variantFacets.length > 0 && (
-              <div>
-                <h3 class="text-[16px] leading-none font-semibold text-primary mb-5 font-sans">Variants</h3>
-                <div class="space-y-5">
-                  {variantFacets.map((facet) => (
-                    <div>
-                      <p class="text-[12px] uppercase tracking-wide font-semibold text-[#6e7a92] mb-2">{facet.option}</p>
-                      <div class="space-y-2">
-                        {facet.values.map(({ value, count }) => {
-                          const checked = (selectedVariantFilters[facet.key] || []).includes(value);
-                          return (
-                            <label class="flex items-center justify-between gap-3 text-[14px] text-primary cursor-pointer">
-                              <span class="inline-flex items-center gap-2">
-                                <input type="checkbox" name="variant" value={`${facet.key}::${value}`} checked={checked} onchange="this.form?.requestSubmit()" class="h-4 w-4 accent-orange" />
-                                {value}
-                              </span>
-                              <span class="text-[12px] text-[#8f9bb2]">{count}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div>
               <h3 class="text-[16px] leading-none font-semibold text-primary mb-5 font-sans">Tags</h3>

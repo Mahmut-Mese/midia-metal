@@ -53,11 +53,6 @@ export const getAvailableStock = (product: {
     return explicitAvailable;
   }
 
-  // When track_stock is false, ignore both product-level and variant-level stock
-  if (!product.track_stock) {
-    return null;
-  }
-
   const resolvedVariant = resolveSelectedVariantRecord(product, product.selected_variants);
   const variantStock = resolvedVariant
     ? parseStockValue(resolvedVariant.stock)
@@ -67,6 +62,11 @@ export const getAvailableStock = (product: {
 
   if (variantStock !== null) {
     return variantStock;
+  }
+
+  // Product-level stock is only authoritative when stock tracking is enabled.
+  if (!product.track_stock) {
+    return null;
   }
 
   return parseStockValue(product.stock_quantity);

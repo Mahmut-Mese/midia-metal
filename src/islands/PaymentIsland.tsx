@@ -11,7 +11,7 @@
  *   - Kept Stripe Elements, useCart, useCustomerAuth as-is
  */
 import { useState, useEffect } from "react";
-import { CreditCard, Building2, Wallet, Lock, Plus } from "lucide-react";
+import { CreditCard, Building2, Lock, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
 import type { SiteSetting } from "@/types/settings";
@@ -207,7 +207,7 @@ function PaymentIsland() {
   const isBusiness = useStore($isBusiness);
   const customer = useStore($customer);
 
-  const [method, setMethod] = useState<"card" | "bank" | "cod">("card");
+  const [method, setMethod] = useState<"card" | "bank">("card");
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loadingIntent, setLoadingIntent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -314,7 +314,7 @@ function PaymentIsland() {
 
   /** Called after:
    *  - Stripe payment succeeds (paymentIntentId provided)
-   *  - Bank / COD (paymentIntentId = null)
+   *  - Bank transfer (paymentIntentId = null)
    */
   const createOrder = async (paymentIntentId: string | null) => {
     if (!checkoutForm) { toast.error("Missing checkout details."); return; }
@@ -365,11 +365,7 @@ function PaymentIsland() {
             quantity: item.qty,
             selected_variants: item.selected_variants ?? null,
           })),
-          payment_method: method === "card"
-            ? "Credit / Debit Card"
-            : method === "bank"
-              ? "Direct Bank Transfer"
-              : "Cash on Delivery",
+          payment_method: method === "card" ? "Credit / Debit Card" : "Direct Bank Transfer",
         }),
       });
 
@@ -381,7 +377,7 @@ function PaymentIsland() {
         orderDetails: {
           items: [...cart],
           total: totalFormatted,
-          method: method === "card" ? "Credit / Debit Card" : method === "bank" ? "Direct Bank Transfer" : "Cash on Delivery",
+          method: method === "card" ? "Credit / Debit Card" : "Direct Bank Transfer",
           orderNumber: orderData.order_number,
           createdAt: new Date().toISOString(),
         },
@@ -405,7 +401,7 @@ function PaymentIsland() {
     }
   };
 
-  // Bank / COD submit
+  // Bank transfer submit
   const handleNonCardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) { toast.error("Your cart is empty"); return; }
@@ -463,7 +459,6 @@ function PaymentIsland() {
               {[
                 { id: "card" as const, icon: CreditCard, label: "Credit / Debit Card", desc: "Pay securely with Stripe — Visa, Mastercard, Amex and more." },
                 { id: "bank" as const, icon: Building2, label: "Direct Bank Transfer", desc: "Transfer to our account and we'll confirm payment manually." },
-                { id: "cod" as const, icon: Wallet, label: "Cash on Delivery", desc: "Pay when your order arrives." },
               ].map((m) => (
                 <label
                   key={m.id}
@@ -565,7 +560,7 @@ function PaymentIsland() {
               </div>
             )}
 
-            {/* Bank / COD */}
+            {/* Bank transfer */}
             {method !== "card" && (
               <form onSubmit={handleNonCardSubmit}>
                 {method === "bank" && (

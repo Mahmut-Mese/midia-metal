@@ -217,7 +217,16 @@ class FormController extends Controller
             'billing_postcode' => 'nullable|string|max:255',
             'billing_county' => 'nullable|string|max:255',
             'billing_country' => 'nullable|string|max:255',
-            'payment_method' => 'nullable|string',
+            'payment_method' => [
+                'nullable',
+                'string',
+                function ($attribute, $value, $fail) {
+                    $normalized = preg_replace('/[^a-z0-9]+/', '', strtolower((string) $value));
+                    if (in_array($normalized, ['cashondelivery', 'cod'], true)) {
+                        $fail('This payment method is no longer available.');
+                    }
+                },
+            ],
             'fulfilment_method' => 'nullable|in:delivery,click_collect',
             'shipping_option_token' => 'nullable|string',
             'notes' => 'nullable|string',

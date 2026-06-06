@@ -189,8 +189,13 @@ class SiteSettingsSeeder extends Seeder
             ['key' => 'vat_rate', 'value' => '20', 'type' => 'text', 'group' => 'shipping-tax'],
         ];
 
+        $settingsByKey = [];
         foreach ($settings as $setting) {
-            SiteSetting::updateOrCreate(['key' => $setting['key']], $setting);
+            $settingsByKey[$setting['key']] = $setting;
+        }
+
+        foreach ($settingsByKey as $setting) {
+            SiteSetting::firstOrCreate(['key' => $setting['key']], $setting);
         }
     }
 }

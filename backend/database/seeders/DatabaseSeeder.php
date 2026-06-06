@@ -189,5 +189,7 @@ class DatabaseSeeder extends Seeder
         foreach ($settings as $s) {
             SiteSetting::create($s);
         }
+
+        $this->call(SiteSettingsSeeder::class);
     }
 }

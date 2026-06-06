@@ -742,12 +742,7 @@ export default function AdminProducts() {
             newSizeVariant.shipping_height_cm,
         );
         const manualValue = String(newSizeVariant.value ?? "").trim();
-        const finalValue = generatedValue || manualValue;
-
-        if (!finalValue) {
-            toast.error("Enter Length, Width, and Height.");
-            return;
-        }
+        const finalValue = generatedValue || manualValue || "Standard";
 
         setCurrentProduct((prev: any) => ({
             ...prev,

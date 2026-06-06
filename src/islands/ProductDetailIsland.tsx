@@ -347,7 +347,7 @@ function ProductDetailIsland({ id, initialProduct, initialRelated }: { id: strin
     : availableStock === null
     ? "Stock: Available"
     : isOutOfStock
-      ? "Stock: Out of stock"
+      ? "Stock: Not available"
       : `Stock: ${availableStock}`;
 
   const getProductStockLabel = (item: any): string => {

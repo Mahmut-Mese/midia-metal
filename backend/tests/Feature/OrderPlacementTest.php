@@ -216,6 +216,25 @@ class OrderPlacementTest extends TestCase
         $response->assertJsonValidationErrors(['fulfilment_method']);
     }
 
+    public function test_rejects_removed_cash_payment_method(): void
+    {
+        $product = Product::factory()->create(['price' => '£50.00']);
+
+        $response = $this->postJson('/api/v1/orders', [
+            'customer_name' => 'Test Buyer',
+            'customer_email' => 'test@example.com',
+            'shipping_address' => '123 Test St',
+            'billing_address' => '123 Test St',
+            'payment_method' => 'cod',
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['payment_method']);
+    }
+
     // ─── Multi-item order ─────────────────────────────────────────────
 
     public function test_places_multi_item_order_with_correct_totals(): void

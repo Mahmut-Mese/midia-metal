@@ -20,7 +20,7 @@ export type PaymentStatus =
 export type FulfilmentMethod = "delivery" | "click_collect";
 
 /** Payment method the customer selected at checkout. */
-export type PaymentMethod = "Credit / Debit Card" | "Direct Bank Transfer" | "Cash on Delivery";
+export type PaymentMethod = "Credit / Debit Card" | "Direct Bank Transfer";
 
 // -- Shipping metadata -------------------------------------------------------
 

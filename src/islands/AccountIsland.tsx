@@ -45,11 +45,7 @@ const REFUND_REASONS = [
     "Other",
 ];
 
-const isCashOnDeliveryPayment = (paymentMethod?: string | null) =>
-    (paymentMethod || "").toLowerCase().includes("cash on delivery");
-
-const getOrderRequestLabel = (paymentMethod?: string | null) =>
-    isCashOnDeliveryPayment(paymentMethod) ? "Cancel Order" : "Cancel & Refund";
+const getOrderRequestLabel = () => "Cancel & Refund";
 
 const getSubmittedOrderRequestLabel = (requestType?: string | null) =>
     requestType === "cancel" ? "Cancellation Requested" : "Cancellation & Refund Requested";
@@ -75,18 +71,11 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
     refund_failed: "Refund Failed",
 };
 
-const getOrderRequestTitle = (paymentMethod?: string | null) =>
-    isCashOnDeliveryPayment(paymentMethod) ? "Cancel order" : "Cancel order & request refund";
+const getOrderRequestTitle = () => "Cancel order & request refund";
 
-const getOrderRequestDescription = (paymentMethod?: string | null) =>
-    isCashOnDeliveryPayment(paymentMethod)
-        ? "Tell us why you want to cancel this order before it is completed."
-        : "Tell us why you want to cancel this order and request a refund.";
+const getOrderRequestDescription = () => "Tell us why you want to cancel this order and request a refund.";
 
-const getOrderRequestDetailsPlaceholder = (paymentMethod?: string | null) =>
-    isCashOnDeliveryPayment(paymentMethod)
-        ? "Add any details that will help us process your cancellation."
-        : "Add the issue, affected items, and any refund details we should review.";
+const getOrderRequestDetailsPlaceholder = () => "Add the issue, affected items, and any refund details we should review.";
 
 const hasOrderRequest = (order: any) => (order?.customer_requests?.length ?? 0) > 0;
 
@@ -294,7 +283,7 @@ function AccountIsland() {
 
         try {
             const submittedAt = new Date().toISOString();
-            const submittedRequestType = isCashOnDeliveryPayment(requestDialogOrder.payment_method) ? "cancel" : "cancel_refund";
+            const submittedRequestType = "cancel_refund";
             const response = await apiFetch<{ message: string }>("/v1/customer/refund-requests", {
                 method: "POST",
                 body: JSON.stringify({
@@ -573,7 +562,7 @@ function AccountIsland() {
                                                                     onClick={() => handleOpenOrderRequestDialog(order)}
                                                                     className="flex items-center gap-2 px-4 h-10 border border-[#cad4e4] text-primary text-sm font-semibold hover:border-orange hover:text-orange transition-colors"
                                                                 >
-                                                                    <RotateCcw className="w-4 h-4" /> {getOrderRequestLabel(order.payment_method)}
+                                                                    <RotateCcw className="w-4 h-4" /> {getOrderRequestLabel()}
                                                                 </button>
                                                             )}
                                                             {order.status !== "cancelled" && orderRequestSubmitted && (
@@ -928,11 +917,11 @@ function AccountIsland() {
                 <DialogContent className="border border-[#cad4e4] bg-white p-0 sm:max-w-[560px]">
                     <DialogHeader className="border-b border-[#cad4e4] px-6 py-5">
                         <DialogTitle className="font-sans text-[28px] font-semibold text-primary">
-                            {getOrderRequestTitle(requestDialogOrder?.payment_method)}
+                            {getOrderRequestTitle()}
                         </DialogTitle>
                         <DialogDescription className="text-sm text-[#6e7a92]">
                             {requestDialogOrder
-                                ? `${requestDialogOrder.order_number} • ${getOrderRequestDescription(requestDialogOrder.payment_method)}`
+                                ? `${requestDialogOrder.order_number} • ${getOrderRequestDescription()}`
                                 : ""}
                         </DialogDescription>
                     </DialogHeader>
@@ -961,7 +950,7 @@ function AccountIsland() {
                                 onChange={(e) => setRequestForm({ ...requestForm, details: e.target.value })}
                                 required
                                 rows={6}
-                                placeholder={getOrderRequestDetailsPlaceholder(requestDialogOrder?.payment_method)}
+                                placeholder={getOrderRequestDetailsPlaceholder()}
                                 className="w-full border border-[#cad4e4] bg-[#f4f7f9] px-4 py-3 text-[14px] outline-none focus:border-orange resize-y"
                             />
                         </div>
@@ -980,7 +969,7 @@ function AccountIsland() {
                                 disabled={submittingRequest}
                                 className="h-11 bg-orange px-5 text-sm font-semibold text-white transition-colors hover:bg-orange-hover disabled:opacity-50"
                             >
-                                {submittingRequest ? "Sending..." : getOrderRequestLabel(requestDialogOrder?.payment_method)}
+                                {submittingRequest ? "Sending..." : getOrderRequestLabel()}
                             </button>
                         </DialogFooter>
                     </form>

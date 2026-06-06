@@ -141,7 +141,6 @@ class ProductController extends Controller
                 ->where('active', true)
                 ->where('featured', true)
                 ->orderBy('order')
-                ->take(8)
                 ->get()
         );
     }

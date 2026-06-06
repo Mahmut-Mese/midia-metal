@@ -34,7 +34,7 @@ try {
     fetch(`${API_BASE}/v1/products/featured`).then(r => r.ok ? r.json() : []),
   ]);
   heroSlides = slidesRes || [];
-  categories = (categoriesRes || []).slice(0, 4);
+  categories = categoriesRes || [];
   trendingItems = trendingRes || [];
 } catch (err) {
   console.error('[index.astro] Failed to load homepage data:', err);
