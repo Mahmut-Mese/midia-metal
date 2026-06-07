@@ -85,9 +85,26 @@ async function run() {
     }
 
     const html = fs.readFileSync(check.html, 'utf8');
-    const payload = await fetchJsonWithRetry(check);
-    const itemCount = countItems(payload);
     const containsEmptyState = html.includes(check.emptyText);
+
+    let payload = null;
+    try {
+      payload = await fetchJsonWithRetry(check);
+    } catch (error) {
+      const message = error?.message || String(error);
+
+      if (containsEmptyState) {
+        throw new Error(
+          `${check.name} prerendered page contains its empty state and the API could not be verified: ${message}`
+        );
+      }
+
+      console.warn(`::warning::${message}; ${check.name} page is not empty, so continuing deployment`);
+      console.log(`${check.name}: apiItems=unavailable, emptyState=${containsEmptyState}`);
+      continue;
+    }
+
+    const itemCount = countItems(payload);
 
     if (itemCount > 0 && containsEmptyState) {
       throw new Error(`${check.name} prerendered page contains its empty state while the API returned ${itemCount} items`);
