@@ -20,7 +20,7 @@ are independent. This branch starts from Irfan's `content` commit
 7. Back up only the dedicated QA database, validate the compressed backup, apply
    permitted migrations, and cache Laravel configuration/routes/views.
 8. Atomically switch the common `current` link for PHP and Node; restart
-   Passenger. Verify release/commit headers, frontend and database health,
+   only the QA runtime. Verify release/commit headers, frontend and database health,
    public pages, CSRF cookie, an image and an available product PDF.
 
 Any required CI failure prevents deployment. Workflow concurrency queues up to
@@ -96,6 +96,16 @@ commands. Other keys are preserved. Initial provisioning and later trusted
 controller/routing updates require an owner maintenance connection. Merely
 pushing updated controller files does not replace installed trusted control
 files.
+
+Hostinger can retain an old Node process after a deployment
+([hosting guidance](https://www.hostinger.com/support/how-to-fix-changes-not-showing-after-a-node-js-deployment-at-hostinger/)).
+The controller checks the process owner, Node executable and exact managed QA
+release directory before signalling a stale worker. Linux process descriptors
+bind the signal to that process; no account-wide process-stop command is used.
+Activation preserves workers belonging to the new release, and rollback applies
+the same scope checks. Static images may lack release headers after CDN delivery;
+their MIME type and image signature are checked instead. Frontend, API and PDF
+responses must still identify the exact release and commit.
 
 ## Database changes and recovery
 

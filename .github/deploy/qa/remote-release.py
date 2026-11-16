@@ -14,6 +14,7 @@ from pathlib import Path
 import pwd
 import re
 import shutil
+import signal
 import stat
 import subprocess
 import tarfile
@@ -245,7 +246,68 @@ def run_command(arguments, *, cwd=None, env=None, timeout=120, operation="releas
     return result.stdout
 
 
+def require_pidfd_signals():
+    if not callable(getattr(os, "pidfd_open", None)) or not callable(getattr(signal, "pidfd_send_signal", None)):
+        raise ValueError("QA worker management requires Linux pidfd support")
+    try:
+        descriptor = os.pidfd_open(os.getpid(), 0)
+    except OSError:
+        raise ValueError("QA worker management requires working Linux pidfds") from None
+    else:
+        os.close(descriptor)
+
+
+def is_stale_qa_worker(identity, root, keep_release, expected_uid, node_executable):
+    """Match only this site's physical Passenger Node release processes."""
+    if not isinstance(identity, dict) or type(identity.get("uid")) is not int or identity["uid"] != expected_uid:
+        return False
+    argv0 = identity.get("argv0")
+    if not isinstance(argv0, str) or not argv0.startswith("lsnode:") or identity.get("executable") != str(node_executable):
+        return False
+    cwd = identity.get("cwd")
+    if not isinstance(cwd, str) or not re.fullmatch(
+            re.escape(str(Path(root) / "releases")) + r"/qa-[0-9a-f]{12}-[0-9]+-[0-9]+/frontend", cwd):
+        return False
+    return keep_release is None or cwd != str(Path(keep_release) / "frontend")
+
+
+def stop_stale_qa_workers(root, keep_release=None, *, proc_root=Path("/proc")):
+    """Signal through pidfds only, after checking metadata for the opened PID."""
+    require_pidfd_signals()
+    node_executable = (NODE_DIRECTORY / "node").resolve(strict=True)
+    stopped = 0
+    deadline = time.monotonic() + 10
+    for process in Path(proc_root).iterdir():
+        if time.monotonic() >= deadline:
+            raise ValueError("QA worker scan exceeded its bounded time limit")
+        if not process.name.isdecimal():
+            continue
+        descriptor = None
+        try:
+            # Open first: even if this numeric PID is recycled while metadata is
+            # read, a signal through this descriptor cannot hit the replacement.
+            descriptor = os.pidfd_open(int(process.name), 0)
+            uid = process.stat().st_uid
+            if uid != os.geteuid():
+                continue
+            with (process / "cmdline").open("rb") as command:
+                argv0 = command.read(4096).split(b"\0", 1)[0].decode("utf-8", errors="replace")
+            identity = {"uid": uid, "cwd": os.readlink(process / "cwd"), "argv0": argv0,
+                        "executable": os.readlink(process / "exe")}
+            if is_stale_qa_worker(identity, root, keep_release, os.geteuid(), node_executable):
+                signal.pidfd_send_signal(descriptor, signal.SIGTERM, None, 0)
+                stopped += 1
+        except (FileNotFoundError, ProcessLookupError, PermissionError):
+            # Other users' processes and workers which already exited are benign.
+            continue
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+    return stopped
+
+
 def runtime_environment():
+    require_pidfd_signals()
     php = shutil.which("php")
     node = NODE_DIRECTORY / "node"
     npm = NODE_DIRECTORY / "npm"
@@ -458,12 +520,14 @@ def rollback_current(root, own_relative, previous, schema_compatible):
         return "current_changed_no_action"
     if previous is None:
         (root / "current").unlink()
+        stop_stale_qa_workers(root)
         return "first_release_removed"
     if not schema_compatible:
         return "manual_recovery_required"
     require_owned_path(previous["path"], directory=True)
     replace_current(root, previous["relative"])
     restart_release(previous["path"])
+    stop_stale_qa_workers(root, previous["path"])
     return "previous_release_restored"
 
 
@@ -477,7 +541,7 @@ def smoke_checks(target, release_id, commit, *, timeout=60):
     opener = urllib.request.build_opener(NoRedirect)
     nonce = uuid.uuid4().hex
 
-    def request(path, *, expected_status=200, limit=2 * 1024 * 1024):
+    def request(path, *, expected_status=200, limit=2 * 1024 * 1024, require_release_identity=True):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ValueError("QA HTTP verification timed out")
@@ -488,8 +552,10 @@ def smoke_checks(target, release_id, commit, *, timeout=60):
             if response.status != expected_status:
                 raise ValueError("Unexpected QA HTTP status")
             headers = response.headers
-            if headers.get("X-Midia-Release") != release_id or headers.get("X-Midia-Commit") != commit:
-                raise ValueError("QA HTTP response identifies a different release")
+            has_release_identity = headers.get("X-Midia-Release") is not None or headers.get("X-Midia-Commit") is not None
+            if require_release_identity or has_release_identity:
+                if headers.get("X-Midia-Release") != release_id or headers.get("X-Midia-Commit") != commit:
+                    raise ValueError("QA HTTP response identifies a different release")
             return headers, response.read(limit)
 
     last_failure = "HTTP checks did not finish"
@@ -510,8 +576,12 @@ def smoke_checks(target, release_id, commit, *, timeout=60):
             csrf, _ = request("/sanctum/csrf-cookie", expected_status=204, limit=1024)
             if not any("XSRF-TOKEN=" in cookie for cookie in csrf.get_all("Set-Cookie", [])):
                 raise ValueError("QA CSRF cookie was not issued")
-            image_headers, image_body = request("/images/canopy.jpg", limit=32)
-            if not image_headers.get("Content-Type", "").lower().startswith("image/") or not image_body:
+            # Hostinger can serve static images directly from its CDN without app
+            # headers. Dynamic pages/API/PDF responses must still identify this release.
+            image_headers, image_body = request("/images/canopy.jpg", limit=32, require_release_identity=False)
+            image_signature = (image_body.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n", b"GIF87a", b"GIF89a")) or
+                               (image_body.startswith(b"RIFF") and image_body[8:12] == b"WEBP"))
+            if not image_headers.get("Content-Type", "").lower().startswith("image/") or not image_signature:
                 raise ValueError("QA sample image is unavailable")
             _, products_body = request("/api/v1/products?per_page=1")
             products = json.loads(products_body)
@@ -638,7 +708,9 @@ def deploy(target_file, archive, release_id, commit, digest):
                 raise ValueError("A QA current release appeared before activation")
             activation_attempted = True
             replace_current(root, "releases/" + release_id)
+            stage("restart_runtime")
             restart_release(release)
+            outcome["stopped_stale_workers"] = stop_stale_qa_workers(root, release)
             stage("verify_http")
             outcome["checks"] = smoke_checks(target, release_id, commit)
             outcome["status"] = "success"

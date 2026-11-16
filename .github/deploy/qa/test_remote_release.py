@@ -1,6 +1,7 @@
 """Exercise remote lifecycle safety decisions using local synthetic fixtures."""
 
 import copy
+from email.message import Message
 import hashlib
 import importlib.util
 import io
@@ -385,6 +386,9 @@ class RollbackTests(unittest.TestCase):
             blocker = patch.object(remote, name, side_effect=AssertionError("Rollback must not run database commands"))
             blocker.start()
             self.addCleanup(blocker.stop)
+        workers = patch.object(remote, "stop_stale_qa_workers", return_value=0)
+        self.cleanup_workers = workers.start()
+        self.addCleanup(workers.stop)
 
     def test_restores_only_a_known_previous_release(self):
         result = remote.rollback_current(self.root, self.own_relative, self.previous, True)
@@ -392,6 +396,7 @@ class RollbackTests(unittest.TestCase):
         self.assertEqual((self.root / "current").readlink().as_posix(), self.previous_relative)
         self.assertTrue((self.previous["path"] / "frontend/tmp/restart.txt").is_file())
         self.assertEqual(self.sentinel.read_text(), "database must remain untouched")
+        self.cleanup_workers.assert_called_once_with(self.root, self.previous["path"])
 
     def test_first_failure_removes_only_its_own_current_link(self):
         result = remote.rollback_current(self.root, self.own_relative, None, False)
@@ -400,6 +405,7 @@ class RollbackTests(unittest.TestCase):
         self.assertFalse((self.root / "current").is_symlink())
         self.assertTrue((self.root / self.own_relative).is_dir())
         self.assertEqual(self.sentinel.read_text(), "database must remain untouched")
+        self.cleanup_workers.assert_called_once_with(self.root)
 
     def test_preserves_a_current_link_changed_by_another_operation(self):
         (self.root / "current").unlink()
@@ -408,6 +414,7 @@ class RollbackTests(unittest.TestCase):
         self.assertEqual(result, "current_changed_no_action")
         self.assertEqual((self.root / "current").readlink().as_posix(), self.previous_relative)
         self.assertFalse((self.previous["path"] / "frontend/tmp/restart.txt").exists())
+        self.cleanup_workers.assert_not_called()
 
     def test_preserves_an_unrelated_regular_current_file(self):
         (self.root / "current").unlink()
@@ -415,12 +422,14 @@ class RollbackTests(unittest.TestCase):
         result = remote.rollback_current(self.root, self.own_relative, self.previous, True)
         self.assertEqual(result, "current_changed_no_action")
         self.assertEqual((self.root / "current").read_text(), "unrelated sentinel")
+        self.cleanup_workers.assert_not_called()
 
     def test_refuses_automatic_rollback_to_an_incompatible_schema(self):
         result = remote.rollback_current(self.root, self.own_relative, self.previous, False)
         self.assertEqual(result, "manual_recovery_required")
         self.assertEqual((self.root / "current").readlink().as_posix(), self.own_relative)
         self.assertEqual(self.sentinel.read_text(), "database must remain untouched")
+        self.cleanup_workers.assert_not_called()
 
     def test_rejects_previous_release_path_replaced_by_a_symlink(self):
         original = self.previous["path"]
@@ -519,6 +528,140 @@ class PrivateRuntimeConfigurationTests(unittest.TestCase):
                      "QA_BOOTSTRAP_ADMIN_EMAIL=qa@example.invalid\nQA_BOOTSTRAP_ADMIN_EMAIL=second@example.invalid\n"):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 remote.bootstrap_environment(self.private_file("qa-bootstrap.env", text), {})
+
+class SmokeCheckTests(unittest.TestCase):
+    def setUp(self):
+        self.release = f"qa-{COMMIT[:12]}-123456-2"
+        self.responses = {
+            "/_qa/health": (200, "application/json", json.dumps({"status": "ok", "release": self.release, "commit": COMMIT}).encode()),
+            "/api/health": (200, "application/json", b'{"status":"ok","database":true}'),
+            "/services": (200, "text/html", b"<html>synthetic services</html>"),
+            "/shop": (200, "text/html", b"<html>synthetic shop</html>"),
+            "/sanctum/csrf-cookie": (204, "text/plain", b""),
+            "/images/canopy.jpg": (200, "image/jpeg", b"\xff\xd8\xffsynthetic-jpeg\xff\xd9"),
+            "/api/v1/products": (200, "application/json", b'[{"id":1,"pdf_download_enabled":true}]'),
+            "/api/v1/products/1/pdf": (200, "application/pdf", b"%PDF-1.4 synthetic fixture"),
+        }
+        self.missing_identity = set()
+        self.image_identity = {}
+        self.requests = []
+
+    def open_response(self, request, timeout):
+        path = remote.urllib.parse.urlsplit(request.full_url).path
+        self.requests.append(path)
+        status, content_type, body = self.responses[path]
+        response = io.BytesIO(body)
+        response.status = status
+        response.headers = Message()
+        response.headers["Content-Type"] = content_type
+        if path == "/images/canopy.jpg":
+            for name, value in self.image_identity.items():
+                response.headers[name] = value
+        elif path not in self.missing_identity:
+            response.headers["X-Midia-Release"] = self.release
+            response.headers["X-Midia-Commit"] = COMMIT
+        if path == "/sanctum/csrf-cookie":
+            response.headers["Set-Cookie"] = "XSRF-TOKEN=synthetic; Path=/; Secure"
+        return response
+
+    def run_smoke(self):
+        clock = [0.0]
+        opener = SimpleNamespace(open=self.open_response)
+        with patch.object(remote.urllib.request, "build_opener", return_value=opener), \
+                patch.object(remote.time, "monotonic", side_effect=lambda: clock[0]), \
+                patch.object(remote.time, "sleep", side_effect=lambda seconds: clock.__setitem__(0, clock[0] + seconds)):
+            return remote.smoke_checks({"url": "https://test.midiametal.com"}, self.release, COMMIT, timeout=1)
+
+    def test_accepts_unversioned_static_jpeg_when_dynamic_checks_match(self):
+        result = self.run_smoke()
+        self.assertEqual(result, {"frontend": True, "database": True, "content": True,
+                                  "csrf": True, "image": True, "pdf": True})
+        self.assertEqual(set(self.requests), set(self.responses))
+
+    def test_dynamic_frontend_api_and_pdf_still_require_release_identity(self):
+        for path in ("/_qa/health", "/api/health", "/api/v1/products/1/pdf"):
+            self.missing_identity = {path}
+            self.requests = []
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                self.run_smoke()
+            self.assertIn(path, self.requests)
+
+    def test_rejects_nonimage_payload_with_image_content_type(self):
+        self.responses["/images/canopy.jpg"] = (200, "image/jpeg", b"<html>not an image</html>")
+        with self.assertRaises(ValueError):
+            self.run_smoke()
+
+    def test_rejects_incomplete_or_wrong_static_release_headers(self):
+        for headers in ({"X-Midia-Release": self.release},
+                        {"X-Midia-Release": "qa-wrong-release", "X-Midia-Commit": COMMIT}):
+            self.image_identity = headers
+            with self.subTest(headers=headers), self.assertRaises(ValueError):
+                self.run_smoke()
+
+
+class StaleQaWorkerTests(unittest.TestCase):
+    def test_worker_identity_and_keep_release_boundaries(self):
+        root = Path("/synthetic/qa")
+        release = root / f"releases/qa-{COMMIT[:12]}-123456-1"
+        node = Path("/synthetic/node22/node")
+        identity = {"uid": 12345, "cwd": str(release / "frontend"),
+                    "argv0": "lsnode:" + str(release / "frontend/server.mjs"), "executable": str(node)}
+        self.assertTrue(remote.is_stale_qa_worker(identity, root, None, 12345, node))
+        self.assertFalse(remote.is_stale_qa_worker(identity, root, release, 12345, node))
+        self.assertTrue(remote.is_stale_qa_worker(identity, root, root / "releases/qa-ffffffffffff-9-1", 12345, node))
+        cases = (
+            ("uid", 54321), ("uid", True), ("argv0", "node"), ("argv0", "python"),
+            ("executable", "/synthetic/node20/node"),
+            ("cwd", "/synthetic/other-site/releases/qa-0123456789ab-123456-1/frontend"),
+            ("cwd", str(release / "backend")), ("cwd", str(release / "frontend") + "/"),
+            ("cwd", str(root / "current/frontend")),
+        )
+        for field, value in cases:
+            with self.subTest(field=field, value=value):
+                self.assertFalse(remote.is_stale_qa_worker({**identity, field: value}, root, None, 12345, node))
+
+    def test_pidfd_scan_signals_only_matching_stale_worker_and_closes_descriptors(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary).resolve()
+            root, proc, node_directory = directory / "qa", directory / "proc", directory / "node22"
+            proc.mkdir()
+            node_directory.mkdir()
+            node = node_directory / "node"
+            node.write_text("synthetic executable", encoding="utf-8")
+            stale = root / f"releases/qa-{COMMIT[:12]}-123456-1"
+            keep = root / f"releases/qa-{COMMIT[:12]}-123456-2"
+            for pid, cwd, argv0 in ((101, stale / "frontend", "lsnode:" + str(stale / "frontend/server.mjs")),
+                                    (102, keep / "frontend", "lsnode:" + str(keep / "frontend/server.mjs")),
+                                    (103, directory / "unrelated", "lsnode:/unrelated/server.mjs")):
+                process = proc / str(pid)
+                process.mkdir()
+                (process / "cmdline").write_bytes(argv0.encode() + b"\0")
+                (process / "cwd").symlink_to(cwd, target_is_directory=True)
+                (process / "exe").symlink_to(node)
+            opened = set()
+            closed = []
+            original_readlink = remote.os.readlink
+
+            def open_pidfd(pid, flags):
+                opened.add(pid)
+                return pid + 1000
+
+            def read_metadata(path):
+                if Path(path).parent.parent == proc:
+                    self.assertIn(int(Path(path).parent.name), opened)
+                return original_readlink(path)
+
+            with patch.object(remote, "require_pidfd_signals"), \
+                    patch.object(remote, "NODE_DIRECTORY", node_directory), \
+                    patch.object(remote.os, "pidfd_open", side_effect=open_pidfd, create=True), \
+                    patch.object(remote.os, "readlink", side_effect=read_metadata), \
+                    patch.object(remote.os, "close", side_effect=closed.append), \
+                    patch.object(remote.signal, "pidfd_send_signal", create=True) as signal_worker:
+                self.assertEqual(remote.stop_stale_qa_workers(root, keep, proc_root=proc), 1)
+                signal_worker.assert_called_once_with(1101, remote.signal.SIGTERM, None, 0)
+            self.assertEqual(set(closed), {1101, 1102, 1103})
+            self.assertEqual(len(closed), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
