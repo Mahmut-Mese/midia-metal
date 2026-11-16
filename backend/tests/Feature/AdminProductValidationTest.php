@@ -183,6 +183,7 @@ class AdminProductValidationTest extends TestCase
 
     public function test_admin_can_duplicate_a_product(): void
     {
+        // Compare persisted JSON values: MySQL may normalize object key order.
         $product = Product::factory()->create([
             'name' => 'Original Product',
             'slug' => 'original-product',
@@ -197,7 +198,7 @@ class AdminProductValidationTest extends TestCase
                 'price' => '£149.99',
                 'stock' => 4,
             ]],
-        ]);
+        ])->refresh();
 
         $response = $this
             ->withoutMiddleware()
