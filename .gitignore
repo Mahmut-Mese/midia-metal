@@ -55,3 +55,15 @@ playwright-report/
 
 # Unused package manager lockfiles
 bun.lockb
+
+# Local QA SSH connection details
+/qa-ssh.local.env
+
+# Private QA deployment target
+/.github/deploy/qa/target.json
+
+# Local QA provisioning credentials
+/qa-bootstrap.local.env
+
+# Python deployment helper caches
+__pycache__/

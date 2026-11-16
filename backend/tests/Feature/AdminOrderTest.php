@@ -66,8 +66,16 @@ class AdminOrderTest extends TestCase
     public function test_admin_can_search_orders_by_name(): void
     {
         $this->authenticatedAdmin();
-        Order::factory()->create(['customer_name' => 'Alice Smith']);
-        Order::factory()->create(['customer_name' => 'Bob Jones']);
+        Order::factory()->create([
+            'order_number' => 'SEARCH-001',
+            'customer_name' => 'Alice Smith',
+            'customer_email' => 'buyer-one@example.test',
+        ]);
+        Order::factory()->create([
+            'order_number' => 'SEARCH-002',
+            'customer_name' => 'Bob Jones',
+            'customer_email' => 'buyer-two@example.test',
+        ]);
 
         $response = $this->getJson('/api/admin/orders?search=Alice');
 

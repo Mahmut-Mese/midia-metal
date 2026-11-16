@@ -1,0 +1,19 @@
+{
+  "repository": "Mahmut-Mese/midia-metal",
+  "branch": "qa",
+  "url": "https://test.midiametal.com",
+  "ssh": {
+    "host": "<QA SSH host>",
+    "port": 65002,
+    "user": "<QA account user>"
+  },
+  "root": "/home/<QA account user>/domains/test.midiametal.com/.midia-qa",
+  "web_root": "/home/<QA account user>/domains/test.midiametal.com/public_html",
+  "database": {
+    "connection": "mysql",
+    "host": "localhost",
+    "port": 3306,
+    "name": "<dedicated QA database>",
+    "user": "<dedicated QA database user>"
+  }
+}

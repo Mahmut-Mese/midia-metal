@@ -1,0 +1,15 @@
+# Managed only for test.midiametal.com by the QA provisioning procedure.
+Options -Indexes
+RewriteEngine On
+RewriteRule ^(?:api|sanctum)(?:/|$) __qa_laravel__/index.php [L,QSA]
+
+PassengerAppRoot @QA_ROOT@/current/frontend
+PassengerAppType node
+PassengerNodejs /opt/alt/alt-nodejs22/root/bin/node
+PassengerStartupFile server.mjs
+PassengerBaseURI /
+PassengerRestartDir @QA_ROOT@/current/frontend/tmp
+
+<IfModule mod_headers.c>
+    Header always set X-Robots-Tag "noindex, nofollow"
+</IfModule>

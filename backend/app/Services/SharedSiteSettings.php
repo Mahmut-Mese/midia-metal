@@ -21,7 +21,7 @@ class SharedSiteSettings
 
     public static function managed(): Collection
     {
-        return SiteSetting::whereNotIn('key', [...array_keys(self::LEGACY_KEYS), 'bank_transfer_accounts'])
+        return SiteSetting::whereNotIn('key', [...array_keys(self::LEGACY_KEYS), 'bank_transfer_accounts', 'qa_bootstrap_version'])
             ->get()->each(function (SiteSetting $setting) {
                 if (in_array($setting->group, ['header', 'footer'], true) || $setting->key === 'contact_map_url') {
                     $setting->group = 'general';

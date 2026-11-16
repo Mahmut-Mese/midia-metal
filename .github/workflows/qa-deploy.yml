@@ -1,0 +1,232 @@
+name: QA CI and deployment
+
+on:
+  push:
+    branches: [qa]
+
+permissions:
+  contents: read
+
+# Queue up to 100 pushes without interrupting an active migration or activation.
+concurrency:
+  group: midia-metal-qa-pipeline
+  cancel-in-progress: false
+  queue: max
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CI: true
+  NODE_VERSION: '22'
+  PHP_VERSION: '8.3'
+
+jobs:
+  guard:
+    name: Validate QA scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate repository, branch and event
+        run: |
+          python3 - <<'PY'
+          import os, sys
+          sys.path.insert(0, '.github/deploy/qa')
+          from target import validate_run
+          validate_run(os.environ['GITHUB_REPOSITORY'], os.environ['GITHUB_REF'],
+                       os.environ['GITHUB_EVENT_NAME'], os.environ['GITHUB_SHA'],
+                       os.environ['GITHUB_RUN_ID'], os.environ['GITHUB_RUN_ATTEMPT'])
+          PY
+      - name: Test deployment safety checks
+        run: python3 -m unittest discover -s .github/deploy/qa -p 'test_*.py' -v
+
+  frontend:
+    name: Frontend lint, types and unit tests
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run check -- --config .github/deploy/qa/astro.config.mjs
+      - run: npm run test
+      - run: node --test .github/deploy/qa/runtime.test.mjs
+
+  backend:
+    name: PHP checks and tests (${{ matrix.database }})
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [sqlite, mysql]
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: midia_qa_ci
+          MYSQL_USER: midia_ci
+          MYSQL_PASSWORD: ci-only-password
+          MYSQL_ROOT_PASSWORD: ci-only-root-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-only-root-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      APP_DEBUG: false
+      DB_CONNECTION: ${{ matrix.database }}
+      DB_DATABASE: ${{ matrix.database == 'mysql' && 'midia_qa_ci' || ':memory:' }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USERNAME: midia_ci
+      DB_PASSWORD: ci-only-password
+      DB_URL: ''
+      MAIL_MAILER: array
+      SHIPPING_MOCK: true
+      FRONTEND_DEPLOY_TRIGGER_ENABLED: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2
+          coverage: none
+          extensions: pdo_mysql, pdo_sqlite, sqlite3, mbstring, bcmath, ctype, fileinfo, gd, dom, xml, zip
+      - run: composer validate --strict
+        working-directory: backend
+      - run: composer install --no-interaction --prefer-dist
+        working-directory: backend
+      - name: Prepare disposable test configuration
+        working-directory: backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+      - run: vendor/bin/pint --test
+        working-directory: backend
+      - run: php artisan test --colors=never
+        working-directory: backend
+
+  e2e:
+    name: Browser regression tests
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2
+          coverage: none
+          extensions: pdo_sqlite, sqlite3, mbstring, bcmath, ctype, fileinfo, gd, dom, xml, zip
+      - run: npm ci --no-audit --no-fund
+      - run: composer install --no-interaction --prefer-dist
+        working-directory: backend
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Preserve browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: qa-browser-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+            output/e2e/*.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+  release:
+    name: Build and verify release artifact
+    needs: [guard, frontend, backend, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2
+          coverage: none
+          extensions: pdo_mysql, mbstring, bcmath, ctype, fileinfo, gd, dom, xml, zip
+      - run: npm ci --no-audit --no-fund
+      - name: Build QA once
+        env:
+          PUBLIC_API_URL: /api
+          API_BACKEND_URL: https://test.midiametal.com
+          PUBLIC_STRIPE_KEY: ${{ vars.QA_STRIPE_PUBLISHABLE_KEY }}
+          NODE_ENV: production
+        run: npm run build -- --config .github/deploy/qa/astro.config.mjs
+      - name: Validate SSR routes and admin assets
+        run: bash .github/deploy/qa/validate-build.sh
+      - name: Package the checked commit
+        run: python3 .github/deploy/qa/package-release.py --commit "$GITHUB_SHA" --output output/qa-release
+      - name: Verify packaged release
+        run: python3 .github/deploy/qa/verify-package.py output/qa-release/qa-release.tar.gz "$GITHUB_SHA"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          # A retry of only the deploy job reuses this already-verified artifact.
+          name: qa-release-${{ github.run_id }}
+          path: output/qa-release/
+          retention-days: 14
+          if-no-files-found: error
+          overwrite: true
+
+  deploy:
+    name: Deploy test.midiametal.com
+    needs: [guard, frontend, backend, e2e, release]
+    if: github.repository == 'Mahmut-Mese/midia-metal' && github.ref == 'refs/heads/qa' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: qa
+      url: https://test.midiametal.com
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Require completed provisioning
+        env:
+          QA_DEPLOY_ENABLED: ${{ vars.QA_DEPLOY_ENABLED }}
+        run: |
+          if [[ "$QA_DEPLOY_ENABLED" != true ]]; then
+            echo '::error::QA hosting provisioning is not enabled. No server changes were attempted.'
+            exit 1
+          fi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: qa-release-${{ github.run_id }}
+          path: output/qa-release
+      - name: Deploy the tested artifact
+        env:
+          QA_DEPLOY_TARGET: ${{ secrets.QA_DEPLOY_TARGET }}
+          QA_SSH_PRIVATE_KEY: ${{ secrets.QA_SSH_PRIVATE_KEY }}
+          QA_SSH_KNOWN_HOSTS: ${{ secrets.QA_SSH_KNOWN_HOSTS }}
+        run: python3 .github/deploy/qa/deploy.py output/qa-release/qa-release.tar.gz

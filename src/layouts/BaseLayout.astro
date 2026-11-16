@@ -68,7 +68,7 @@ const ogImage = safeImage.startsWith('http') ? safeImage : `${siteUrl}${normaliz
     <link rel="apple-touch-icon" href={siteLogo} />
 
     <!-- DNS Prefetch for backend API (images served from /storage) -->
-    <link rel="dns-prefetch" href="https://midiammetal.com" />
+    <link rel="dns-prefetch" href={siteUrl} />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
