@@ -19,12 +19,14 @@ describe('existing-content section templates', () => {
     const combined = parse(template.sections.map(section => section.html).join(''));
     expect(combined.querySelectorAll('img')).toHaveLength(10);
     for (const image of combined.querySelectorAll('img')) {
-      // Uploaded content must retain its source host, independent of the page route/proxy.
-      expect(image.getAttribute('src')).toMatch(/^https:\/\/api-test\.midiawork\.com\/storage\/product-content\/[a-f0-9]{64}\.png$/);
+      // Uploaded template media belongs to the current site’s persistent storage.
+      expect(image.getAttribute('src')).toMatch(/^\/storage\/product-content\/[a-f0-9]{64}\.png$/);
       const imageLink = image.closest('a');
       if (imageLink) expect(imageLink.getAttribute('href')).toBe(image.getAttribute('src'));
     }
     expect(combined.querySelectorAll('table')).toHaveLength(7);
+    expect(combined.querySelector('a[href="/contact"]')).not.toBeNull();
+    expect(combined.innerHTML).not.toContain('midiawork.com');
     expect(combined.querySelector('.product-spec-slot')).toBeNull();
     expect(combined.textContent).toContain('0–10 V');
     expect(combined.textContent).toContain('1,400');
@@ -88,7 +90,7 @@ describe('existing-content section templates', () => {
           for (const attribute of element.attributes) expect(attribute.name).not.toMatch(/^on/i);
         }
         for (const image of body.querySelectorAll('img')) {
-          expect(image.getAttribute('src')).toMatch(/^(?:\/images\/|https:\/\/api-test\.midiawork\.com\/storage\/product-content\/)/);
+          expect(image.getAttribute('src')).toMatch(/^\/(?:images\/|storage\/product-content\/)/);
           expect(image.getAttribute('alt')?.trim()).toBeTruthy();
         }
         for (const link of body.querySelectorAll('a')) {
