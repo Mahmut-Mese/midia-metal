@@ -1,8 +1,8 @@
 /**
  * Astro middleware — applies default cache headers to SSR pages.
  *
- * Pages that set their own Cache-Control (like shop/[slug].astro) keep
- * their custom values. All other SSR pages get a sensible default:
+ * Shop pages always fetch current catalogue data after publishing changes.
+ * Other pages retain their explicit Cache-Control or receive this default:
  *   - CDN/proxy caches for 10 minutes
  *   - Serves stale content while revalidating for up to 1 hour
  *   - Browser does NOT cache (always hits CDN)
@@ -12,11 +12,12 @@
  */
 import { defineMiddleware } from 'astro:middleware';
 
-export const onRequest = defineMiddleware(async (_context, next) => {
+export const onRequest = defineMiddleware(async (context, next) => {
   const response = await next();
 
-  // Only add default cache headers if the page didn't set its own
-  if (!response.headers.has('Cache-Control')) {
+  if (/^\/shop(?:\/|$)/.test(context.url.pathname)) {
+    response.headers.set('Cache-Control', 'no-store');
+  } else if (!response.headers.has('Cache-Control')) {
     response.headers.set(
       'Cache-Control',
       'public, s-maxage=600, stale-while-revalidate=3600'

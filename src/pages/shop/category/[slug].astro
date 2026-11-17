@@ -31,8 +31,8 @@ let total = 0;
 
 try {
   const [catRes, prodRes] = await Promise.all([
-    fetch(`${API}/product-categories`).then(r => r.ok ? r.json() : []),
-    fetch(`${API}/products?${productParams}`).then(r => r.ok ? r.json() : { data: [] }),
+    fetch(`${API}/product-categories`, { cache: 'no-store' }).then(r => r.ok ? r.json() : []),
+    fetch(`${API}/products?${productParams}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : { data: [] }),
   ]);
   
   const allCategories = Array.isArray(catRes) ? catRes : catRes.data || [];
@@ -53,9 +53,6 @@ if (page > lastPage) return Astro.redirect(categoryPageUrl(lastPage));
 const pageTitle = category?.name || 'Category';
 const pageDescription = category?.description || `Browse ${pageTitle} products from Midia M Metal.`;
 const categoryImage = normalizeMediaUrl(category?.image, '/logo.png');
-
-// Cache headers: CDN caches for 5 min
-Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
 
 // CollectionPage + ItemList JSON-LD
 const categoryUrl = `${siteUrl}${categoryPageUrl(page)}`;

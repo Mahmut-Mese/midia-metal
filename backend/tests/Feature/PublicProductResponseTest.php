@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\ProductReview;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -11,6 +12,44 @@ use Tests\TestCase;
 class PublicProductResponseTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_latest_products_are_sorted_before_pagination_with_filters_preserved(): void
+    {
+        $category = ProductCategory::factory()->create(['slug' => 'fans']);
+        $newer = Product::factory()->withCategory($category)->create([
+            'name' => 'Fan newer', 'created_at' => '2026-01-20 12:00:00', 'order' => 500,
+        ]);
+        $older = Product::factory()->withCategory($category)->create([
+            'name' => 'Fan older', 'created_at' => '2026-01-01 12:00:00', 'order' => 0,
+        ]);
+        $newest = Product::factory()->withCategory($category)->create([
+            'name' => 'Fan newest', 'created_at' => '2026-01-20 12:00:00', 'order' => 999,
+        ]);
+        Product::factory()->withCategory($category)->inactive()->create([
+            'name' => 'Fan draft', 'created_at' => '2026-01-21 12:00:00',
+        ]);
+        Product::factory()->withCategory()->create([
+            'name' => 'Fan other category', 'created_at' => '2026-01-21 12:00:00',
+        ]);
+        Product::factory()->withCategory($category)->create([
+            'name' => 'Unrelated item', 'created_at' => '2026-01-21 12:00:00',
+        ]);
+
+        $path = '/api/v1/products?category=fans&search=Fan';
+        $latest = $this->getJson($path.'&sort=latest&per_page=2')->assertOk()->assertJsonPath('total', 3);
+        $this->assertSame([$newest->id, $newer->id], array_column($latest->json('data'), 'id'));
+        $this->getJson($path.'&sort=latest&per_page=2&page=2')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $older->id);
+
+        // Consumers that request no sort retain the curated catalogue order.
+        $manual = $this->getJson($path.'&per_page=10')->assertOk();
+        $this->assertSame([$older->id, $newer->id, $newest->id], array_column($manual->json('data'), 'id'));
+    }
+
+    public function test_catalog_rejects_unsupported_sort_values(): void
+    {
+        $this->getJson('/api/v1/products?sort=unsupported')->assertUnprocessable()->assertJsonValidationErrors('sort');
+    }
 
     public function test_public_review_only_exposes_the_customer_display_identity(): void
     {

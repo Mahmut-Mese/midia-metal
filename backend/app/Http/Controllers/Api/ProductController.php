@@ -16,6 +16,7 @@ class ProductController extends Controller
         $request->validate([
             'search' => 'nullable|string|max:200',
             'per_page' => 'nullable|integer|min:1|max:500',
+            'sort' => 'nullable|string|in:latest',
         ]);
 
         $perPage = max(1, min((int) $request->integer('per_page', 18), 500));
@@ -42,7 +43,13 @@ class ProductController extends Controller
             });
         }
 
-        $products = $query->orderBy('order')->orderBy('id')->paginate($perPage);
+        if ($request->input('sort') === 'latest') {
+            $query->orderByDesc('created_at')->orderByDesc('id');
+        } else {
+            $query->orderBy('order')->orderBy('id');
+        }
+
+        $products = $query->paginate($perPage);
         $products->getCollection()->each->makeHidden(['description', 'gallery']);
 
         return response()->json($products);

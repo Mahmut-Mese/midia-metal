@@ -19,9 +19,6 @@ const siteUrl = import.meta.env.SITE;
 const API = `${getApiBase()}/v1`;
 const { slug } = Astro.params;
 
-// Cache headers: CDN caches for 5 min, serves stale while revalidating for 1 hour
-Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
-
 // Fetch product detail + related products in parallel at request time
 let product: any = null;
 let related: any[] = [];
