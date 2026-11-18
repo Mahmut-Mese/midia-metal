@@ -14,6 +14,12 @@ class StripeGatewayFake extends StripeGateway
 
     public array $customers = [];
 
+    public array $missingCustomers = [];
+
+    public array $customerKeys = [];
+
+    public ?\Throwable $customerLookupError = null;
+
     public array $refunds = [];
 
     public array $refundRequests = [];
@@ -47,8 +53,18 @@ class StripeGatewayFake extends StripeGateway
     public function createCustomer(array $data, string $idempotencyKey): string
     {
         $this->customers[] = $data;
+        $this->customerKeys[] = $idempotencyKey;
 
         return 'cus_checkout_test';
+    }
+
+    public function customerExists(string $id): bool
+    {
+        if ($this->customerLookupError) {
+            throw $this->customerLookupError;
+        }
+
+        return ! in_array($id, $this->missingCustomers, true);
     }
 
     public function createIntent(array $data, string $idempotencyKey): PaymentIntent

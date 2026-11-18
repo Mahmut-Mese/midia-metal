@@ -74,11 +74,17 @@ class PaymentController extends Controller
         try {
             if ($customer || $bankTransfer) {
                 $stripeCustomerId = $customer?->stripe_customer_id;
+                $customerKey = 'customer-'.($customer ? $customer->id : $attemptKey);
+                if ($stripeCustomerId && ! $this->gateway->customerExists($stripeCustomerId)) {
+                    // Imported/deleted Stripe customers must be recreated in the configured account.
+                    $customerKey .= '-replace-'.hash('sha256', $stripeCustomerId);
+                    $stripeCustomerId = null;
+                }
                 if (! $stripeCustomerId) {
                     $stripeCustomerId = $this->gateway->createCustomer([
                         'email' => $customer?->email ?? $validated['customer_email'],
                         'name' => $customer?->name ?? $validated['customer_name'],
-                    ], 'customer-'.($customer ? $customer->id : $attemptKey));
+                    ], $customerKey);
                     $customer?->update(['stripe_customer_id' => $stripeCustomerId]);
                 }
                 $intentData['customer'] = $stripeCustomerId;
@@ -155,6 +161,10 @@ class PaymentController extends Controller
         }
 
         if (! $customer || ! $customer->stripe_customer_id) {
+            return response()->json([]);
+        }
+
+        if (! $this->gateway->customerExists($customer->stripe_customer_id)) {
             return response()->json([]);
         }
 

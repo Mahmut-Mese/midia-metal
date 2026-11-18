@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Stripe\Exception\InvalidRequestException;
 use Stripe\PaymentIntent;
 use Stripe\Refund;
 use Stripe\StripeClient;
@@ -11,6 +12,19 @@ class StripeGateway
     private function client(): StripeClient
     {
         return new StripeClient(config('services.stripe.secret'));
+    }
+
+    public function customerExists(string $id): bool
+    {
+        try {
+            return ! ($this->client()->customers->retrieve($id)->deleted ?? false);
+        } catch (InvalidRequestException $e) {
+            if ($e->getHttpStatus() === 404 && $e->getStripeCode() === 'resource_missing') {
+                return false;
+            }
+
+            throw $e;
+        }
     }
 
     public function createCustomer(array $data, string $idempotencyKey): string

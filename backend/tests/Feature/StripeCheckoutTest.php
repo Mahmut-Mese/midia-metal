@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\CustomerOrderConfirmation;
 use App\Models\Customer;
+use App\Models\CustomerPaymentMethod;
 use App\Models\Order;
 use App\Models\Product;
 use App\Services\StripeGateway;
@@ -181,6 +182,53 @@ class StripeCheckoutTest extends TestCase
         config(['services.stripe.webhook_secret' => null]);
         $this->postJson('/api/v1/payment/intent', $this->payload + ['payment_attempt_id' => (string) Str::uuid()])->assertStatus(503);
         $this->assertCount(0, $this->gateway->requests);
+    }
+
+    public function test_imported_stripe_customer_is_replaced_for_card_and_bank_checkout(): void
+    {
+        $other = Customer::factory()->create(['stripe_customer_id' => 'cus_other']);
+        $this->gateway->missingCustomers = ['cus_previous_account'];
+        foreach (['card', 'bank_transfer'] as $method) {
+            $customer = Customer::factory()->create(['stripe_customer_id' => 'cus_previous_account']);
+            $this->actingAs($customer, 'sanctum');
+            $data = array_replace($this->payload, ['payment_method' => $method, 'payment_attempt_id' => (string) Str::uuid()]);
+            $first = $this->postJson('/api/v1/payment/intent', $data)->assertOk();
+            $this->assertSame('cus_checkout_test', $customer->fresh()->stripe_customer_id);
+            $this->assertSame('cus_checkout_test', $this->gateway->requests[array_key_last($this->gateway->requests)]['customer']);
+            $this->postJson('/api/v1/payment/intent', $data)->assertOk()
+                ->assertJsonPath('payment_intent_id', $first->json('payment_intent_id'));
+            $this->assertSame('customer-'.$customer->id.'-replace-'.hash('sha256', 'cus_previous_account'), $this->gateway->customerKeys[array_key_last($this->gateway->customerKeys)]);
+        }
+        $this->assertCount(2, $this->gateway->customers);
+        $this->assertCount(2, $this->gateway->intents);
+        $this->assertSame('cus_other', $other->fresh()->stripe_customer_id);
+    }
+
+    public function test_missing_stripe_customer_does_not_expose_stale_saved_cards_or_delete_them(): void
+    {
+        $customer = Customer::factory()->create(['stripe_customer_id' => 'cus_previous_account']);
+        $card = CustomerPaymentMethod::create([
+            'customer_id' => $customer->id, 'stripe_payment_method_id' => 'pm_previous_account',
+            'brand' => 'visa', 'last4' => '4242', 'exp_month' => '12', 'exp_year' => '2030',
+        ]);
+        $this->gateway->missingCustomers = ['cus_previous_account'];
+        $this->actingAs($customer, 'sanctum');
+        $this->getJson('/api/v1/customer/payment-methods')->assertOk()->assertExactJson([]);
+        $this->assertSame('cus_previous_account', $customer->fresh()->stripe_customer_id);
+        $this->assertDatabaseHas('customer_payment_methods', ['id' => $card->id]);
+        $this->assertCount(0, $this->gateway->customers);
+    }
+
+    public function test_stripe_lookup_failure_does_not_replace_an_existing_customer(): void
+    {
+        $customer = Customer::factory()->create(['stripe_customer_id' => 'cus_existing']);
+        $this->gateway->customerLookupError = new \RuntimeException('Temporary Stripe failure');
+        $this->actingAs($customer, 'sanctum');
+        $this->postJson('/api/v1/payment/intent', $this->payload + ['payment_attempt_id' => (string) Str::uuid()])->assertStatus(503);
+        $this->assertSame('cus_existing', $customer->fresh()->stripe_customer_id);
+        $this->assertCount(0, $this->gateway->customers);
+        $this->assertCount(0, $this->gateway->intents);
+        $this->assertDatabaseCount('orders', 0);
     }
 
     public function test_refunds_wait_for_stripe_and_payment_events_do_not_override_them(): void
