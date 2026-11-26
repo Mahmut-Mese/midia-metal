@@ -6,8 +6,10 @@ use App\Models\AdminUser;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Shipping\ShippingGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class AdminOrderTest extends TestCase
@@ -212,95 +214,48 @@ class AdminOrderTest extends TestCase
 
     public function test_admin_can_create_shipping_label_for_delivery_order(): void
     {
-        Storage::fake('public');
         $this->authenticatedAdmin();
+        $order = Order::factory()->create(['shipping_provider' => 'interparcel']);
+        $this->mock(ShippingGateway::class, function (MockInterface $mock) {
+            $mock->shouldReceive('createLabel')->once()->andReturn([
+                'shipping_provider' => 'interparcel', 'tracking_number' => 'GB1234567890',
+                'shipping_shipment_id' => '23794871', 'shipping_status' => 'pre_transit',
+            ]);
+        });
 
-        $product = Product::factory()->create(['price' => '£50.00']);
-        $order = Order::factory()->create([
-            'shipping_address' => '123 High St, London, SW1A 1AA',
-            'shipping_address_line1' => '123 High St',
-            'shipping_city' => 'London',
-            'shipping_postcode' => 'SW1A 1AA',
-            'shipping_country' => 'United Kingdom',
-            'shipping_metadata' => [
-                'fulfilment_method' => 'delivery',
-                'selected_delivery_option' => [
-                    'service' => 'Royal Mail Tracked 48',
-                ],
-            ],
-        ]);
-        OrderItem::factory()->forProduct($product)->create([
-            'order_id' => $order->id,
-            'quantity' => 1,
-        ]);
-
-        $response = $this->postJson("/api/admin/orders/{$order->id}/shipping/label", [
-            'tracking_number' => 'EZ1000000001',
-        ]);
-
-        $response->assertOk();
-        $response->assertJsonPath('tracking_number', 'EZ1000000001');
-        $response->assertJsonPath('shipping_status', 'pre_transit');
-        $this->assertSame('EZ1000000001', $order->fresh()->tracking_number);
-        $this->assertNotNull($order->fresh()->shipping_shipment_id);
-        $this->assertNotNull($order->fresh()->shipping_label_url);
+        $this->postJson("/api/admin/orders/{$order->id}/shipping/label", ['confirm_booking' => true])
+            ->assertOk()->assertJsonPath('tracking_number', 'GB1234567890')
+            ->assertJsonPath('shipping_status', 'pre_transit');
+        $this->assertSame('23794871', $order->fresh()->shipping_shipment_id);
         $this->assertSame('processing', $order->fresh()->status);
     }
 
     public function test_admin_can_refresh_tracking_for_delivery_order(): void
     {
         $this->authenticatedAdmin();
-
         $order = Order::factory()->create([
-            'tracking_number' => 'EZ3000000003',
-            'shipping_provider' => 'easypost',
-            'shipping_carrier' => 'Royal Mail',
-            'shipping_service' => 'Royal Mail Tracked 48',
-            'shipping_metadata' => [
-                'fulfilment_method' => 'delivery',
-                'shipments' => [[
-                    'tracking_number' => 'EZ3000000003',
-                    'shipment_id' => 'mock_shipment_123',
-                    'status' => 'pre_transit',
-                    'detail' => 'Shipment created',
-                ]],
-            ],
+            'shipping_provider' => 'interparcel', 'tracking_number' => 'GB1234567890',
         ]);
+        $this->mock(ShippingGateway::class, function (MockInterface $mock) {
+            $mock->shouldReceive('track')->once()->andReturn(['shipping_status' => 'out_for_delivery']);
+        });
 
-        $response = $this->postJson("/api/admin/orders/{$order->id}/shipping/track", [
-            'tracking_number' => 'EZ3000000003',
-        ]);
-
-        $response->assertOk();
-        $response->assertJsonPath('tracking_number', 'EZ3000000003');
-        $response->assertJsonPath('shipping_status', 'out_for_delivery');
-        $this->assertSame('EZ3000000003', $order->fresh()->tracking_number);
+        $this->postJson("/api/admin/orders/{$order->id}/shipping/track")
+            ->assertOk()->assertJsonPath('tracking_number', 'GB1234567890')
+            ->assertJsonPath('shipping_status', 'out_for_delivery');
         $this->assertSame('shipped', $order->fresh()->status);
     }
 
-    public function test_admin_can_void_existing_shipment(): void
+    public function test_interparcel_cancellation_requires_the_carrier_account(): void
     {
         $this->authenticatedAdmin();
-
         $order = Order::factory()->create([
-            'shipping_shipment_id' => 'mock_shipment_void',
-            'shipping_metadata' => [
-                'fulfilment_method' => 'delivery',
-                'shipments' => [[
-                    'tracking_number' => 'EZ1000000001',
-                    'shipment_id' => 'mock_shipment_void',
-                    'status' => 'pre_transit',
-                    'detail' => 'Shipment created',
-                ]],
-            ],
+            'shipping_provider' => 'interparcel', 'shipping_shipment_id' => '23794871',
+            'shipping_status' => 'pre_transit',
         ]);
 
-        $response = $this->postJson("/api/admin/orders/{$order->id}/shipping/void");
-
-        $response->assertOk();
-        $response->assertJsonPath('shipping_status', 'voided');
-        $this->assertSame('submitted', data_get($order->fresh()->shipping_metadata, 'void_results.0.status'));
-        $this->assertSame('voided', $order->fresh()->shipping_status);
+        $this->postJson("/api/admin/orders/{$order->id}/shipping/void")->assertStatus(422);
+        $this->assertSame('pre_transit', $order->fresh()->shipping_status);
     }
 
     public function test_click_and_collect_orders_reject_shipping_actions(): void
@@ -359,7 +314,7 @@ class AdminOrderTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_admin_is_redirected_for_external_shipping_label_url(): void
+    public function test_external_labels_from_a_retired_provider_are_not_opened(): void
     {
         Storage::fake('public');
         $this->authenticatedAdmin();
@@ -370,7 +325,8 @@ class AdminOrderTest extends TestCase
 
         $response = $this->getJson("/api/admin/orders/{$order->id}/shipping/label/download");
 
-        $response->assertRedirect('https://external-shipping-provider.com/labels/123.pdf');
+        $response->assertNotFound();
+        $this->assertFalse($response->headers->has('Location'));
     }
 
     public function test_admin_receives_404_when_shipping_label_does_not_exist(): void

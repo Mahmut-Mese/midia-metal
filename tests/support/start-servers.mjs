@@ -29,7 +29,7 @@ const env = {
   SANCTUM_STATEFUL_DOMAINS: '127.0.0.1:4323,127.0.0.1:8013',
   SHIPPING_MOCK: 'true', FRONTEND_DEPLOY_TRIGGER_ENABLED: 'false',
   STRIPE_KEY: '', STRIPE_SECRET: '', STRIPE_WEBHOOK_SECRET: '',
-  GITHUB_ACTIONS_TRIGGER_TOKEN: '', EASYPOST_API_KEY: '',
+  GITHUB_ACTIONS_TRIGGER_TOKEN: '', INTERPARCEL_API_KEY: '', INTERPARCEL_BOOKING_ENABLED: 'false',
 };
 const php = process.env.PHP_BINARY || 'php';
 const phpPath = execFileSync(php, ['-r', 'echo PHP_BINARY;'], { encoding: 'utf8', windowsHide: true }).trim();

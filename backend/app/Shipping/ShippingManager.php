@@ -15,10 +15,8 @@ class ShippingManager
 
     public function gateway(?Order $order = null): ShippingGateway
     {
-        if ($order && $order->shipping_provider) {
-            $mode = data_get($order->shipping_metadata, 'mode');
-
-            return app(ShippingGatewayFactory::class)->make($order->shipping_provider, $mode ? $mode === 'mock' : null);
+        if ($order && $order->shipping_provider !== 'interparcel') {
+            throw new ShippingException('This order was not booked with Interparcel. Its saved shipping details cannot be updated through Interparcel.');
         }
 
         return $this->gateway;
@@ -26,10 +24,8 @@ class ShippingManager
 
     public function createLabel(Order $order, array $context = []): Order
     {
-        $gateway = $this->gateway($order);
         // Interparcel uses the exact consignment plan saved with the chosen checkout quote.
-        $parcelPlan = $gateway->provider() === 'interparcel' ? [] : $this->resolveParcelPlanForOrder($order);
-        $payload = $gateway->createLabel($order, array_merge($parcelPlan, $context));
+        $payload = $this->gateway($order)->createLabel($order, $context);
 
         return $this->persist($order, $payload);
     }
@@ -42,7 +38,7 @@ class ShippingManager
      */
     public function quoteOptions(array $toAddress, array $items = [], array $context = []): array
     {
-        $parcelPlan = $this->parcelBuilder->buildForCheckoutItems($items, $this->gateway()->provider() === 'interparcel');
+        $parcelPlan = $this->parcelBuilder->buildForCheckoutItems($items, true);
 
         return $this->gateway()->quote($toAddress, $items, array_merge($context, $parcelPlan));
     }
@@ -118,25 +114,5 @@ class ShippingManager
             'voided' => $currentOrderStatus,
             default => $currentOrderStatus,
         };
-    }
-
-    /**
-     * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>}
-     */
-    private function resolveParcelPlanForOrder(Order $order): array
-    {
-        $storedParcels = data_get($order->shipping_metadata, 'selected_delivery_option.parcels');
-        $storedSummary = data_get($order->shipping_metadata, 'selected_delivery_option.parcel_summary');
-
-        if (is_array($storedParcels) && count($storedParcels) > 0) {
-            return [
-                'parcels' => $storedParcels,
-                'parcel_summary' => is_array($storedSummary) ? $storedSummary : [
-                    'parcel_count' => count($storedParcels),
-                ],
-            ];
-        }
-
-        return $this->parcelBuilder->buildForOrder($order);
     }
 }

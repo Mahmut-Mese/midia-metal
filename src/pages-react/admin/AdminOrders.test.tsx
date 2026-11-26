@@ -39,4 +39,31 @@ describe('admin order access beyond the first page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await screen.findByText('No orders found.');
   });
+
+  it('shows saved order details without actions for the retired shipping provider', async () => {
+    const saved = {
+      ...order(1, 'Previous buyer'), shipping_provider: 'easypost', tracking_number: 'old-tracking',
+      shipping_label_url: 'https://old-provider.example/label.pdf', shipping: '6.50',
+      items: [{ product_name: 'Existing product', product_price: '£10.00', quantity: 1 }],
+    };
+    fetchMock.mockResolvedValueOnce({ data: [saved], total: 1, last_page: 1 }).mockResolvedValueOnce(saved);
+    render(<AdminOrders />);
+    fireEvent.click(await screen.findByRole('button', { name: 'View ORDER-1' }));
+    await screen.findByDisplayValue('old-tracking');
+    expect(screen.getByText('1x Existing product')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Refresh tracking|Create Label|Regenerate Label|Cancel Label|Book collection/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Download Label/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/EasyPost test tracking codes/)).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('offers booking and tracking for Interparcel orders', async () => {
+    const saved = { ...order(1, 'New buyer'), shipping_provider: 'interparcel', shipping: '12.00', payment_status: 'paid' };
+    fetchMock.mockResolvedValueOnce({ data: [saved], total: 1, last_page: 1 }).mockResolvedValueOnce(saved);
+    render(<AdminOrders />);
+    fireEvent.click(await screen.findByRole('button', { name: 'View ORDER-1' }));
+    expect(await screen.findByRole('button', { name: 'Book collection / recover booking' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Refresh tracking' })).toBeEnabled();
+    expect(screen.getByPlaceholderText('Assigned by Interparcel')).toHaveAttribute('readonly');
+  });
 });

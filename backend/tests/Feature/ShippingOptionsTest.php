@@ -3,30 +3,31 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
-use App\Models\SiteSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ShippingOptionsTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function seedFreightSurcharges(): void
+    protected function setUp(): void
     {
-        $surcharges = [
-            'freight_surcharge_highlands' => '7.00',
-            'freight_surcharge_ni' => '4.50',
-            'freight_surcharge_scotland' => '2.00',
-            'freight_surcharge_london' => '0.00',
-            'freight_surcharge_default' => '1.00',
-        ];
+        parent::setUp();
+        config(['services.shipping.mock' => false, 'services.interparcel.api_key' => 'test-only']);
+        Http::preventStrayRequests();
+        Http::fake(['api.interparcel.com/quote' => function (Request $request) {
+            $pallet = $request['filter']['serviceLevel'] === ['pallet'];
 
-        foreach ($surcharges as $key => $value) {
-            SiteSetting::updateOrCreate(
-                ['key' => $key],
-                ['value' => $value, 'group' => 'shipping-freight'],
-            );
-        }
+            return Http::response(['status' => 0, 'services' => [[
+                'id' => $pallet ? 'HAULECO' : 'PF48', 'carrier' => $pallet ? 'Haulable' : 'Parcelforce',
+                'service' => $pallet ? 'Haulable Economy' : 'Parcelforce Express 48',
+                'serviceLevel' => $pallet ? 'pallet' : 'standard', 'price' => $pallet ? 50 : 10,
+                'currency' => 'GBP', 'taxable' => true, 'pickupType' => 'collection',
+                'printerNeeded' => true, 'delivery' => ['daysFrom' => 2, 'daysTo' => 3],
+            ]]]);
+        }]);
     }
 
     // ─── Standard shipping ────────────────────────────────────────────
@@ -83,8 +84,6 @@ class ShippingOptionsTest extends TestCase
 
     public function test_freight_product_returns_pallet_delivery_option(): void
     {
-        $this->seedFreightSurcharges();
-
         $product = Product::factory()->freight(150.00)->create(['price' => '£999.00']);
 
         $response = $this->postJson('/api/v1/shipping/options', [
@@ -101,18 +100,13 @@ class ShippingOptionsTest extends TestCase
         $options = $response->json('options');
         $this->assertNotEmpty($options);
 
-        // Should contain a freight/pallet option
-        $freightOption = collect($options)->first(function ($opt) {
-            return str_contains(strtolower($opt['service'] ?? ''), 'freight')
-                || str_contains(strtolower($opt['service'] ?? ''), 'pallet');
-        });
-        $this->assertNotNull($freightOption, 'Freight product should return a pallet delivery option');
+        $response->assertJsonPath('options.0.provider', 'interparcel')
+            ->assertJsonPath('options.0.consignments.0.type', 'pallet')
+            ->assertJsonPath('options.0.service_code', 'HAULECO');
     }
 
-    public function test_mixed_cart_forces_freight_when_any_freight_item(): void
+    public function test_mixed_cart_includes_both_parcel_and_pallet_consignments(): void
     {
-        $this->seedFreightSurcharges();
-
         $standardProduct = Product::factory()->create([
             'price' => '£25.00',
             'shipping_class' => 'standard',
@@ -134,12 +128,10 @@ class ShippingOptionsTest extends TestCase
         $options = $response->json('options');
         $this->assertNotEmpty($options);
 
-        // Mixed cart should force pallet delivery — all options should be freight
-        $hasFreight = collect($options)->contains(function ($opt) {
-            return str_contains(strtolower($opt['service'] ?? ''), 'freight')
-                || str_contains(strtolower($opt['service'] ?? ''), 'pallet');
-        });
-        $this->assertTrue($hasFreight, 'Mixed cart with freight item should include pallet delivery option');
+        $response->assertJsonCount(2, 'options.0.consignments')
+            ->assertJsonPath('options.0.consignments.0.type', 'parcel')
+            ->assertJsonPath('options.0.consignments.1.type', 'pallet')
+            ->assertJsonPath('options.0.rate', 72);
     }
 
     // ─── Validation ───────────────────────────────────────────────────

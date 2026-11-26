@@ -1,21 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { Download, Eye, MapPin, RefreshCcw, RotateCcw, Truck, X, XCircle } from "lucide-react";
+import { Eye, MapPin, RefreshCcw, RotateCcw, Truck, X } from "lucide-react";
 import { API_URL } from "@/lib/api";
 import { SortableTableHeader, sortRows, useTableSort } from "@/components/admin/SortableTableHeader";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InterparcelBookingForm, type InterparcelBookingInput } from "@/components/admin/InterparcelBookingForm";
-
-const MOCK_TRACKING_CODES = [
-  "EZ1000000001",
-  "EZ2000000002",
-  "EZ3000000003",
-  "EZ4000000004",
-  "EZ5000000005",
-  "EZ6000000006",
-  "EZ7000000007",
-];
 
 const getRequestTypeLabel = (requestType?: string) =>
   requestType === "cancel" ? "Cancel order" : "Cancel & refund";
@@ -91,7 +81,7 @@ export default function AdminOrders() {
   const [loadError, setLoadError] = useState(false);
   const requestSequence = useRef(0);
   const { sort, toggleSort } = useTableSort("created_at", "desc");
-  const [shippingBusy, setShippingBusy] = useState<"label" | "track" | "void" | null>(null);
+  const [shippingBusy, setShippingBusy] = useState<"label" | "track" | null>(null);
   const [refunding, setRefunding] = useState(false);
   const [bankRefundRequest, setBankRefundRequest] = useState<any>(null);
   const [bankRefundAcknowledged, setBankRefundAcknowledged] = useState(false);
@@ -146,24 +136,23 @@ export default function AdminOrders() {
     }
   };
 
-  const handleCreateShippingLabel = async (booking?: InterparcelBookingInput) => {
+  const handleCreateShippingLabel = async (booking: InterparcelBookingInput) => {
     if (!viewingOrder) return;
 
     setShippingBusy("label");
     try {
       const updated = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}/shipping/label`, {
         method: "POST",
-        body: JSON.stringify(booking ?? { tracking_number: (viewingOrder.tracking_number || "").trim() || undefined }),
+        body: JSON.stringify(booking),
       });
       setViewingOrder(updated);
       await loadOrders();
-      toast.success(updated.shipping_provider === "interparcel" ? "Booking accepted. Labels may take a moment to become ready." : "Shipping label created");
+      toast.success("Booking accepted. Labels may take a moment to become ready.");
       // Auto-refresh tracking after label creation
       setShippingBusy("track");
       try {
         const tracked = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}/shipping/track`, {
           method: "POST",
-          body: JSON.stringify({ tracking_number: (updated.tracking_number || "").trim() || undefined }),
         });
         setViewingOrder(tracked);
         await loadOrders();
@@ -184,32 +173,12 @@ export default function AdminOrders() {
     try {
       const updated = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}/shipping/track`, {
         method: "POST",
-        body: JSON.stringify({ tracking_number: (viewingOrder.tracking_number || "").trim() || undefined }),
       });
       setViewingOrder(updated);
       await loadOrders();
       toast.success("Tracking updated");
     } catch (error: any) {
       toast.error(error?.message || "Failed to refresh tracking");
-    } finally {
-      setShippingBusy(null);
-    }
-  };
-
-  const handleVoidShipment = async () => {
-    if (!viewingOrder) return;
-    if (!window.confirm("Are you sure you want to cancel this label? This will request a refund for the shipping label.")) return;
-
-    setShippingBusy("void");
-    try {
-      const updated = await apiFetch<AdminOrder>(`/admin/orders/${viewingOrder.id}/shipping/void`, {
-        method: "POST",
-      });
-      setViewingOrder(updated);
-      await loadOrders();
-      toast.success("Label canceled successfully");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to cancel label");
     } finally {
       setShippingBusy(null);
     }
@@ -400,7 +369,7 @@ export default function AdminOrders() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button onClick={() => openOrder(order.id)} className="text-indigo-600 hover:text-indigo-900 mr-4">
+                    <button aria-label={`View ${order.order_number}`} onClick={() => openOrder(order.id)} className="text-indigo-600 hover:text-indigo-900 mr-4">
                       <Eye className="h-4 w-4" />
                     </button>
                   </td>
@@ -682,25 +651,15 @@ export default function AdminOrders() {
                     <div>
                       <h3 className="text-lg font-semibold text-[#10275c] flex items-center gap-2">
                         <Truck className="w-5 h-5 text-[#eb5c10]" />
-                        Shipping Integration
+                        Shipping
                       </h3>
                       <p className="mt-1 text-sm text-gray-600">
-                        Provider: <strong>{viewingOrder.shipping_provider || "easypost"}</strong>
+                        Provider: <strong>{viewingOrder.shipping_provider || "Not recorded"}</strong>
                         {viewingOrder.shipping_metadata?.mode === "mock" ? " (mock)" : ""}
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-3">
-                      {viewingOrder.shipping_provider !== "interparcel" && <button
-                        type="button"
-                        onClick={() => handleCreateShippingLabel()}
-                        disabled={shippingBusy !== null}
-                        className="inline-flex items-center gap-2 rounded-md bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange-hover disabled:opacity-60"
-                      >
-                        <Truck className="w-4 h-4" />
-                        {viewingOrder.shipping_label_url ? "Regenerate Label" : "Create Label"}
-                      </button>}
-
+                    {viewingOrder.shipping_provider === "interparcel" && <div className="flex flex-wrap gap-3">
                       <button
                         type="button"
                         onClick={handleRefreshTracking}
@@ -711,29 +670,7 @@ export default function AdminOrders() {
                         Refresh tracking
                       </button>
 
-                      {viewingOrder.shipping_provider !== "interparcel" && viewingOrder.shipping_label_url && (
-                        <a
-                          href={`${API_URL}/admin/orders/${viewingOrder.id}/shipping/label/download`}
-                          download
-                          className="inline-flex items-center gap-2 rounded-md border border-[#cad4e4] bg-white px-4 py-2 text-sm font-semibold text-[#10275c] hover:bg-[#f4f7f9]"
-                        >
-                          <Download className="w-4 h-4" />
-                          Download Label
-                        </a>
-                      )}
-
-                      {viewingOrder.shipping_provider !== "interparcel" && viewingOrder.shipping_label_url && viewingOrder.shipping_status !== "voided" && (
-                        <button
-                          type="button"
-                          onClick={handleVoidShipment}
-                          disabled={shippingBusy !== null}
-                          className="inline-flex items-center gap-2 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
-                        >
-                          <XCircle className={`w-4 h-4 ${shippingBusy === "void" ? "animate-spin" : ""}`} />
-                          Cancel Label
-                        </button>
-                      )}
-                    </div>
+                    </div>}
                   </div>
 
                   {viewingOrder.shipping_provider === "interparcel" && (
@@ -775,16 +712,13 @@ export default function AdminOrders() {
                       <input
                         type="text"
                         value={viewingOrder.tracking_number ?? ""}
-                        placeholder={viewingOrder.shipping_provider === "interparcel" ? "Assigned by Interparcel" : "e.g. EZ2000000002 or real carrier tracking"}
+                        placeholder={viewingOrder.shipping_provider === "interparcel" ? "Assigned by Interparcel" : "Saved tracking number"}
                         readOnly={viewingOrder.shipping_provider === "interparcel"}
                         onChange={(e) => setViewingOrder({ ...viewingOrder, tracking_number: e.target.value })}
                         onBlur={viewingOrder.shipping_provider === "interparcel" ? undefined : handleSaveTracking}
                         className="block w-full rounded-md border-gray-300 py-2 px-3 text-sm border focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
-                    {viewingOrder.shipping_provider !== "interparcel" && <p className="mt-2 text-xs text-[#6e7a92]">
-                      EasyPost test tracking codes: {MOCK_TRACKING_CODES.join(", ")}.
-                    </p>}
                     {viewingOrder.shipping_metadata?.tracking_detail && (
                       <p className="mt-2 text-sm text-[#10275c]">
                         Latest carrier detail: {viewingOrder.shipping_metadata.tracking_detail}

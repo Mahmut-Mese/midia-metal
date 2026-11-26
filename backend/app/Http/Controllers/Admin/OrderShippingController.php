@@ -21,12 +21,6 @@ class OrderShippingController extends Controller
             ], 422);
         }
 
-        $trackingNumber = trim((string) $request->input('tracking_number', ''));
-        if ($trackingNumber !== '') {
-            $order->update(['tracking_number' => $trackingNumber]);
-            $order->refresh();
-        }
-
         $context = $request->validate([
             'confirm_booking' => 'sometimes|boolean',
             'pickup' => 'sometimes|array:date,earliest,latest',
@@ -46,12 +40,6 @@ class OrderShippingController extends Controller
             return response()->json([
                 'message' => 'Tracking refresh is not available for click & collect orders.',
             ], 422);
-        }
-
-        $trackingNumber = trim((string) $request->input('tracking_number', ''));
-        if ($trackingNumber !== '') {
-            $order->update(['tracking_number' => $trackingNumber]);
-            $order->refresh();
         }
 
         $updatedOrder = $this->shippingManager->refreshTracking($order);
@@ -96,11 +84,6 @@ class OrderShippingController extends Controller
             $filename = basename($path);
 
             return Storage::disk('public')->download($path, $filename);
-        }
-
-        $externalUrl = (string) ($order->shipping_label_url ?? '');
-        if ($externalUrl !== '' && preg_match('/^https?:\/\//i', $externalUrl)) {
-            return redirect()->away($externalUrl);
         }
 
         return response()->json(['message' => 'Shipping label not found'], 404);

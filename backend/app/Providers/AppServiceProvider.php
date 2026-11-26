@@ -2,9 +2,8 @@
 
 namespace App\Providers;
 
-use App\Shipping\FreightZoneResolver;
+use App\Shipping\InterparcelGateway;
 use App\Shipping\ShippingGateway;
-use App\Shipping\ShippingGatewayFactory;
 use App\Shipping\ShippingManager;
 use Illuminate\Support\ServiceProvider;
 
@@ -15,13 +14,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Freight zone resolver — singleton so surcharges are only loaded once per request
-        $this->app->singleton(FreightZoneResolver::class);
-
-        // Shipping gateway — resolved from config (mock vs live)
-        $this->app->bind(ShippingGateway::class, function ($app) {
-            return $app->make(ShippingGatewayFactory::class)->make();
-        });
+        // A legacy SHIPPING_PROVIDER setting must not reactivate the retired integration.
+        $this->app->bind(ShippingGateway::class, InterparcelGateway::class);
 
         // Shipping manager — uses gateway from the container
         $this->app->singleton(ShippingManager::class);

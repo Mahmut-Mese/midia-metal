@@ -44,7 +44,7 @@ return [
     ],
 
     'shipping' => [
-        'provider' => env('SHIPPING_PROVIDER', 'easypost'),
+        'provider' => 'interparcel',
         'mock' => env('SHIPPING_MOCK', true),
         'from_name' => env('SHIPPING_FROM_NAME', env('APP_NAME', 'Midia Metal')),
         'from_company' => env('SHIPPING_FROM_COMPANY', 'Midia Metal'),
@@ -83,14 +83,6 @@ return [
         // Checkout prices are VAT-inclusive. Confirm this basis with Interparcel for your account.
         'quote_prices_include_vat' => env('INTERPARCEL_QUOTE_PRICES_INCLUDE_VAT', false),
         'vat_rate' => (float) env('INTERPARCEL_VAT_RATE', 20),
-    ],
-
-    'easypost' => [
-        'api_key' => env('EASYPOST_API_KEY'),
-        'base_url' => env('EASYPOST_BASE_URL', 'https://api.easypost.com/v2'),
-        'default_carrier' => env('EASYPOST_DEFAULT_CARRIER', 'Royal Mail'),
-        'default_service' => env('EASYPOST_DEFAULT_SERVICE', 'Tracked 48'),
-        'webhook_secret' => env('EASYPOST_WEBHOOK_SECRET'),
     ],
 
     'frontend_deploy' => [

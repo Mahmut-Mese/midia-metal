@@ -63,6 +63,7 @@ class ShippingQuoteStore
 
     private function key(string $token): string
     {
-        return 'shipping_quote:'.$token;
+        // Require a fresh Interparcel quote for checkouts opened before the provider switch.
+        return 'shipping_quote:interparcel:v1:'.$token;
     }
 }

@@ -9,7 +9,6 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Shipping\InterparcelGateway;
 use App\Shipping\ShippingGateway;
-use App\Shipping\ShippingManager;
 use App\Shipping\ShippingQuoteStore;
 use App\Support\CheckoutCalculator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -299,13 +298,59 @@ class InterparcelShippingTest extends TestCase
         $this->assertNotSame('voided', $order->fresh()->shipping_status);
     }
 
-    public function test_saved_easypost_order_keeps_its_provider_after_switch(): void
+    public function test_old_provider_setting_cannot_reactivate_easypost_or_fake_rates(): void
+    {
+        Http::fake();
+        config(['services.shipping.provider' => 'easypost', 'services.interparcel.api_key' => '']);
+        $this->assertInstanceOf(InterparcelGateway::class, app(ShippingGateway::class));
+        $this->postJson('/api/v1/shipping/options', $this->checkout($this->product()))->assertStatus(422)
+            ->assertJsonPath('message', 'Interparcel API access is not configured. Add INTERPARCEL_API_KEY on the server.');
+        Http::assertNothingSent();
+    }
+
+    public function test_saved_easypost_order_remains_readable_but_cannot_use_shipping_actions(): void
+    {
+        $this->admin();
+        Http::fake();
+        $order = $this->order();
+        $order->update([
+            'shipping_provider' => 'easypost', 'tracking_number' => 'saved-tracking',
+            'shipping_shipment_id' => 'shp_existing', 'shipping_metadata' => ['mode' => 'live'],
+        ]);
+        $before = $order->fresh()->getAttributes();
+        $this->getJson('/api/admin/orders/'.$order->id)->assertOk()
+            ->assertJsonPath('shipping_provider', 'easypost')->assertJsonPath('tracking_number', 'saved-tracking')
+            ->assertJsonCount(1, 'items');
+        foreach (['label', 'track', 'void'] as $action) {
+            $this->postJson('/api/admin/orders/'.$order->id.'/shipping/'.$action, ['tracking_number' => 'do-not-overwrite'])
+                ->assertStatus(422)->assertJsonPath('message', 'This order was not booked with Interparcel. Its saved shipping details cannot be updated through Interparcel.');
+        }
+        $this->assertSame($before, $order->fresh()->getAttributes());
+        $this->assertDatabaseCount('interparcel_bookings', 0);
+        Http::assertNothingSent();
+    }
+
+    public function test_retired_webhook_cannot_change_saved_order(): void
     {
         Http::fake();
         $order = $this->order();
-        $order->update(['shipping_provider' => 'easypost', 'shipping_metadata' => ['mode' => 'mock']]);
-        $this->assertSame('easypost', app(ShippingManager::class)->gateway($order)->provider());
+        $order->update(['shipping_provider' => 'easypost', 'shipping_status' => 'pre_transit', 'shipping_shipment_id' => 'shp_existing']);
+        $this->postJson('/api/v1/webhooks/easypost', [
+            'description' => 'tracker.updated', 'result' => ['shipment_id' => 'shp_existing', 'status' => 'delivered'],
+        ])->assertStatus(405);
+        $this->assertSame('pre_transit', $order->fresh()->shipping_status);
         Http::assertNothingSent();
+    }
+
+    public function test_checkout_rejects_quotes_cached_before_the_provider_switch(): void
+    {
+        Http::fake();
+        $product = $this->product();
+        Cache::put('shipping_quote:old-provider-token', ['provider' => 'easypost', 'rate' => 1], now()->addMinutes(45));
+        $this->assertNull(app(ShippingQuoteStore::class)->resolve('old-provider-token'));
+        Http::assertNothingSent();
+        $this->expectException(ValidationException::class);
+        app(CheckoutCalculator::class)->calculate([['product_id' => $product->id, 'quantity' => 1]], null, 'delivery', 'old-provider-token');
     }
 
     public function test_mixed_booking_sends_both_consignments_and_waits_for_all_deliveries(): void
