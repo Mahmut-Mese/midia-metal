@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Shipping\InterparcelClient;
 use App\Shipping\InterparcelGateway;
 use App\Shipping\ShippingException;
 use Illuminate\Console\Command;
@@ -31,7 +32,9 @@ class CheckInterparcel extends Command
                 'city' => $this->option('city'), 'postcode' => $this->option('postcode'), 'country' => 'GB',
             ], [], [$this->option('pallet') ? 'pallets' : 'parcels' => [$parcel]]);
         } catch (ShippingException $e) {
-            $this->error($e->getMessage());
+            $this->error($e->getCode() === InterparcelClient::IP_NOT_AUTHORISED
+                ? "Interparcel has not authorised this server's outbound IP address (403002). Ask Interparcel to allow the testing/server IP, then rerun this quote-only check. Keep paid bookings disabled."
+                : $e->getMessage());
 
             return self::FAILURE;
         }

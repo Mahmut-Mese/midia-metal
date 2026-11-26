@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Http;
 
 class InterparcelClient
 {
+    public const IP_NOT_AUTHORISED = 403002;
+
     private const BASE_URL = 'https://api.interparcel.com';
 
     public function json(string $method, string $path, int $version, array $data = []): array
@@ -17,6 +19,10 @@ class InterparcelClient
 
         if (! $response->successful() || ! is_array($body) || ($body['status'] ?? null) !== 0) {
             // Provider errors can echo names, addresses or credentials. Do not relay them to customers/logs.
+            if ($response->status() === 403 && is_array($body)
+                && (string) ($body['errorCode'] ?? '') === (string) self::IP_NOT_AUTHORISED) {
+                throw new ShippingException('Delivery quotes are temporarily unavailable. Please try again later.', self::IP_NOT_AUTHORISED);
+            }
             throw new ShippingException($response->status() === 401 || $response->status() === 403
                 ? 'Interparcel rejected the API credentials. Check that API access is enabled for this account.'
                 : 'Interparcel could not complete this request. Check the shipment details and account in Interparcel before retrying.');

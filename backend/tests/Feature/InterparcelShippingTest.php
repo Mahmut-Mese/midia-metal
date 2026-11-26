@@ -180,6 +180,23 @@ class InterparcelShippingTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_ip_allowlist_rejection_is_private_in_checkout_and_actionable_in_quote_checker(): void
+    {
+        Http::fake(['api.interparcel.com/quote' => Http::response([
+            'status' => 1, 'errorCode' => '403002',
+            'errorMessage' => 'IP address 203.0.113.10 is not authorised; test-key-never-real',
+        ], 403)]);
+        $this->postJson('/api/v1/shipping/options', $this->checkout($this->product()))
+            ->assertStatus(422)
+            ->assertExactJson(['message' => 'Delivery quotes are temporarily unavailable. Please try again later.']);
+        $this->artisan('interparcel:check')
+            ->expectsOutput("Interparcel has not authorised this server's outbound IP address (403002). Ask Interparcel to allow the testing/server IP, then rerun this quote-only check. Keep paid bookings disabled.")
+            ->assertFailed();
+        Http::assertSentCount(2);
+        Http::assertNotSent(fn (Request $request) => $request->url() !== 'https://api.interparcel.com/quote');
+        $this->assertDatabaseCount('interparcel_bookings', 0);
+    }
+
     public function test_booking_requires_enabled_flag_confirmation_paid_order_and_pickup(): void
     {
         Http::fake();
