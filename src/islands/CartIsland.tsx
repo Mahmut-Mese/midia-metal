@@ -332,7 +332,7 @@ function CartIsland() {
               <div className="text-sm md:text-lg text-primary p-4 md:p-6">
                 <p>Calculated at checkout</p>
                 <p className="mt-1 text-xs md:text-sm text-[#6e7a92]">
-                  Live EasyPost delivery options appear after you enter your address.
+                Delivery options appear after you enter your address.
                 </p>
               </div>
             </div>

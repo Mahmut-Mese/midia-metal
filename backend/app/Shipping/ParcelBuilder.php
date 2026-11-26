@@ -13,7 +13,7 @@ class ParcelBuilder
      * @param  array<int, array<string, mixed>>  $items
      * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>, freight_plan: array<string, mixed>|null}
      */
-    public function buildForCheckoutItems(array $items): array
+    public function buildForCheckoutItems(array $items, bool $interparcel = false): array
     {
         $productIds = collect($items)
             ->pluck('product_id')
@@ -48,13 +48,13 @@ class ParcelBuilder
             })
             ->all();
 
-        return $this->buildFromLines($lines);
+        return $this->buildFromLines($lines, $interparcel);
     }
 
     /**
      * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>, freight_plan: array<string, mixed>|null}
      */
-    public function buildForOrder(Order $order): array
+    public function buildForOrder(Order $order, bool $interparcel = false): array
     {
         $order->loadMissing('items.product');
 
@@ -70,38 +70,58 @@ class ParcelBuilder
             ];
         })->all();
 
-        return $this->buildFromLines($lines);
+        return $this->buildFromLines($lines, $interparcel);
     }
 
     /**
      * @param  array<int, array{product: Product, quantity: int, selected_variants?: array<string, mixed>|null}>  $lines
      * @return array{parcels: array<int, array<string, mixed>>, parcel_summary: array<string, mixed>, freight_plan: array<string, mixed>|null}
      */
-    private function buildFromLines(array $lines): array
+    private function buildFromLines(array $lines, bool $interparcel = false): array
     {
         $units = [];
         $freightItems = [];
+        $pallets = [];
 
         foreach ($lines as $line) {
             $product = $line['product'];
             $profile = $this->profileForProduct($product, $line['selected_variants'] ?? null);
+
+            if ($interparcel) {
+                $override = $this->variantShippingOverride($product, $line['selected_variants'] ?? null);
+                foreach (['weight_kg', 'length_cm', 'width_cm', 'height_cm'] as $field) {
+                    $measurement = $override[$field] ?? $product->{'shipping_'.$field};
+                    if (! is_numeric($measurement) || (float) $measurement <= 0) {
+                        throw new ShippingException("Shipping measurements are missing for {$product->name}. Please contact us for delivery.");
+                    }
+                }
+            }
 
             if ($profile['shipping_class'] === 'freight') {
                 $freightPrice = is_numeric($product->freight_delivery_price ?? null)
                     ? (float) $product->freight_delivery_price
                     : null;
 
-                if ($freightPrice === null) {
+                if ($freightPrice === null && ! $interparcel) {
                     throw new RuntimeException(
                         "\"{$product->name}\" requires pallet delivery. Please contact us for a freight quote."
                     );
                 }
 
                 for ($i = 0; $i < $line['quantity']; $i++) {
+                    if ($interparcel) {
+                        // Each freight unit is one fully packed pallet, including its base and packaging.
+                        $pallets[] = [
+                            'length' => $profile['length_cm'], 'width' => $profile['width_cm'],
+                            'height' => $profile['height_cm'], 'weight' => $profile['weight_kg'],
+                            'distance_unit' => 'cm', 'mass_unit' => 'kg', 'shipping_class' => 'freight',
+                            'items' => [['product_id' => $product->id, 'product_name' => $product->name, 'quantity' => 1, 'variant_selection' => $profile['variant_selection']]],
+                        ];
+                    }
                     $freightItems[] = [
                         'product_id' => $product->id,
                         'product_name' => $product->name,
-                        'freight_delivery_price' => $freightPrice,
+                        'freight_delivery_price' => $freightPrice ?? 0,
                         'quantity' => 1,
                     ];
                 }
@@ -144,6 +164,7 @@ class ParcelBuilder
         // If the order is freight-only there are no standard parcels to build
         if (count($units) === 0) {
             return [
+                'pallets' => $pallets,
                 'parcels' => [],
                 'parcel_summary' => [
                     'parcel_count' => 0,
@@ -202,6 +223,7 @@ class ParcelBuilder
         ];
 
         return [
+            'pallets' => $pallets,
             'parcels' => $parcels,
             'parcel_summary' => $summary,
             'freight_plan' => $freightPlan,
@@ -244,6 +266,7 @@ class ParcelBuilder
         return [
             'product_id' => $product->id,
             'product_name' => $product->name,
+            'variant_selection' => ProductVariantResolver::normalizeSelections($selectedVariants),
             'shipping_class' => $shippingClass,
             'ships_separately' => $shipsSeparately,
             'weight_kg' => $weight,
@@ -337,13 +360,14 @@ class ParcelBuilder
         $parcel = $this->applyPackagingAllowance($parcel);
 
         $itemBreakdown = collect($parcel['units'])
-            ->groupBy('product_id')
+            ->groupBy(fn ($unit) => json_encode([$unit['product_id'], $unit['variant_selection']]))
             ->map(function ($units) {
                 $first = $units->first();
 
                 return [
                     'product_id' => $first['product_id'],
                     'product_name' => $first['product_name'],
+                    'variant_selection' => $first['variant_selection'],
                     'quantity' => $units->count(),
                 ];
             })
@@ -385,10 +409,6 @@ class ParcelBuilder
             $resolvedSelections = collect($matchedVariant ? [$matchedVariant] : [])->values();
         } else {
             $resolvedSelections = collect($selectedVariants)->map(function ($selection, $option) use ($product) {
-                if (is_array($selection) && array_key_exists('shipping_weight_kg', $selection)) {
-                    return $selection;
-                }
-
                 $value = is_array($selection) ? ($selection['value'] ?? null) : null;
                 if ($value === null) {
                     return null;

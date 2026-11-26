@@ -46,6 +46,14 @@ export interface ShippingMetadata {
   mode?: "mock" | "live";
   selected_delivery_option?: SelectedDeliveryOption;
   tracking_detail?: string;
+  interparcel_shipments?: Array<{
+    order_id: string;
+    tracking_number: string;
+    booking_status: string;
+    label_status: string;
+    tracking_status: string;
+    tracking_detail: string;
+  }>;
 }
 
 // -- Address -----------------------------------------------------------------

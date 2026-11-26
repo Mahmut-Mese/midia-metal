@@ -7,6 +7,31 @@ use Illuminate\Support\Str;
 
 class ShippingQuoteStore
 {
+    /** Bind live quotes to the basket and destination so a cheap quote cannot be reused for a different order. */
+    public function fingerprint(array $items, array $address): string
+    {
+        $lines = array_map(function ($item) {
+            $variants = [];
+            foreach ($item['selected_variants'] ?? [] as $option => $selection) {
+                $variants[(string) $option] = is_array($selection) ? (string) ($selection['value'] ?? '') : (string) $selection;
+            }
+            ksort($variants);
+
+            return [(int) $item['product_id'], (int) $item['quantity'], $variants];
+        }, $items);
+        usort($lines, fn ($a, $b) => json_encode($a) <=> json_encode($b));
+        $destination = [];
+        foreach (['shipping_address_line1', 'shipping_address_line2', 'shipping_city', 'shipping_postcode', 'shipping_country'] as $field) {
+            $value = strtoupper(trim((string) ($address[$field] ?? '')));
+            if ($field === 'shipping_country' && in_array($value, ['UK', 'UNITED KINGDOM', 'GB', ''], true)) {
+                $value = 'GB';
+            }
+            $destination[$field] = preg_replace('/\s+/', '', $value);
+        }
+
+        return hash('sha256', json_encode([$lines, $destination], JSON_THROW_ON_ERROR));
+    }
+
     /**
      * @param  array<string, mixed>  $option
      * @return array<string, mixed>

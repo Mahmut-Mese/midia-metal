@@ -18,6 +18,7 @@ class CheckoutCalculator
         ?string $couponCode = null,
         string $fulfilmentMethod = 'delivery',
         ?string $shippingOptionToken = null,
+        array $shippingAddress = [],
     ): array {
         if (count($items) === 0) {
             throw ValidationException::withMessages([
@@ -98,6 +99,13 @@ class CheckoutCalculator
             if (! $selectedShippingOption) {
                 throw ValidationException::withMessages([
                     'shipping_option_token' => ['The selected delivery option has expired. Please choose a delivery option again.'],
+                ]);
+            }
+
+            if (($selectedShippingOption['provider'] ?? '') === 'interparcel'
+                && ! hash_equals($selectedShippingOption['checkout_context'] ?? '', $this->shippingQuoteStore->fingerprint($items, $shippingAddress))) {
+                throw ValidationException::withMessages([
+                    'shipping_option_token' => ['Your basket or delivery address has changed. Please choose delivery again.'],
                 ]);
             }
 

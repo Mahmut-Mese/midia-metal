@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\InterparcelBooking;
 use App\Models\Order;
 use App\Services\CustomerOrderRequestNotificationService;
 use App\Services\CustomerOrderStatusNotificationService;
@@ -84,6 +85,9 @@ class OrderController extends Controller
 
     public function destroy(Order $order)
     {
+        if (InterparcelBooking::where('order_id', $order->id)->exists()) {
+            return response()->json(['message' => 'This order has an Interparcel booking record and must be retained for payment reconciliation. Cancel the collection through Interparcel.'], 409);
+        }
         $order->delete();
 
         return response()->json(['message' => 'Order deleted']);

@@ -46,7 +46,7 @@ class ShippingController extends Controller
                 'city' => $validated['shipping_city'] ?? '',
                 'postcode' => $validated['shipping_postcode'] ?? '',
                 'county' => $validated['shipping_county'] ?? '',
-                'country' => 'GB',
+                'country' => $validated['shipping_country'] ?? 'GB',
             ], $validated['items']);
         } catch (Throwable $e) {
             return response()->json([
@@ -55,7 +55,13 @@ class ShippingController extends Controller
         }
 
         $issued = collect($options)
-            ->map(fn (array $option) => $this->shippingQuoteStore->issue($option))
+            ->map(function (array $option) use ($validated) {
+                if (($option['provider'] ?? '') === 'interparcel') {
+                    $option['checkout_context'] = $this->shippingQuoteStore->fingerprint($validated['items'], $validated);
+                }
+
+                return $this->shippingQuoteStore->issue($option);
+            })
             ->values()
             ->all();
 

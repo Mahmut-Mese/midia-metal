@@ -13,15 +13,23 @@ class ShippingManager
         private CustomerOrderStatusNotificationService $orderStatusNotifications,
     ) {}
 
-    public function gateway(): ShippingGateway
+    public function gateway(?Order $order = null): ShippingGateway
     {
+        if ($order && $order->shipping_provider) {
+            $mode = data_get($order->shipping_metadata, 'mode');
+
+            return app(ShippingGatewayFactory::class)->make($order->shipping_provider, $mode ? $mode === 'mock' : null);
+        }
+
         return $this->gateway;
     }
 
-    public function createLabel(Order $order): Order
+    public function createLabel(Order $order, array $context = []): Order
     {
-        $parcelPlan = $this->resolveParcelPlanForOrder($order);
-        $payload = $this->gateway()->createLabel($order, $parcelPlan);
+        $gateway = $this->gateway($order);
+        // Interparcel uses the exact consignment plan saved with the chosen checkout quote.
+        $parcelPlan = $gateway->provider() === 'interparcel' ? [] : $this->resolveParcelPlanForOrder($order);
+        $payload = $gateway->createLabel($order, array_merge($parcelPlan, $context));
 
         return $this->persist($order, $payload);
     }
@@ -34,14 +42,14 @@ class ShippingManager
      */
     public function quoteOptions(array $toAddress, array $items = [], array $context = []): array
     {
-        $parcelPlan = $this->parcelBuilder->buildForCheckoutItems($items);
+        $parcelPlan = $this->parcelBuilder->buildForCheckoutItems($items, $this->gateway()->provider() === 'interparcel');
 
         return $this->gateway()->quote($toAddress, $items, array_merge($context, $parcelPlan));
     }
 
     public function refreshTracking(Order $order): Order
     {
-        $payload = $this->gateway()->track($order);
+        $payload = $this->gateway($order)->track($order);
 
         return $this->persist($order, $payload);
     }
@@ -51,7 +59,7 @@ class ShippingManager
      */
     public function voidShipment(Order $order): Order
     {
-        $payload = $this->gateway()->voidShipment($order);
+        $payload = $this->gateway($order)->voidShipment($order);
 
         return $this->persist($order, $payload);
     }

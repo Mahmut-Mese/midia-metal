@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Shipping\InterparcelGateway;
 use App\Shipping\ShippingManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -26,7 +27,15 @@ class OrderShippingController extends Controller
             $order->refresh();
         }
 
-        $updatedOrder = $this->shippingManager->createLabel($order);
+        $context = $request->validate([
+            'confirm_booking' => 'sometimes|boolean',
+            'pickup' => 'sometimes|array:date,earliest,latest',
+            'pickup.date' => 'sometimes|date_format:Y-m-d',
+            'pickup.earliest' => 'sometimes|date_format:H:i',
+            'pickup.latest' => 'sometimes|date_format:H:i',
+            'max_cost' => 'sometimes|numeric|min:0.01',
+        ]);
+        $updatedOrder = $this->shippingManager->createLabel($order, $context);
 
         return response()->json($updatedOrder);
     }
@@ -69,8 +78,19 @@ class OrderShippingController extends Controller
         return response()->json($updatedOrder);
     }
 
-    public function downloadLabel(Order $order)
+    public function downloadLabel(Request $request, Order $order)
     {
+        if ($order->shipping_provider === 'interparcel') {
+            $validated = $request->validate(['shipment' => 'sometimes|integer|min:0|max:19']);
+            $index = (int) ($validated['shipment'] ?? 0);
+            $pdf = app(InterparcelGateway::class)->downloadLabel($order, $index);
+
+            return response($pdf, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="interparcel-'.$order->id.'-'.($index + 1).'.pdf"',
+                'Cache-Control' => 'private, no-store',
+            ]);
+        }
         $path = $this->resolveLabelPath($order);
         if ($path && Storage::disk('public')->exists($path)) {
             $filename = basename($path);

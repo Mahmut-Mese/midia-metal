@@ -74,6 +74,17 @@ return [
         ],
     ],
 
+    'interparcel' => [
+        'api_key' => env('INTERPARCEL_API_KEY'),
+        'booking_enabled' => env('INTERPARCEL_BOOKING_ENABLED', false),
+        'payment_method' => env('INTERPARCEL_PAYMENT_METHOD', 'prepay'),
+        'parcel_services' => array_values(array_filter(array_map('trim', explode(',', env('INTERPARCEL_PARCEL_SERVICES', 'IPCOL,PF48'))))),
+        'pallet_services' => array_values(array_filter(array_map('trim', explode(',', env('INTERPARCEL_PALLET_SERVICES', 'HAULECO'))))),
+        // Checkout prices are VAT-inclusive. Confirm this basis with Interparcel for your account.
+        'quote_prices_include_vat' => env('INTERPARCEL_QUOTE_PRICES_INCLUDE_VAT', false),
+        'vat_rate' => (float) env('INTERPARCEL_VAT_RATE', 20),
+    ],
+
     'easypost' => [
         'api_key' => env('EASYPOST_API_KEY'),
         'base_url' => env('EASYPOST_BASE_URL', 'https://api.easypost.com/v2'),

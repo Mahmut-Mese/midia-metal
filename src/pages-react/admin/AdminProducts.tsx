@@ -8,6 +8,7 @@ import ProductImage from "@/components/ProductImage";
 import SectionTemplateEditor from "@/components/admin/SectionTemplateEditor";
 import VariantColumnManager from "@/components/admin/VariantColumnManager";
 import DimensionInput from "@/components/admin/DimensionInput";
+import ProductShippingFields from "@/components/admin/ProductShippingFields";
 import { DIMENSION_UNITS, DIMENSION_FIELD_LABELS, getDimensionUnit, dimensionColumnLabel } from "@/lib/dimensions";
 import { SortableTableHeader, sortRows, useTableSort } from "@/components/admin/SortableTableHeader";
 import {
@@ -1637,7 +1638,8 @@ export default function AdminProducts() {
                                         />
                                     </div>
                                     <div className="col-span-2">
-                                        <p id="specifications-label" className="block text-sm font-medium text-gray-700 mb-2">Specifications</p>
+                                        <ProductShippingFields value={currentProduct} onChange={(change) => setCurrentProduct({ ...currentProduct, ...change })} />
+                                        <p id="specifications-label" className="block text-sm font-medium text-gray-700 mb-2 mt-4">Specifications</p>
                                         <div role="group" aria-labelledby="specifications-label" aria-describedby={specificationError ? "specifications-error" : undefined} className="space-y-3">
                                             {specificationRows.map((row, index) => (
                                                 <div key={row.id} className="flex items-center gap-2">

@@ -39,6 +39,11 @@ class PaymentController extends Controller
             'customer_email' => 'required|email|max:255',
             'customer_name' => 'required|string|max:255',
             'shipping_address' => 'required|string|max:2000',
+            'shipping_address_line1' => 'nullable|string|max:255',
+            'shipping_address_line2' => 'nullable|string|max:255',
+            'shipping_city' => 'nullable|string|max:255',
+            'shipping_postcode' => 'nullable|string|max:255',
+            'shipping_country' => 'nullable|string|max:255',
             'billing_address' => 'required|string|max:2000',
             'save_card' => 'nullable|boolean',
         ]);
@@ -48,6 +53,7 @@ class PaymentController extends Controller
             $validated['coupon_code'] ?? null,
             $validated['fulfilment_method'] ?? 'delivery',
             $validated['shipping_option_token'] ?? null,
+            $validated,
         );
 
         $amountInPence = (int) round($totals['total'] * 100);

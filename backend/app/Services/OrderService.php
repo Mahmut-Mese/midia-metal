@@ -54,6 +54,7 @@ class OrderService
             $validated['coupon_code'] ?? null,
             $validated['fulfilment_method'] ?? 'delivery',
             $validated['shipping_option_token'] ?? null,
+            $validated,
         );
 
         $subtotal = $totals['subtotal'];
